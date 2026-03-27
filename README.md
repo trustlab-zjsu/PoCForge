@@ -1,6 +1,6 @@
-# ASE26: LogicGap
+# ASE26: PoCForge
 
-LogicGap is an automated Proof-of-Concept (PoC) generation and verification system for smart contract vulnerabilities. It leverages Large Language Models (LLMs) combined with static analysis and dynamic execution feedback (via Foundry) to autonomously exploit and validate smart contract logic and economic vulnerabilities.
+PoCForge is an automated Proof-of-Concept (PoC) generation and verification system for smart contract vulnerabilities. It leverages Large Language Models (LLMs) combined with static analysis and dynamic execution feedback (via Foundry) to autonomously exploit and validate smart contract logic and economic vulnerabilities.
 
 ## Repository Structure
 
