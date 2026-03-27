@@ -1,0 +1,29 @@
+{
+  "target_address": "0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+  "vulnerability_type": "Unauthorized Ownership Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current contract owner to initiate ownership transfer",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isAuthorized(previous_owner_address)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "1. As current owner, call transferOwnership() to transfer ownership to a new address. 2. After transfer, verify the previous owner's authorization status remains true by calling isAuthorized(previous_owner). 3. The previous owner can still call all functions with the 'authorized' modifier including setBuyFees, setSellFees, setIsFeeExempt, setFeeReceivers, etc. This allows the previous owner to maintain privileged access even after relinquishing ownership.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

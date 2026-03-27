@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+  "vulnerability_type": "Unchecked Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some SHIBAMOON tokens to initiate transfer",
+      "token_address": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity = 500000 * 10**6 * 10**8)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the swapAndLiquify function which calls swapTokensForEth and addLiquidity without checking return values. When swapTokensForEth is called, if the Uniswap swap fails (returns false), the function continues execution. The attacker can manipulate the contract state by causing the swap to fail while still having the contract transfer tokens. The exploit involves: 1) Ensure contract has accumulated fee tokens, 2) Trigger swapAndLiquify via a transfer that meets the conditions (overMinTokenBalance, !inSwapAndLiquify, from != uniswapV2Pair, swapAndLiquifyEnabled), 3) Cause the Uniswap swap to fail (e.g., by manipulating liquidity or using a custom token contract as recipient), 4) The contract will still attempt to add liquidity with potentially incorrect token/ETH amounts, potentially allowing the attacker to extract value through the liquidity addition."
+}

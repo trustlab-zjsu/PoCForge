@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the LiquidityGeneratorToken to initiate the transfer",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (contractTokenBalance >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Create a malicious contract that implements a reentrancy attack in its fallback/receive function. The attack should: 1. Transfer tokens to trigger swapAndLiquify in the victim contract. 2. During the swapTokensForEth call, the victim will send ETH to the attacker contract. 3. In the attacker's receive() function, re-enter the victim contract by calling transfer() again before the victim's state updates are complete. This can potentially allow double-spending or state corruption due to the classic checks-effects-interactions violation in the swapAndLiquify flow."
+}

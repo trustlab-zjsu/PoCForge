@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (has onlyOwner access)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must hold BNB or tokens that can be drained",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call clearStuckBalance(100) to drain all BNB from the contract to your wallet. Alternatively, call clearStuckToken(tokenAddress, 0) to drain any ERC20/BEP20 tokens held by the contract. You can also call setFeeReceivers() to redirect fee collections to your addresses, then trigger swaps to collect fees. The owner has unrestricted access to drain contract funds through these admin functions."
+}

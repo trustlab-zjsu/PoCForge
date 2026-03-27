@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner address)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs some token balance to demonstrate fee extraction",
+      "token_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "victim_contract": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateFee() to set txFee to a high value (e.g., 99), then set FeeAddress to your own address. Transfer tokens from a victim account to trigger fee collection. The fee calculation uses 'tempValue.div(uint256(100 / txFee))' which can be manipulated to extract nearly all transferred tokens as fees when txFee is high."
+}

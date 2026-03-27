@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 14,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised the owner's private key)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MemeFarm tokens to execute trades",
+      "token_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setMarketinWalleAddress() to set the marketing wallet to attacker's address. Then manipulate tax settings via setBuyTaxes()/setAllTaxes() to set high sell taxes (e.g., 99%). Force swapAndLiquify to trigger fee distribution, sending BNB to the attacker-controlled marketing wallet. Alternatively, use changeRouterVeslon() to mint massive tokens to attacker address if ________ is compromised."
+}

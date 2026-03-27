@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner account)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some TeaToken balance to demonstrate fee impact",
+      "token_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "min_amount": "1000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setTaxFeePercent() and setLiquidityFeePercent() with extremely high values (e.g., 99). Then perform token transfers to collect excessive fees into the contract, which can later be converted to ETH via swapAndLiquify mechanism and potentially extracted by owner through liquidity removal or other means."
+}

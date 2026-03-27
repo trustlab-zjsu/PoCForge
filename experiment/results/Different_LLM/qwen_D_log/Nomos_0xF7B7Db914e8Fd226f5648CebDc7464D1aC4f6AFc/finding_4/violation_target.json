@@ -1,0 +1,41 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must control the marketingAddress (either by compromising owner or owner setting it to attacker's contract)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be set to true",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated tokens >= minimumTokensBeforeSwap (20000000 * 10**11 NMS tokens)",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "2000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "marketingAccumulator must have accumulated value > 0",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker deploys malicious contract with receive() function that reenters the NOMOS contract. 2. Attacker (as owner) sets marketingAddress to the malicious contract using setMarketingAddress(). 3. Ensure swapAndLiquifyEnabled is true via setSwapAndLiquifyEnabled(true). 4. Trigger token transfers to uniswapV2Pair to accumulate tokens in contract and build marketingAccumulator. 5. Once contract token balance >= minimumTokensBeforeSwap, trigger another transfer to uniswapV2Pair which calls swapTokens(). 6. During swapTokens(), ETH is transferred to malicious marketingAddress contract. 7. Malicious contract's receive() function reenters NOMOS contract before marketingAccumulator is reset to 0, allowing multiple ETH withdrawals from the same accumulated balance."
+}

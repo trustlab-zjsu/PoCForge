@@ -1,0 +1,35 @@
+{
+  "target_address": "0x4A33D3ea4B30228C363222746939562FbAba2f01",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be an authorized address, which includes the owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must have a non-zero BNB balance for the attack to be profitable.",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x4A33D3ea4B30228C363222746939562FbAba2f01",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract owner or an authorized address can drain the contract's entire BNB balance. First, the attacker calls `setFeeReceivers` to set the `marketingFeeReceiver` to their own address. Then, they call the `manualSend` function, which transfers the full BNB balance of the contract to the now-malicious `marketingFeeReceiver` address.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

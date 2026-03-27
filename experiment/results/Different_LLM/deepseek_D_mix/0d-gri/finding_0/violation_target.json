@@ -1,0 +1,29 @@
+{
+  "target_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated token balance from fees to trigger swapAndLiquify",
+      "token_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, set _percentageOfLiquidityForMarketing to >100 (e.g., 200) and ensure contract has token balance. When swapAndLiquify triggers, marketingFee calculation will overflow, causing all BNB from token swap to be sent to marketing/investing wallets (which owner controls). Alternatively, set maxWalletToken to 0 to block all user transfers while owner remains unaffected."
+}

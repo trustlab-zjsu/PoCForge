@@ -1,0 +1,23 @@
+{
+  "target_address": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+  "vulnerability_type": "Excessive Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call fee setting functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+      "victim_contract": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner) calls setBurnFee() or setSwapFee() to set fees to maximum value (e.g., 100 or higher). 2. Victims attempt to transfer tokens through the contract. 3. Due to excessive fees, most or all tokens are diverted to deadWallet and liquidityAddress (controlled by owner). 4. Owner calls ownerWithdrew() to extract accumulated fees from contract balance. This allows owner to steal user funds through manipulated transfer fees."
+}

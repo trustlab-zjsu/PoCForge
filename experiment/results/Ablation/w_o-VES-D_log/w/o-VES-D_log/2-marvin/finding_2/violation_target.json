@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Unprotected Admin Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fees in the contract balance (tokensForMarketing, tokensForLiquidity, tokensForDev > 0)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some MARVIN tokens to initiate a swap",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has admin functions without proper access control. Call updateMarketingWallet() or updateDevWallet() to set the attacker's address as the recipient, then trigger swapBack() by selling tokens to accumulate ETH in the contract and have it sent to the attacker-controlled wallet. Alternatively, call excludeFromFees() to exclude attacker from fees, then trade without paying fees while others pay."
+}

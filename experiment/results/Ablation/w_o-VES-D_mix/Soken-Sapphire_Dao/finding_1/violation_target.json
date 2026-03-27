@@ -1,0 +1,35 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Cross-Chain Replay Attack",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some SAP tokens to create a valid permit signature",
+      "token_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The contract must be deployed on multiple chains with the same DOMAIN_SEPARATOR",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "A victim must have approved spending allowance for the attacker on one chain",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "SapToken(0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B).allowance(victim_address, attacker_address)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The DOMAIN_SEPARATOR uses chainid() which is not included in the EIP-712 domain hash calculation. This allows permit signatures to be replayed across chains with the same contract address. First, obtain a valid permit signature from a victim on Chain A. Then replay the same signature on Chain B where the contract is also deployed. The permit() function will approve the attacker to spend the victim's tokens on Chain B without their consent, bypassing the nonce check since nonces are chain-specific."
+}

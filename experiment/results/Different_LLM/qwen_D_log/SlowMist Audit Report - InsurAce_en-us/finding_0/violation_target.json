@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "vulnerability_type": "Transaction Reordering Attack",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient tokens to execute swap transactions through the router",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Victim transaction must be pending in mempool with claimPayout or _convertTokenforExactPaymentToken call",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Monitor mempool for pending claimPayout or _convertTokenforExactPaymentToken transactions. Front-run these transactions by executing swap operations that manipulate the token price before the victim's transaction executes. This causes the victim to receive fewer tokens than expected while the attacker profits from the price difference. Use higher gas prices to ensure transaction ordering advantage."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Uninitialized Storage Pointer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to initiate transfer",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (numTokensSellToAddToLiquidity threshold)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transferBothExcluded function which uses uninitialized storage pointers for tOwned and rOwned mappings when both sender and recipient are excluded. Call transfer() between two excluded addresses with carefully crafted amounts to manipulate token balances and trigger swapAndLiquify in a way that sends excessive BNB to the attacker. First ensure both attacker addresses are excluded via excludeFromReward(), then perform transfers that exploit the uninitialized storage to artificially inflate contract token balance, triggering the fee mechanism to send BNB to admin wallet (which attacker can control if they become owner or if admin wallet is compromised)."
+}

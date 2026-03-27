@@ -1,0 +1,23 @@
+{
+  "target_address": "0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or authorized address (owner, MarketingWallet, or Developer)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Cartoondoge._buyTax",
+      "operator": ">",
+      "expected_value": "20"
+    }
+  },
+  "exploit_hint": "As the contract owner or authorized address, call the UpdateTaxes function to set buyTax to a value higher than MaxTax (20). For example, call UpdateTaxes(10, 10, 10, 10, 10, 50, 25, 10, 15) where buyTax=25 exceeds the MaxTax limit. This demonstrates the owner can bypass the reasonable fee limit constraint."
+}

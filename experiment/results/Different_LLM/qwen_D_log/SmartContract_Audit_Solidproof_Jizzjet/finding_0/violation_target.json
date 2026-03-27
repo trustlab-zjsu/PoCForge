@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy Vulnerability",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must control the admin wallet address (_adminWalletAddress) to receive reentrant calls",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold sufficient tokens to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity)",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true to allow automatic swap execution",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker controls the _adminWalletAddress (set via _setReceiverWallet by owner). 2. Trigger token transfers to accumulate contract balance >= numTokensSellToAddToLiquidity. 3. Execute a transfer that triggers swapAndLiquify(). 4. During swapTokensForEth() external call to Uniswap router, the contract balance changes. 5. When sendBNBToAdmin() executes address(this).balance transfer to attacker-controlled admin wallet, reenter the contract before balance state is finalized. 6. Extract additional BNB through reentrant calls before the transfer completes."
+}

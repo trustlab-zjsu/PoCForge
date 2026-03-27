@@ -1,0 +1,29 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Incorrect Liquidity Provision",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true. This is set by the owner via activateContract().",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract's token balance must be greater than or equal to minTokenNumberToSell (1e19) to trigger the swapAndLiquify function.",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "10000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit involves triggering the vulnerable `swapAndLiquify` function to create an arbitrage opportunity. First, ensure the contract's token balance meets the `minTokenNumberToSell` threshold by making a transfer of the token to any address; the liquidity fee will accumulate tokens in the contract. Then, make another transfer to trigger the `swapAndLiquify` function. This will add liquidity to the PancakeSwap pair at a disadvantageous price. Immediately execute a swap on PancakeSwap, trading BNB for the now undervalued contract token to exploit the price difference. Finally, swap the obtained tokens back to BNB to realize the profit."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+  "vulnerability_type": "Variable Shadowing",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The contract must have some CLE tokens in its balance (for swapAndLiquify to work)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract token balance must be >= numTokensSellToAddToLiquidity (500 * 10^9)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Ownable.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability is in the _approve function where the 'owner' parameter shadows the Ownable.owner state variable. Call approve() or transferFrom() with carefully crafted parameters to make _approve set allowances for address(0) as the owner. Then trigger swapAndLiquify which calls _approve(address(this), router, amount) - this will set allowance for address(0) as owner instead of address(this). The router will fail to spend tokens, but the key is that _approve doesn't check if owner == address(0). This can be used to corrupt the allowance mapping and potentially lock funds or cause unexpected behavior."
+}

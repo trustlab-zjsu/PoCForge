@@ -1,0 +1,23 @@
+{
+  "target_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+  "vulnerability_type": "Division by Zero",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have the owner role of the contract to call the `changeFees` function.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "marketingFeeSell",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the owner, call the `changeFees` function, setting both `_marketingFeeSell` and `_teamFeeSell` to 0. This causes the `totalBNBFee` variable within the `swapBack` function to become zero. Subsequently, trigger the `swapBack` function by performing a token transfer that makes the contract's token balance meet or exceed the `swapThreshold`. The `_transferFrom` function will then attempt to call `swapBack`, which will revert due to a division-by-zero error. This permanently breaks the fee distribution mechanism and traps any collected fees in the contract."
+}

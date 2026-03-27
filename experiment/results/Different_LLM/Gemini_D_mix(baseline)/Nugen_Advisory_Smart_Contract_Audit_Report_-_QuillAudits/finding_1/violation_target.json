@@ -1,0 +1,35 @@
+{
+  "target_address": "0xaba9Ecc06b23d688CB353FC57919D416eedFA095",
+  "vulnerability_type": "Missing Event Data",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "A user must be added to the distribution list via addDistributionWallet with a non-zero balance.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract must hold a sufficient balance of the distribution token to cover the user's allocation.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "user[<address_of_revoked_user>].balance",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, as the contract owner, should first add a target user to the distribution list using `addDistributionWallet`. Subsequently, the attacker calls `revokeDistributionWallet` for that same user. This action removes the user from the mapping and transfers their remaining allocated tokens back to the owner. The oracle will verify that the user's struct has been deleted (their balance is zero), demonstrating a significant state change that was not fully detailed in the emitted event."
+}

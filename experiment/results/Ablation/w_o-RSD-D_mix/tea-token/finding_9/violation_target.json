@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated TeaToken balance from transaction fees",
+      "token_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setTaxFeePercent(0) and setLiquidityFeePercent(0) to disable fees, then transfer accumulated tokens from the contract to yourself. Alternatively, exclude your address from fees using excludeFromFee() to avoid paying fees on transfers, or manipulate swapAndLiquifyEnabled to prevent automatic liquidity additions."
+}

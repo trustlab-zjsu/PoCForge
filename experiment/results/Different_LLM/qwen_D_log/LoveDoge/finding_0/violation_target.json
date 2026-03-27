@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Fake Token Burn - Total Supply Inconsistency",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold MyCoinToken tokens to trigger the _userTransfer() burn mechanism",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "1000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Transfer must not involve admin addresses or uniswapV2Pair to trigger _userTransfer() instead of _standerTransfer()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call transfer() function with any amount to a non-admin, non-pair address. This triggers _userTransfer() which calculates a 2% burn fee, adds it to totalBurn variable, and emits Transfer to address(0), but critically does NOT decrease _totalSupply. The burned tokens are removed from sender's balance but totalSupply remains inflated. Repeated transfers accumulate phantom burned tokens, creating supply inconsistency that can be exploited for price manipulation on DEX or misleading investors about actual circulating supply. The attacker benefits by creating artificial scarcity perception while the actual token economics are corrupted."
+}

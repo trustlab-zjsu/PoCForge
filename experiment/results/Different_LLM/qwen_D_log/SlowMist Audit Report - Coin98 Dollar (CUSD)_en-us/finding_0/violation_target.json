@@ -1,0 +1,29 @@
+{
+  "target_address": "0xC285B7E09A4584D027E5BC36571785B515898246",
+  "vulnerability_type": "Unlimited Token Minting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have minter role assigned",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be in frozen state",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xC285B7E09A4584D027E5BC36571785B515898246",
+      "victim_contract": "0xC285B7E09A4584D027E5BC36571785B515898246",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker address has owner role or minter role (call setMinter() if owner to assign minter role to attacker). 2. Call mint(attacker_address, large_amount) function on the CUSD contract. 3. The mint function has no upper limit check, allowing arbitrary token creation. 4. Verify attacker's token balance increased by the minted amount. This causes token inflation and devalues existing holdings."
+}

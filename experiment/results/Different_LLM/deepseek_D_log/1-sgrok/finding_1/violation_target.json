@@ -1,0 +1,23 @@
+{
+  "target_address": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have BNB balance (from accumulated fees) or ERC20 tokens from other users",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call the unprotected clearStuckBNB() function to drain all BNB from the contract to the attacker's address. The function lacks proper access control (only checks _msgSender() == _msgSender(), which is always true). Also call recoverTokens() with any ERC20 token address to drain tokens from the contract."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call the `excludeFromReward` function.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The owner's `_tOwned` balance must be equal to `_tTotal`. This is the default state after contract deployment where the owner holds the total supply.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isExcludedFromReward(owner())",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, calls `excludeFromReward()` with their own address as the argument. As the owner holds the initial total supply, their exclusion causes the `tSupply` variable within the `_getCurrentSupply()` function to become zero. Consequently, any subsequent function call that relies on `_getRate()` (such as `transfer`) will attempt a division by zero and revert. This effectively triggers a permanent Denial of Service on all token transfers.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

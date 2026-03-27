@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Missing Event Logs",
+  "violation_category": "LOGIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner role to access setTaxFeePercent, setLiquidityFeePercent, or setMaxTxPercent functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_taxFee",
+      "operator": "!=",
+      "expected_value": "modified value without corresponding event"
+    }
+  },
+  "exploit_hint": "As contract owner, call setTaxFeePercent(), setLiquidityFeePercent(), or setMaxTxPercent() to modify critical tokenomics parameters. These functions change state variables (_taxFee, _liquidityFee, _maxTxAmount) without emitting any events, making it impossible for users and monitoring systems to track these critical parameter changes on-chain. This lack of transparency can be abused by a malicious owner to silently change fees or transaction limits without user awareness.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

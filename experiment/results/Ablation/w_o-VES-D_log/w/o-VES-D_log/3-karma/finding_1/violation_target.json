@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Total Supply Diversion",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some KARMA tokens to initiate transfers",
+      "token_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "victim_contract": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _takeLiquidity function where burnAmount is subtracted from _tTotalSupply but not from _tTotal. As owner, set burn fees to a high percentage (e.g., 100), then perform a transfer to trigger the burn mechanism. This will reduce totalSupply() while keeping _tTotal unchanged, creating an imbalance where sum(balances) > totalSupply(). Then swap tokens for ETH at the inflated valuation before the discrepancy is corrected."
+}

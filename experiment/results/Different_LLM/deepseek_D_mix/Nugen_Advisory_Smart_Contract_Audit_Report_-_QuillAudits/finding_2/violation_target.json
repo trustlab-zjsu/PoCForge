@@ -1,0 +1,23 @@
+{
+  "target_address": "0xaba9Ecc06b23d688CB353FC57919D416eedFA095",
+  "vulnerability_type": "Constructor Initialization Vulnerability",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (deployer) to exploit this vulnerability",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "token",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The contract uses a constructor instead of an initializer function, making it vulnerable to front-running attacks. As the owner, deploy a malicious contract that calls the Advisory constructor with tokenAdd = address(0), subsequentClaims = 0, and timestamp = 1. This will set the token address to zero, breaking all token-related functionality. Then call failcase() to drain any native ETH from the contract."
+}

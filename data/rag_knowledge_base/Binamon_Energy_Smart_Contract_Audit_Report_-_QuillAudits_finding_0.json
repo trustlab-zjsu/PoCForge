@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "A Denial of Service vulnerability exists in the Binamon Energy (BNRG) contract at 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C. When the contract is in the 'Restricted' state, anyone can grief another user. By sending a minuscule token amount to a victim, an attacker updates the victim's `lastTx` timestamp, which prevents the victim from executing their own transfers due to the contract's bot protection mechanism.",
+  "interface_arsenal": "interface BNRG {\n    function setBotProtection(bool enable) external;\n    function state() external view returns (uint8);\n    function transfer(address receiver, uint256 numTokens) external returns (bool);\n    function lastTx(address) external view returns (uint256);\n}",
+  "attack_sequence": "vm.store(TARGET, bytes32(uint256(10)), bytes32(uint256(1)));\ni_bnrg.transfer(victim, 1);",
+  "winning_reflection": "The initial PoC failed because calling `setBotProtection(true)` did not put the contract into the required 'Restricted' state on the forked network. The key insight was to bypass the contract's state-transition logic entirely and use a cheatcode (`vm.store`) to directly write to the state variable's storage slot. This forcefully set the contract to the 'Restricted' state, enabling the subsequent transfer call to successfully trigger the DoS condition on the victim."
+}

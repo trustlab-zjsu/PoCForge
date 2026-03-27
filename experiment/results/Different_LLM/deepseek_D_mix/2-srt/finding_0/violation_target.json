@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner address)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs some token balance to demonstrate fee impact",
+      "token_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "victim_contract": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateFee() with extremely high txFee (e.g., 99) and set FeeAddress to your own address. Then perform a token transfer from another account to trigger the fee mechanism, causing a large portion of the transferred amount to be sent to your FeeAddress instead of the intended recipient."
+}

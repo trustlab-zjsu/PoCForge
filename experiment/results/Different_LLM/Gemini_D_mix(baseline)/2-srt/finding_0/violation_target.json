@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+  "vulnerability_type": "Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim must have a non-zero balance of the token.",
+      "token_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "victim_contract": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, who is the contract owner, calls the `updateFee` function to set a high transaction fee (e.g., 50, representing 50%) and a high burn fee (e.g., 50, representing 50%), while also setting the `FeeAddress` to an address they control. Subsequently, when any user attempts to transfer tokens, the contract will divert 50% of the transfer amount to the attacker's `FeeAddress` and burn the other 50%. This results in the intended recipient receiving nothing and the attacker gaining a significant portion of the victim's funds."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access onlyOwner functions (setPercentageOfLiquidityForMarketing, setMaxWalletTokens, setMarketingWallet)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner: 1) Call setMarketingWallet(attacker_address) to set marketing wallet to attacker's address. 2) Call setPercentageOfLiquidityForMarketing(200) to set marketing fee percentage >100%. 3) Trigger swapAndLiquify by having users transfer tokens (tokens accumulate in contract balance). 4) When swapAndLiquify executes, it swaps half the tokens for BNB and sends marketingFee = newBalance * 200 / 100 to attacker's wallet, extracting more BNB than was generated. Alternatively, call setMaxWalletTokens(0) to block all user transfers while owner retains ability to trade freely."
+}

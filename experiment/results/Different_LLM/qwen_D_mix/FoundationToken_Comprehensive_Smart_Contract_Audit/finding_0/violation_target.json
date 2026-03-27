@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated ETH balance from swap operations",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. As owner, call setOperationsAddress() with attacker's address to set the recipient. 2. Ensure contract has accumulated tokens from trading fees (tokensForOperations > 0). 3. Call forceSwapBack() which triggers swapBack(). 4. swapBack() will swap tokens for ETH and send all contract ETH balance to operationsAddress via low-level call. 5. Attacker receives all ETH that was accumulated in the contract from trading fees."
+}

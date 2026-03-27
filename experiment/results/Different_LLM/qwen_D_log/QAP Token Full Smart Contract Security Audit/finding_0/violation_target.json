@@ -1,0 +1,29 @@
+{
+  "target_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+  "vulnerability_type": "Liquidity Mechanism Design Flaw",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to modify critical parameters",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have tokens accumulated from transfer fees",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(address(this))",
+      "operator": "<",
+      "expected_value": "numTokensSellToAddToLiquidity"
+    }
+  },
+  "exploit_hint": "The vulnerability is a design flaw where _maxTxAmount (5M tokens) and numTokensSellToAddToLiquidity (300K tokens) are both less than _tTotal (150M tokens). This prevents proper liquidity addition because: 1) The owner cannot transfer all tokens in one transaction due to _maxTxAmount limit, 2) The swapAndLiquify mechanism may never trigger if contract balance stays below numTokensSellToAddToLiquidity threshold. To demonstrate: 1) Check current balanceOf(contract), 2) Verify it cannot reach numTokensSellToAddToLiquidity through normal transfers, 3) Confirm swapAndLiquify cannot execute, 4) Owner can call setMaxTxPercent() to increase _maxTxAmount but this doesn't fix the fundamental design issue."
+}

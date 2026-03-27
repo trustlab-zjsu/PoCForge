@@ -1,0 +1,47 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Transfer Revert Propagation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Swap must be enabled (swapEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract token balance must be >= swapTokensAtAmount",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Marketing wallet must be a contract that reverts on receiving BNB",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some BossBaby tokens to sell",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Set up a malicious contract as marketingWallet that reverts on receiving BNB. Then trigger a sell transaction that causes the contract to accumulate marketing fees and attempt to swapAndSendMarketing. The revert will propagate, blocking the swapAndLiquify process, allowing the attacker to manipulate the contract state and potentially profit from the blocked fee mechanism."
+}

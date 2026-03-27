@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Low-Level Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership through the vulnerability)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance (from accumulated fees or direct transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the withdrawStuckETH() function at line 557 (and similar calls in swapBack()). The low-level call to send ETH doesn't check the return value. If the operationsAddress is set to a contract that reverts on receive (or uses more than 2300 gas), the ETH transfer will fail but the transaction won't revert. As owner, call withdrawStuckETH() when the contract has ETH balance. The ETH will remain locked in the contract, but if you first set operationsAddress to your address (using setOperationsAddress()), then the ETH can be stolen. Alternatively, if you can make the contract accumulate ETH through fee mechanisms, you can drain it.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "deepseek"
+}

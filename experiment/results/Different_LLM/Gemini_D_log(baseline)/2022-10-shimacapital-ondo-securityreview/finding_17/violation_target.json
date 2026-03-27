@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Non-Standard Approve Function",
+  "violation_category": "LOGIC",
+  "finding_id": 17,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the token to be able to call approve.",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "allowance(ATTACKER_ADDRESS, SPENDER_ADDRESS)",
+      "operator": "==",
+      "expected_value": "50000000"
+    }
+  },
+  "exploit_hint": "The contract's `approve` function is non-compliant with the ERC20 standard. It requires the current allowance to be 0 before setting a new non-zero value. To demonstrate this, the exploit must first approve a non-zero value (e.g., 100 tokens), then approve 0 to reset the allowance, and finally approve the target value (e.g., 50 tokens). This sequence will succeed and result in the final allowance being set, proving the non-standard behavior."
+}

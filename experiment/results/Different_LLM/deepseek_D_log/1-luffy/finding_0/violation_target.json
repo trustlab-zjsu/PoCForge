@@ -1,0 +1,35 @@
+{
+  "target_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+  "vulnerability_type": "Fee Logic Bypass",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LuffyInu tokens to sell",
+      "token_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Tax must be enabled (taxStatus == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker must NOT be the owner and NOT be in excludeFee mapping",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "When selling tokens to the pair (uniswapV2Pair), the contract calculates liquidity fees but transfers them directly to the pair address instead of adding them as liquidity. This means the liquidity fee tokens remain in the pair contract but aren't actually added to the liquidity pool reserves. Exploit by selling tokens when tax is enabled - you'll pay 1% liquidity fee that gets transferred to the pair contract but doesn't increase liquidity pool value, effectively giving you more BNB than expected from the swap since the pair's reserves don't reflect the fee tokens."
+}

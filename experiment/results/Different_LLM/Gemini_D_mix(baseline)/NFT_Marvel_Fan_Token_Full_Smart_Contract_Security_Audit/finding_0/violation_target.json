@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd0D486034C857ab4BA532ea053E2E7A32cdc23Ab",
+  "vulnerability_type": "Wrong account including",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to call the owner-only functions 'excludeFromReward' and 'includeInReward'.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker needs to control at least three addresses (A, C, D) and fund C and D with the contract's token to manipulate and exploit the state.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd0D486034C857ab4BA532ea053E2E7A32cdc23Ab",
+      "victim_contract": "0xd0D486034C857ab4BA532ea053E2E7A32cdc23Ab",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The owner can create a state desynchronization by manipulating the `_excluded` array. The sequence is: 1. `excludeFromReward(address_A)`, 2. `excludeFromReward(address_C)`, 3. `includeInReward(address_A)` (this makes address_C's stored index stale), 4. `excludeFromReward(address_D)` (this causes address_C and address_D to share the same index ID), 5. `includeInReward(address_C)`. This final call mistakenly removes address_D from the `_excluded` array while setting `_isExcluded[C]` to false, leaving `isExcluded[D]` as true but `D` absent from the array. This desync causes `_getRate()` to return an artificially low value. The attacker then calls `excludeFromReward(address_C)` again. Because the rate is so low, `tokenFromReflection` calculates a massively inflated token balance for `address_C`, allowing the attacker to mint tokens and transfer them to their wallet."
+}

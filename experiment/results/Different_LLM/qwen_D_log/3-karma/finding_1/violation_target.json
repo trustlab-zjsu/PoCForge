@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Total Supply Diversion",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to manipulate fee parameters and trigger supply divergence",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient KARMA tokens to trigger transfers that activate the burn mechanism",
+      "token_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "min_amount": "1000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalSupply()",
+      "operator": "!=",
+      "expected_value": "sum_of_all_balances"
+    }
+  },
+  "exploit_hint": "1. As owner, call setSellFeePercentages() to set burnFeeOnSell > 0. 2. Execute token transfers to/from Uniswap pair to trigger _takeLiquidity() function. 3. The burnAmount calculation in _takeLiquidity() reduces _tTotalSupply but not _tTotal, creating divergence. 4. Verify that totalSupply() no longer equals the sum of all account balances, breaking the ERC20 invariant and corrupting the reflection rate calculation."
+}

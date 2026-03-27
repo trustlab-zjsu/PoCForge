@@ -1,0 +1,29 @@
+{
+  "target_address": "0xFBBcb4bcaF3033A51e4a2ad1D904927cA0Edbde7",
+  "vulnerability_type": "Owner Privilege Abuse - Excessive Transfer Fees",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (deployer)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim users must hold MARSINU tokens they attempt to transfer",
+      "token_address": "0xFBBcb4bcaF3033A51e4a2ad1D904927cA0Edbde7",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xFBBcb4bcaF3033A51e4a2ad1D904927cA0Edbde7",
+      "victim_contract": "0xFBBcb4bcaF3033A51e4a2ad1D904927cA0Edbde7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setTaxFeePercent(50) and setLiquidityFeePercent(50) to set total transfer fees to 100%. When any user attempts to transfer tokens, the _getTValues function will calculate tTransferAmount = tAmount - tFee - tLiquidity = 0, meaning recipients receive nothing. The fees accumulate in the contract's reflection mechanism and marketing address, effectively locking all user funds. Users cannot bypass this as _isExcludedFromFee only applies to owner and contract address itself."
+}

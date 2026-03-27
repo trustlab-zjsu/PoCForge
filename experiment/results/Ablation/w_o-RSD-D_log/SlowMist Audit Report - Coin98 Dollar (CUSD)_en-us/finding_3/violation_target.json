@@ -1,0 +1,23 @@
+{
+  "target_address": "0xC285B7E09A4584D027E5BC36571785B515898246",
+  "vulnerability_type": "Ownership Transfer Without Acceptance",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CUSD.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "As the current owner, call transferOwnership(address(0)) to set _newOwner to address(0). This creates a situation where ownership can be transferred to the zero address. Then call acceptOwnership() from address(0) (which is impossible), leaving the contract without a valid owner. The contract will be permanently locked from all owner-only functions including withdraw, setMinter, freeze/unfreeze, and blacklist management."
+}

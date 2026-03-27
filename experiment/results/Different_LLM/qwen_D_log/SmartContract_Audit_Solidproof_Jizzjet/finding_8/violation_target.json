@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected Ether Withdrawal",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to change _adminWalletAddress",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens >= numTokensSellToAddToLiquidity to trigger swapAndLiquify",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire owner role of the contract. 2. Call _setReceiverWallet() to set _adminWalletAddress to attacker's address. 3. Trigger token transfers to accumulate tokens in contract balance >= numTokensSellToAddToLiquidity. 4. When swapAndLiquify() is automatically triggered during transfers, it calls sendBNBToAdmin() which transfers ALL contract BNB balance to _adminWalletAddress (now attacker's address). 5. Attacker receives drained BNB funds."
+}

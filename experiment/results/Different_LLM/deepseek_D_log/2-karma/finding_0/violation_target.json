@@ -1,0 +1,35 @@
+{
+  "target_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call changeFees() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some KARMA tokens to execute a sell transaction",
+      "token_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call changeFees() to set totalFeeSell = 0, then sell tokens. This triggers division by zero in swapBack() when calculating fee distribution (marketingFeeSell.div(totalBNBFee) where totalBNBFee = totalFeeSell - reflectionFeeSell = 0 - reflectionFeeSell = negative value that underflows). The exploit causes the contract to send all BNB balance to fee receivers while skipping proper calculations, potentially allowing fee receiver manipulation for economic gain."
+}

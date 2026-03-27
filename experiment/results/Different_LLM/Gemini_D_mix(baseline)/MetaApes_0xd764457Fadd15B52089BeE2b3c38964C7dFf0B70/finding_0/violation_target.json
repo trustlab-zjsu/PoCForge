@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have the 'authorized' role. This can be achieved by being the contract owner or being authorized by the owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must have a non-zero balance of an ERC20 token to be stolen.",
+      "token_address": "<VICTIM_TOKEN_ADDRESS>",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "<VICTIM_TOKEN_ADDRESS>",
+      "victim_contract": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized user, call the `setswap(address _tadd, address _rec, uint256 _amt, uint256 _amtd)` function. Set `_tadd` to the address of the ERC20 token held by the contract that you want to steal. Set `_rec` to the attacker's address. Set `_amt` and `_amtd` to 1. This will transfer the entire balance of the specified token from the contract to the attacker's address."
+}

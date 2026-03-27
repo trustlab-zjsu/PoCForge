@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy in SwapAndLiquify",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Contract must hold sufficient tokens to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity)",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "inSwapAndLiquify must be false (not currently swapping)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Trigger multiple token transfers to accumulate tokens in the contract balance above numTokensSellToAddToLiquidity threshold. When swapAndLiquify is triggered, it calls swapTokensForEth which interacts with Uniswap router. The external call to Uniswap router's swapExactTokensForETHSupportingFeeOnTransferTokens can potentially be exploited through reentrancy if the attacker controls a contract that receives tokens during the swap. Additionally, sendBNBToAdmin transfers BNB to admin wallet which could be exploited if admin wallet is a malicious contract. The attacker should: 1) Acquire tokens and transfer them to trigger contract balance accumulation, 2) Create a malicious contract with receive/fallback function to catch reentrancy during swap, 3) Trigger transfer that causes swapAndLiquify execution, 4) Reenter during the external call to extract additional BNB before state is updated."
+}

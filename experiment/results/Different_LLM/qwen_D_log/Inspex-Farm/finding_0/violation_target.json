@@ -1,0 +1,29 @@
+{
+  "target_address": "0x4B6c8959a41475347226d51f37eC9a1E09F39a92",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner privileges on the MasterChef contract to call setMigrator()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "MasterChef contract must have LP tokens deposited that can be migrated",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x4B6c8959a41475347226d51f37eC9a1E09F39a92",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as contract owner) calls setMigrator() to set a malicious migrator contract address they control. 2. Attacker calls migrate() function which triggers transferFrom() on LP tokens. 3. The malicious migrator contract receives all LP tokens from the MasterChef contract. 4. Attacker can then drain all LP tokens from the malicious migrator contract, effectively stealing all funds from the MasterChef contract."
+}

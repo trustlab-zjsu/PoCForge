@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Mint/Burn Value Conversion",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access mint function",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner, call mint(address account, uint256 amount) to create tokens. The function incorrectly adds 'amount' to _tTotal (token supply) but also adds 'amount' to _rOwned[account] (reflection balance) without proper conversion. This corrupts the reflection rate (_rTotal/_tTotal). After minting, the attacker can transfer tokens and receive inflated values due to the corrupted rate, or exclude themselves and convert corrupted r-balances to t-balances for profit.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

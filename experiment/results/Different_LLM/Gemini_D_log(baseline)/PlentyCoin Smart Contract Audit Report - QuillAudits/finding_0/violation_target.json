@@ -1,0 +1,35 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Transfer From msg.sender Instead of Contract",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The Plenty contract must hold at least 'numTokensSellToAddToLiquidity' (5e29) tokens to trigger the swapAndLiquify function.",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "500000000000000000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "The attacker must hold a token balance sufficient for the malicious transfer to the _buyBackAddress. This amount is 20% of 'numTokensSellToAddToLiquidity' (1e29).",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "100000000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "The swapAndLiquifyEnabled flag must be true.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(address(this))",
+      "operator": "==",
+      "expected_value": "100000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "To exploit the vulnerability, first ensure the contract's token balance meets the 'numTokensSellToAddToLiquidity' threshold (5e29). Then, as an attacker holding at least 20% of that amount, execute a simple token transfer to any address. This action triggers the 'swapAndLiquify' function, which incorrectly transfers tokens from the attacker's (msg.sender) balance to the '_buyBackAddress' instead of using the contract's own funds. The oracle check verifies that the contract's final balance is only reduced by the amounts for the swap and liquidity provision, not the amount sent to the buyback address."
+}

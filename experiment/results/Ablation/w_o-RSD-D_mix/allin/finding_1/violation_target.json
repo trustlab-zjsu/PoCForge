@@ -1,0 +1,35 @@
+{
+  "target_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or authorized address",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim user must hold some tokens to be affected by fee increase",
+      "token_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner/authorized, call setFees() with extremely high fee values (e.g., 9900 for each fee component and feeDenominator 10000) to set total fee to 99%. Then perform token transfers with victim users to extract excessive fees. The fees accumulate in the contract and can be withdrawn via manualSend() to marketingFeeReceiver (which owner controls)."
+}

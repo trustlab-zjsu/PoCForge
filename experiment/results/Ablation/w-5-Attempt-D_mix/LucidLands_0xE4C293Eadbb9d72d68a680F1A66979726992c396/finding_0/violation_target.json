@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE4C293Eadbb9d72d68a680F1A66979726992c396",
+  "vulnerability_type": "Access Control Bypass",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must be activated (trading open, fees enabled, swap enabled)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least minRewardBalance of LLG tokens to be eligible for rewards",
+      "token_address": "0xE4C293Eadbb9d72d68a680F1A66979726992c396",
+      "min_amount": "50000000000000"
+    },
+    {
+      "type": "state",
+      "description": "RewardAsTokensEnabled must be true (set to true in onActivated)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LLG.claimRewardAsTokensPercentage(attacker_address)",
+      "operator": "==",
+      "expected_value": "100"
+    }
+  },
+  "exploit_hint": "Call setClaimRewardAsTokensPercentage(100) as any address (not just owner) to set your reward claim percentage to 100%. This will cause all your rewards to be claimed as LLG tokens instead of BNB. Combined with other state manipulations, this could be used to drain the contract's BNB pool or manipulate reward distribution."
+}

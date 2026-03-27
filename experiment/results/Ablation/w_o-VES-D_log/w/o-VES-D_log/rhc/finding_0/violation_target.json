@@ -1,0 +1,29 @@
+{
+  "target_address": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have admin permission (index 0) in the Authorized contract, which is initially granted to the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold BUSD tokens (or other ERC20 tokens) or native BNB balance",
+      "token_address": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      "victim_contract": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized admin (permission index 0), call the safeOtherTokens function to transfer any ERC20 tokens (including BUSD) or native BNB from the contract to your wallet. First check the contract's BUSD balance, then call safeOtherTokens with token address 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56, your wallet address as receiver, and the full balance amount. For native BNB, use address(0) as token parameter."
+}

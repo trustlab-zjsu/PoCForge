@@ -1,0 +1,23 @@
+{
+  "target_address": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+  "vulnerability_type": "Unprotected Dividend Distribution",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The totalSupply of the target DividendTracker contract must be greater than zero, meaning at least one user holds the token.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "cakeDividendTracker.totalDividendsDistributed()",
+      "operator": ">",
+      "expected_value": "cakeDividendTracker.totalDividendsDistributed().pre"
+    }
+  },
+  "exploit_hint": "The vulnerability lies in the public `distributeDividends(uint256 amount)` function within the `CakeDividendTracker` and `DogeDividendTracker` contracts, which are inherited from `DividendPayingToken`. An attacker can call this function with an arbitrarily large `amount`. This action artificially inflates the `totalDividendsDistributed` and `magnifiedDividendPerShare` state variables without any corresponding deposit of dividend tokens. As a result, when any user attempts to withdraw their dividends, the calculated amount will be impossibly large, causing the transfer to fail and creating a permanent Denial of Service (DoS) for the dividend withdrawal functionality for all holders. The exploit should first retrieve the `cakeDividendTracker` address from the main `DogeCake` contract and then call `distributeDividends` on it with a large value."
+}

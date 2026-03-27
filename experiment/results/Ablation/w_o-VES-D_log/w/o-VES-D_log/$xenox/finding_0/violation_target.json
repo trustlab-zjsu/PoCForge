@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner account)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some xenoX tokens to demonstrate fee impact",
+      "token_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "min_amount": "1000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setBuyTaxFeePercent, setSellTaxFeePercent, setBuyLiquidityFeePercent, setSellLiquidityFeePercent, setBuydevFeePercent, and setSelldevFeePercent with extremely high values (e.g., 99%). Then perform a token swap through PancakeSwap to trigger fee collection. The high fees will extract excessive BNB from users' transactions, which will be distributed to the dev address and contract owner through swapAndLiquify. Ensure swapAndLiquifyEnabled is true and contract has sufficient token balance for auto-liquidation."
+}

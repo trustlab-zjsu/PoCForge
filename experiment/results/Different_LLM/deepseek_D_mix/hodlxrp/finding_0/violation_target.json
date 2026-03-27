@@ -1,0 +1,35 @@
+{
+  "target_address": "0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner account)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim wallet must hold some HODLXRP tokens to demonstrate blacklisting effect",
+      "token_address": "0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "antiSnipe.isBlacklisted(victim_address)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setBlacklistEnabled(victim_address, true) to blacklist a specific wallet, or setBlacklistEnabledMultiple([victim_address], true) for multiple wallets. This will prevent the blacklisted addresses from selling tokens through the antiSnipe protection mechanism in the _transfer function."
+}

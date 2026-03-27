@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to set operationsAddress via setOperationsAddress()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokensForOperations > 0 to trigger swapBack() execution",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract balance must be >= swapTokensAtAmount to enable swapBack",
+      "token_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "min_amount": "8880000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(this).balance",
+      "operator": ">",
+      "expected_value": "0 after swapBack should empty contract ETH balance"
+    }
+  },
+  "exploit_hint": "1. As owner, call setOperationsAddress() with a contract that rejects ETH transfers (no receive/fallback payable function). 2. Trigger token transfers that accumulate fees until tokensForOperations > 0 and contract token balance >= swapTokensAtAmount. 3. This triggers swapBack() which attempts to send ETH to operationsAddress via unchecked .call{value: ...}. 4. The transfer fails silently (success=false not checked), ETH remains stuck in contract, but tokensForOperations is reset to 0. 5. Contract state becomes inconsistent - fees collected but never distributed."
+}

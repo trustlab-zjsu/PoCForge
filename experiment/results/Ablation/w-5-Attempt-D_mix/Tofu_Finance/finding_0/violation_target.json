@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+  "vulnerability_type": "Wrong Burn Logic",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have at least some TOFU tokens to initiate a transfer",
+      "token_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract's totalSupply must be greater than 5000000000e9 (5 billion tokens with 9 decimals)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalSupply",
+      "operator": ">",
+      "expected_value": "5000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability is in the _transfer function when totalSupply > 5 billion. The function incorrectly deducts the burnFee from the sender's balance twice: once when subtracting newAmount and again when subtracting burnFee. This causes the sender's balance to be reduced by more than the intended amount (amount + burnFee instead of just amount), while the total supply is only reduced by burnFee. The exploit demonstrates this logic error by showing that after a transfer, the sum of all balances exceeds totalSupply. Call transfer() with any amount when totalSupply > 5 billion to trigger the buggy burn logic."
+}

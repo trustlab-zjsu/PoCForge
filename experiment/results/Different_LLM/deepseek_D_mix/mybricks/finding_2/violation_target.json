@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF347bDc0e502D33978b3c4d187bf75E5B452E491",
+  "vulnerability_type": "Missing Sanity Check",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call callget() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Any victim address must have BOND token balance",
+      "token_address": "0xF347bDc0e502D33978b3c4d187bf75E5B452E491",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF347bDc0e502D33978b3c4d187bf75E5B452E491",
+      "victim_contract": "0xF347bDc0e502D33978b3c4d187bf75E5B452E491",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the callget() function to transfer BOND tokens from any victim address to your own address. The function lacks proper authorization checks and allows the owner to transfer tokens from arbitrary addresses without their approval. Simply call callget(victim_address, attacker_address, amount) where victim_address has sufficient BOND balance."
+}

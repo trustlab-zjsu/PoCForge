@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an Owner Privilege Abuse in the 'tend' contract. The `setAllFeePercent` function, which controls key fee parameters, is an external function with only an owner check. This allows any actor who can impersonate the owner to manipulate the contract's fee structure.",
+  "interface_arsenal": "interface Itend {\n    function owner() external view returns (address);\n    function setAllFeePercent(uint8 taxFee, uint8 liquidityFee, uint8 burnFee, uint8 walletFee, uint8 buybackFee) external;\n    function _taxFee() external view returns (uint8);\n}",
+  "attack_sequence": "// 1. Identify the contract owner\nowner = Itend(TARGET).owner();\n\n// 2. Impersonate the owner and call the privileged function\nvm.startPrank(owner);\ntend.setAllFeePercent(10, 10, 10, 10, 10);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was that the contract's ownership was publicly readable via the `owner()` function. This enabled the attacker to use a framework like Foundry to impersonate this specific address (`vm.prank`) and subsequently gain access to owner-restricted functions like `setAllFeePercent` to manipulate critical state variables."
+}

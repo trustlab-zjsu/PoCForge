@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Attacker must be any address (no special role required)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least some amount of the PocongNFT token to perform transfers",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The functions setMaxTxPercent() and setMaxWalletPercent() are missing the onlyOwner modifier, allowing any caller to set transaction and wallet limits to 1% (minimum allowed). First, call setMaxTxPercent(1) to reduce max transaction amount to 1% of total supply, then call setMaxWalletPercent(1) to reduce max wallet balance to 1% of total supply. This can disrupt normal token transfers and potentially be combined with other attacks to gain economic advantage."
+}

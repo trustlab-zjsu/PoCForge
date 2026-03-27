@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to initiate the attack",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The reentrancy vulnerability exists in the swapAndLiquify function. When the contract swaps tokens for ETH via swapExactTokensForETHSupportingFeeOnTransferTokens, it sends ETH to itself via the swap callback. A malicious contract can receive this ETH in its fallback/receive function and re-enter the contract while state variables (like inSwapAndLiquify) haven't been updated. Attack strategy: 1) Deploy a malicious contract that holds JizzJet tokens, 2) Trigger swapAndLiquify by transferring tokens to create contract balance, 3) In the malicious contract's receive() function, call back into the vulnerable contract's transfer functions while swap is still in progress, 4) Exploit the inconsistent state to bypass fees or manipulate balances. The key is to re-enter during the ETH transfer when inSwapAndLiquify is still true but before state updates complete."
+}

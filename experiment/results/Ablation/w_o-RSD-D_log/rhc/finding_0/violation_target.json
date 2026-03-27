@@ -1,0 +1,29 @@
+{
+  "target_address": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have admin permission (index 0) in the Authorized contract, which is granted to the contract owner by default",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold BNB (native currency) or other ERC20 tokens",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized admin (owner), call safeWithdraw() function to drain all BNB from the contract to your wallet. Alternatively, use safeOtherTokens() to transfer any ERC20 tokens held by the contract. No additional steps needed beyond having admin permissions."
+}

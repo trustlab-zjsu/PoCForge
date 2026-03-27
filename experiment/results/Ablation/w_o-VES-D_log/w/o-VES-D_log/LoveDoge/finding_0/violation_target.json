@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Incorrect Token Burning",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (LoveDoge) to initiate transfer",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be an admin address (adminAddress[attacker] == false) to trigger _userTransfer",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The _userTransfer function incorrectly handles burning: it calculates burn amount (2%), adds to totalBurn, emits Transfer to address(0), but doesn't actually burn tokens (doesn't decrease totalSupply). The burn amount is subtracted from sender's balance but not sent anywhere, effectively creating tokens out of thin air for the recipient. Perform a regular transfer between two non-admin accounts to trigger _userTransfer. The recipient will receive more tokens than should be possible given the burn fee, because the 'burned' tokens remain in circulation. Repeated transfers can inflate the token supply."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+  "vulnerability_type": "Incorrect Minting Logic",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to call the `mint` function.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "victim_contract": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, who is the contract owner, calls the `mint(address account, uint256 amount)` function. The function incorrectly adds the `amount` to the recipient's reflection-based balance (`_rOwned`) and the total token supply (`_tTotal`), but crucially fails to update the total reflection supply (`_rTotal`). This manipulation breaks the core accounting of the reflection mechanism, allowing the owner to generate a large number of tokens for themselves that are not properly backed, leading to an unfair increase in their balance and diluting the value for all other token holders."
+}

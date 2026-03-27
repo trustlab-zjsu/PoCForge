@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "An owner privilege abuse vulnerability exists in the target contract. The `setMaxTxPercent` function, which can only be called by the owner, lacks proper validation, allowing the owner to set the `_maxTxAmount` state variable to zero. This effectively freezes transfers within the contract.",
+  "interface_arsenal": "interface ILegendsDoge {\n    function owner() external view returns (address);\n    function _maxTxAmount() external view returns (uint256);\n    function setMaxTxPercent(uint256 maxTxPercent) external;\n}",
+  "attack_sequence": "address contractOwner = target.owner();\nvm.startPrank(contractOwner);\ntarget.setMaxTxPercent(0);\nvm.stopPrank();",
+  "winning_reflection": "The core insight was that the owner's address is publicly exposed via the `owner()` function. By impersonating this address, it's possible to call the privileged `setMaxTxPercent(0)` function, which directly manipulates the `_maxTxAmount` to satisfy the exploit's objective."
+}

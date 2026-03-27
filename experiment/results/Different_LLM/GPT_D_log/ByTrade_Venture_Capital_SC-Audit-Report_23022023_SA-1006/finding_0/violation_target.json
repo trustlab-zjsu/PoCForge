@@ -1,0 +1,35 @@
+{
+  "target_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+  "vulnerability_type": "Flawed Pause Mechanism",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have the owner role of the ByTradeToken contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The owner (attacker) must have a non-zero balance of BTT tokens to execute a transfer.",
+      "token_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(0x1337000000000000000000000000000000000001)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The contract's `whenNotPaused` modifier contains a logical flaw where it checks `require(!paused || (msg.sender == owner()))`. This allows the owner to bypass the pause restriction entirely. The exploit involves the owner first calling the `pause()` function to halt token transfers for regular users. Then, the owner calls `transfer()` to send tokens to a controlled address (e.g., 0x1337...). The transfer will succeed, demonstrating that the pause functionality can be circumvented by the owner.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

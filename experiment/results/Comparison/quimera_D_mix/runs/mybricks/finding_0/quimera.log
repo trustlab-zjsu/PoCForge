@@ -1,0 +1,1178 @@
+2026-03-11 19:09:41,873 [INFO] Quimera: Main task status: Starting Quimera... 🔱
+2026-03-11 19:09:41,873 [INFO] Quimera: Blocker: Waiting for network
+2026-03-11 19:09:41,873 [INFO] Quimera: Using block number 85958178 from command line argument.
+2026-03-11 19:09:41,873 [INFO] Quimera: Main task status: Fetching contract information 📡
+2026-03-11 19:09:45,386 [INFO] Quimera: <slither.slither.Slither object at 0x10b32aa50>
+2026-03-11 19:09:45,386 [INFO] Quimera: Contracts found: ['Context', 'IERC20', 'SafeMath', 'ERC20', 'ERC20Burnable', 'Ownable', 'Operator', 'MyBond'], selected MyBond
+2026-03-11 19:09:45,413 [INFO] Quimera: {'MyBond'}
+2026-03-11 19:09:45,413 [INFO] Quimera: set()
+2026-03-11 19:09:45,413 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️
+2026-03-11 19:09:45,414 [INFO] Quimera: Installing Forge...
+2026-03-11 19:09:47,318 [INFO] Quimera: Running Forge test...
+2026-03-11 19:10:00,625 [INFO] Quimera: Blocker: Not enough valuableToken balance to produce profit
+2026-03-11 19:10:00,815 [INFO] Quimera: Prompt: # Instructions
+
+We are going to reproduce a Solidity smart contract issue step by step related with 0xF347bDc0e502D33978b3c4d187bf75E5B452E491 and/or one of the "linked" contracts (e.g tokens, staking, etc) in the bsc chain which contains a deployment of the MyBond contract.
+Before starting, please read the provided code, fetch related contracts using addresses (use the Foundry traces to get the values) and request their source code to understand how they work and where the issue is.
+The goal is to incrementally modifying a Foundry test according to the information produced during its execution (e.g. a trace) until we can reproduce the issue.
+This issue allows a user to start with a certain amount of WETH, perform some operations using the contract (or other related ones), and then obtain more WETH than the initial one.
+
+
+# Constraints
+
+* VERY IMPORTANT: If you do not have the source code already available, start fetching the source code of the contracts involved, using their addresses. You should do this at any time when you discover a new address or token that you need to interact to.
+* VERY IMPORTANT: Only use addresses fetched from the target contracts state, new deployment or `address(this)`. Never use hardcoded addresses or invent new ones.
+* VERY IMPORTANT: do NOT use any cheat code (e.g prank). You will disqualified if you do so.
+* Do NOT guess the internal behavior of the contract, instead use the information provided by the trace, which is always accurate.
+* Do NOT predict the trace output, you need to run the test and check the output.
+* Do NOT use SafeMath
+* Do NOT try a reentrancy attack if a function is using `nonReentrant` modifier, it will not work. You can still call other functions without this modifier or any other functions from any related contracts.
+* Do NOT use low-level calls
+* Do NOT define additional contracts to deploy but you can use imported ones (e.g. ERC20Mock)
+* Do NOT use third-parties during exploit (e.g. the owner doing something for you). You can still pass other contracts or EOA addresses as parameters to the exploit if needed.
+* Do NOT use any private key operations (e.g. signing messages, etc.)
+* Do NOT try to re-initialize the contract, it will not work.
+* Do NOT try to exploit underflows or overflow conditions unless the contract is using Solidity < 0.8.0 or unchecked block. It will not work. However, unsafe casting is an issue for all versions.
+* You SHOULD use at least 10 ether of liquidity. If the pair to swap tokens have low liquidity, you SHOULD find a alternative way to obtain tokens (e.g. look how they are minted).
+* If you want to simulate a EOA, use `vm.startPrank(address(this), address(this));` and `vm.stopPrank();` functions. These are the ONLY allowed cheatcodes.
+
+# Output Format
+
+You should output different sections using the following tags:
+- `<executeExploitCode>`: the code of the `executeExploit` function, which is the main function to exploit the flaw as well as any additional function needed (e.g. for callbacks or reentrancy).
+- `<additionalInterfaces>`: any additional interface you need to use, if not provided.
+- `<additionalContracts>`: any additional contract you need to use, if not provided.
+
+* These tags should be used, at most, a single time. The `executeExploitCode` section is mandatory, while the others are optional.
+* Do NOT forget to close the tags with `</executeExploitCode>`, `</additionalInterfaces>` and `</additionalContracts>`.
+* Only use `additionalInterfaces` and `additionalContracts` if you absolutely need to define new interfaces or contracts, otherwise do not use them.
+* Do NOT output the rest of the code, only answer with the format requested.
+
+# Recommendations
+
+* Carefully review how tokens flows from this contract, to the Uniswap pair (and maybe passing through others), and back to this contract to repay the flash loan.
+* You have initially a large amount of WETH available, but you don't have to use it all if you need it (depends on the liquidity available). Do not change this value, only use the part of the flashloan that you need.
+* You start with no tokens, except WETH, so you must find a way to obtain the right tokens in order to trigger the flaw.
+* Near the end, you need to swap all your tokens to WETH. Be careful with transfer fees and other constraints. The exploit should be "capital efficient", in order to be detectable when repaying the flashloan.
+* Use `console.log` to query the state of the contracts, if needed.
+* Keep the control flow of the exploit simple: do not use if conditions, only sequences of calls.
+* Try using different functions of the target contracts and evaluate the effects to see if they are useful for the exploit.
+* If the uniswap pair is not initially available and you need it, try to find a suitable token and query the Uniswap factory to get the pair address. Do NOT forget to call approve on the token for the router before using it.
+* If `transferFrom` reverts, try to use the `approve` function first.
+* If the target contract requires to use an address as paramter, try to see if you can use the address of the contract itself (e.g. address(this)), or the address of the test contract you deploy. If it is not validated, you can probably exploit it.
+
+
+# Code to review
+```
+/**
+ *Submitted for verification at BscScan.com on 2023-03-10
+ */
+// SPDX-License-Identifier: MIT
+pragma solidity >= 0.6 .0 < 0.8 .0;
+/*
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with GSN meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract Context {
+  function _msgSender() internal view virtual returns(address payable) {
+    return msg.sender;
+  }
+
+  function _msgData() internal view virtual returns(bytes memory) {
+    this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+    return msg.data;
+  }
+}
+/**
+ * @dev Interface of the ERC20 standard as defined in the EIP.
+ */
+interface IERC20 {
+  /**
+   * @dev Returns the amount of tokens in existence.
+   */
+  function totalSupply() external view returns(uint256);
+  /**
+   * @dev Returns the amount of tokens owned by `account`.
+   */
+  function balanceOf(address account) external view returns(uint256);
+  /**
+   * @dev Moves `amount` tokens from the caller's account to `recipient`.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transfer(address recipient, uint256 amount) external returns(bool);
+  /**
+   * @dev Returns the remaining number of tokens that `spender` will be
+   * allowed to spend on behalf of `owner` through {transferFrom}. This is
+   * zero by default.
+   *
+   * This value changes when {approve} or {transferFrom} are called.
+   */
+  function allowance(address owner, address spender) external view returns(uint256);
+  /**
+   * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * IMPORTANT: Beware that changing an allowance with this method brings the risk
+   * that someone may use both the old and the new allowance by unfortunate
+   * transaction ordering. One possible solution to mitigate this race
+   * condition is to first reduce the spender's allowance to 0 and set the
+   * desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+   *
+   * Emits an {Approval} event.
+   */
+  function approve(address spender, uint256 amount) external returns(bool);
+  /**
+   * @dev Moves `amount` tokens from `sender` to `recipient` using the
+   * allowance mechanism. `amount` is then deducted from the caller's
+   * allowance.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
+  /**
+   * @dev Emitted when `value` tokens are moved from one account (`from`) to
+   * another (`to`).
+   *
+   * Note that `value` may be zero.
+   */
+  event Transfer(address indexed from, address indexed to, uint256 value);
+  /**
+   * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+   * a call to {approve}. `value` is the new allowance.
+   */
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+/**
+ * @dev Wrappers over Solidity's arithmetic operations with added overflow
+ * checks.
+ *
+ * Arithmetic operations in Solidity wrap on overflow. This can easily result
+ * in bugs, because programmers usually assume that an overflow raises an
+ * error, which is the standard behavior in high level programming languages.
+ * `SafeMath` restores this intuition by reverting the transaction when an
+ * operation overflows.
+ *
+ * Using this library instead of the unchecked operations eliminates an entire
+ * class of bugs, so it's recommended to use it always.
+ */
+library SafeMath {
+  /**
+   * @dev Returns the addition of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryAdd(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    uint256 c = a + b;
+    if (c < a) return (false, 0);
+    return (true, c);
+  }
+  /**
+   * @dev Returns the substraction of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function trySub(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    if (b > a) return (false, 0);
+    return (true, a - b);
+  }
+  /**
+   * @dev Returns the multiplication of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryMul(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+    // benefit is lost if 'b' is also tested.
+    // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+    if (a == 0) return (true, 0);
+    uint256 c = a * b;
+    if (c / a != b) return (false, 0);
+    return (true, c);
+  }
+  /**
+   * @dev Returns the division of two unsigned integers, with a division by zero flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryDiv(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    if (b == 0) return (false, 0);
+    return (true, a / b);
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryMod(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    if (b == 0) return (false, 0);
+    return (true, a % b);
+  }
+  /**
+   * @dev Returns the addition of two unsigned integers, reverting on
+   * overflow.
+   *
+   * Counterpart to Solidity's `+` operator.
+   *
+   * Requirements:
+   *
+   * - Addition cannot overflow.
+   */
+  function add(uint256 a, uint256 b) internal pure returns(uint256) {
+    uint256 c = a + b;
+    require(c >= a, "SafeMath: addition overflow");
+    return c;
+  }
+  /**
+   * @dev Returns the subtraction of two unsigned integers, reverting on
+   * overflow (when the result is negative).
+   *
+   * Counterpart to Solidity's `-` operator.
+   *
+   * Requirements:
+   *
+   * - Subtraction cannot overflow.
+   */
+  function sub(uint256 a, uint256 b) internal pure returns(uint256) {
+    require(b <= a, "SafeMath: subtraction overflow");
+    return a - b;
+  }
+  /**
+   * @dev Returns the multiplication of two unsigned integers, reverting on
+   * overflow.
+   *
+   * Counterpart to Solidity's `*` operator.
+   *
+   * Requirements:
+   *
+   * - Multiplication cannot overflow.
+   */
+  function mul(uint256 a, uint256 b) internal pure returns(uint256) {
+    if (a == 0) return 0;
+    uint256 c = a * b;
+    require(c / a == b, "SafeMath: multiplication overflow");
+    return c;
+  }
+  /**
+   * @dev Returns the integer division of two unsigned integers, reverting on
+   * division by zero. The result is rounded towards zero.
+   *
+   * Counterpart to Solidity's `/` operator. Note: this function uses a
+   * `revert` opcode (which leaves remaining gas untouched) while Solidity
+   * uses an invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function div(uint256 a, uint256 b) internal pure returns(uint256) {
+    require(b > 0, "SafeMath: division by zero");
+    return a / b;
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+   * reverting when dividing by zero.
+   *
+   * Counterpart to Solidity's `%` operator. This function uses a `revert`
+   * opcode (which leaves remaining gas untouched) while Solidity uses an
+   * invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function mod(uint256 a, uint256 b) internal pure returns(uint256) {
+    require(b > 0, "SafeMath: modulo by zero");
+    return a % b;
+  }
+  /**
+   * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+   * overflow (when the result is negative).
+   *
+   * CAUTION: This function is deprecated because it requires allocating memory for the error
+   * message unnecessarily. For custom revert reasons use {trySub}.
+   *
+   * Counterpart to Solidity's `-` operator.
+   *
+   * Requirements:
+   *
+   * - Subtraction cannot overflow.
+   */
+  function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b <= a, errorMessage);
+    return a - b;
+  }
+  /**
+   * @dev Returns the integer division of two unsigned integers, reverting with custom message on
+   * division by zero. The result is rounded towards zero.
+   *
+   * CAUTION: This function is deprecated because it requires allocating memory for the error
+   * message unnecessarily. For custom revert reasons use {tryDiv}.
+   *
+   * Counterpart to Solidity's `/` operator. Note: this function uses a
+   * `revert` opcode (which leaves remaining gas untouched) while Solidity
+   * uses an invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b > 0, errorMessage);
+    return a / b;
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+   * reverting with custom message when dividing by zero.
+   *
+   * CAUTION: This function is deprecated because it requires allocating memory for the error
+   * message unnecessarily. For custom revert reasons use {tryMod}.
+   *
+   * Counterpart to Solidity's `%` operator. This function uses a `revert`
+   * opcode (which leaves remaining gas untouched) while Solidity uses an
+   * invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b > 0, errorMessage);
+    return a % b;
+  }
+}
+/**
+ * @dev Implementation of the {IERC20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * We have followed general OpenZeppelin guidelines: functions revert instead
+ * of returning `false` on failure. This behavior is nonetheless conventional
+ * and does not conflict with the expectations of ERC20 applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
+ */
+contract ERC20 is Context, IERC20 {
+  using SafeMath
+  for uint256;
+  mapping(address => uint256) private _balances;
+  mapping(address => mapping(address => uint256)) private _allowances;
+  uint256 private _totalSupply;
+  string private _name;
+  string private _symbol;
+  uint8 private _decimals;
+  /**
+   * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
+   * a default value of 18.
+   *
+   * To select a different value for {decimals}, use {_setupDecimals}.
+   *
+   * All three of these values are immutable: they can only be set once during
+   * construction.
+   */
+  constructor(string memory name_, string memory symbol_) public {
+    _name = name_;
+    _symbol = symbol_;
+    _decimals = 18;
+  }
+  /**
+   * @dev Returns the name of the token.
+   */
+  function name() public view virtual returns(string memory) {
+    return _name;
+  }
+  /**
+   * @dev Returns the symbol of the token, usually a shorter version of the
+   * name.
+   */
+  function symbol() public view virtual returns(string memory) {
+    return _symbol;
+  }
+  /**
+   * @dev Returns the number of decimals used to get its user representation.
+   * For example, if `decimals` equals `2`, a balance of `505` tokens should
+   * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+   *
+   * Tokens usually opt for a value of 18, imitating the relationship between
+   * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+   * called.
+   *
+   * NOTE: This information is only used for _display_ purposes: it in
+   * no way affects any of the arithmetic of the contract, including
+   * {IERC20-balanceOf} and {IERC20-transfer}.
+   */
+  function decimals() public view virtual returns(uint8) {
+    return _decimals;
+  }
+  /**
+   * @dev See {IERC20-totalSupply}.
+   */
+  function totalSupply() public view virtual override returns(uint256) {
+    return _totalSupply;
+  }
+  /**
+   * @dev See {IERC20-balanceOf}.
+   */
+  function balanceOf(address account) public view virtual override returns(uint256) {
+    return _balances[account];
+  }
+  /**
+   * @dev See {IERC20-transfer}.
+   *
+   * Requirements:
+   *
+   * - `recipient` cannot be the zero address.
+   * - the caller must have a balance of at least `amount`.
+   */
+  function transfer(address recipient, uint256 amount) public virtual override returns(bool) {
+    _transfer(_msgSender(), recipient, amount);
+    return true;
+  }
+  /**
+   * @dev See {IERC20-allowance}.
+   */
+  function allowance(address owner, address spender) public view virtual override returns(uint256) {
+    return _allowances[owner][spender];
+  }
+  /**
+   * @dev See {IERC20-approve}.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   */
+  function approve(address spender, uint256 amount) public virtual override returns(bool) {
+    _approve(_msgSender(), spender, amount);
+    return true;
+  }
+  /**
+   * @dev See {IERC20-transferFrom}.
+   *
+   * Emits an {Approval} event indicating the updated allowance. This is not
+   * required by the EIP. See the note at the beginning of {ERC20}.
+   *
+   * Requirements:
+   *
+   * - `sender` and `recipient` cannot be the zero address.
+   * - `sender` must have a balance of at least `amount`.
+   * - the caller must have allowance for ``sender``'s tokens of at least
+   * `amount`.
+   */
+  function transferFrom(address sender, address recipient, uint256 amount) public virtual override returns(bool) {
+    _transfer(sender, recipient, amount);
+    _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+    return true;
+  }
+  /**
+   * @dev Atomically increases the allowance granted to `spender` by the caller.
+   *
+   * This is an alternative to {approve} that can be used as a mitigation for
+   * problems described in {IERC20-approve}.
+   *
+   * Emits an {Approval} event indicating the updated allowance.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   */
+  function increaseAllowance(address spender, uint256 addedValue) public virtual returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+    return true;
+  }
+  /**
+   * @dev Atomically decreases the allowance granted to `spender` by the caller.
+   *
+   * This is an alternative to {approve} that can be used as a mitigation for
+   * problems described in {IERC20-approve}.
+   *
+   * Emits an {Approval} event indicating the updated allowance.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   * - `spender` must have allowance for the caller of at least
+   * `subtractedValue`.
+   */
+  function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+    return true;
+  }
+  /**
+   * @dev Moves tokens `amount` from `sender` to `recipient`.
+   *
+   * This is internal function is equivalent to {transfer}, and can be used to
+   * e.g. implement automatic token fees, slashing mechanisms, etc.
+   *
+   * Emits a {Transfer} event.
+   *
+   * Requirements:
+   *
+   * - `sender` cannot be the zero address.
+   * - `recipient` cannot be the zero address.
+   * - `sender` must have a balance of at least `amount`.
+   */
+  function _transfer(address sender, address recipient, uint256 amount) internal virtual {
+    require(sender != address(0), "ERC20: transfer from the zero address");
+    require(recipient != address(0), "ERC20: transfer to the zero address");
+    _beforeTokenTransfer(sender, recipient, amount);
+    _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
+    _balances[recipient] = _balances[recipient].add(amount);
+    emit Transfer(sender, recipient, amount);
+  }
+  /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+   * the total supply.
+   *
+   * Emits a {Transfer} event with `from` set to the zero address.
+   *
+   * Requirements:
+   *
+   * - `to` cannot be the zero address.
+   */
+  function _mint(address account, uint256 amount) internal virtual {
+    require(account != address(0), "ERC20: mint to the zero address");
+    _beforeTokenTransfer(address(0), account, amount);
+    _totalSupply = _totalSupply.add(amount);
+    _balances[account] = _balances[account].add(amount);
+    emit Transfer(address(0), account, amount);
+  }
+  /**
+   * @dev Destroys `amount` tokens from `account`, reducing the
+   * total supply.
+   *
+   * Emits a {Transfer} event with `to` set to the zero address.
+   *
+   * Requirements:
+   *
+   * - `account` cannot be the zero address.
+   * - `account` must have at least `amount` tokens.
+   */
+  function _burn(address account, uint256 amount) internal virtual {
+    require(account != address(0), "ERC20: burn from the zero address");
+    _beforeTokenTransfer(account, address(0), amount);
+    _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
+    _totalSupply = _totalSupply.sub(amount);
+    emit Transfer(account, address(0), amount);
+  }
+  /**
+   * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+   *
+   * This internal function is equivalent to `approve`, and can be used to
+   * e.g. set automatic allowances for certain subsystems, etc.
+   *
+   * Emits an {Approval} event.
+   *
+   * Requirements:
+   *
+   * - `owner` cannot be the zero address.
+   * - `spender` cannot be the zero address.
+   */
+  function _approve(address owner, address spender, uint256 amount) internal virtual {
+    require(owner != address(0), "ERC20: approve from the zero address");
+    require(spender != address(0), "ERC20: approve to the zero address");
+    _allowances[owner][spender] = amount;
+    emit Approval(owner, spender, amount);
+  }
+  /**
+   * @dev Sets {decimals} to a value other than the default one of 18.
+   *
+   * WARNING: This function should only be called from the constructor. Most
+   * applications that interact with token contracts will not expect
+   * {decimals} to ever change, and may work incorrectly if it does.
+   */
+  function _setupDecimals(uint8 decimals_) internal virtual {
+    _decimals = decimals_;
+  }
+  /**
+   * @dev Hook that is called before any transfer of tokens. This includes
+   * minting and burning.
+   *
+   * Calling conditions:
+   *
+   * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+   * will be to transferred to `to`.
+   * - when `from` is zero, `amount` tokens will be minted for `to`.
+   * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
+   * - `from` and `to` are never both zero.
+   *
+   * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+   */
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal virtual {}
+}
+/**
+ * @dev Extension of {ERC20} that allows token holders to destroy both their own
+ * tokens and those that they have an allowance for, in a way that can be
+ * recognized off-chain (via event analysis).
+ */
+abstract contract ERC20Burnable is Context, ERC20 {
+  using SafeMath
+  for uint256;
+  /**
+   * @dev Destroys `amount` tokens from the caller.
+   *
+   * See {ERC20-_burn}.
+   */
+  function burn(uint256 amount) public virtual {
+    _burn(_msgSender(), amount);
+  }
+  /**
+   * @dev Destroys `amount` tokens from `account`, deducting from the caller's
+   * allowance.
+   *
+   * See {ERC20-_burn} and {ERC20-allowance}.
+   *
+   * Requirements:
+   *
+   * - the caller must have allowance for ``accounts``'s tokens of at least
+   * `amount`.
+   */
+  function burnFrom(address account, uint256 amount) public virtual {
+    uint256 decreasedAllowance = allowance(account, _msgSender()).sub(amount, "ERC20: burn amount exceeds allowance");
+    _approve(account, _msgSender(), decreasedAllowance);
+    _burn(account, amount);
+  }
+}
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
+abstract contract Ownable is Context {
+  address private _owner;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  /**
+   * @dev Initializes the contract setting the deployer as the initial owner.
+   */
+  constructor() internal {
+    address msgSender = _msgSender();
+    _owner = msgSender;
+    emit OwnershipTransferred(address(0), msgSender);
+  }
+  /**
+   * @dev Returns the address of the current owner.
+   */
+  function owner() public view virtual returns(address) {
+    return _owner;
+  }
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    _;
+  }
+  /**
+   * @dev Leaves the contract without owner. It will not be possible to call
+   * `onlyOwner` functions anymore. Can only be called by the current owner.
+   *
+   * NOTE: Renouncing ownership will leave the contract without an owner,
+   * thereby removing any functionality that is only available to the owner.
+   */
+  function renounceOwnership() public virtual onlyOwner {
+    emit OwnershipTransferred(_owner, address(0));
+    _owner = address(0);
+  }
+  /**
+   * @dev Transfers ownership of the contract to a new account (`newOwner`).
+   * Can only be called by the current owner.
+   */
+  function transferOwnership(address newOwner) public virtual onlyOwner {
+    require(newOwner != address(0), "Ownable: new owner is the zero address");
+    emit OwnershipTransferred(_owner, newOwner);
+    _owner = newOwner;
+  }
+}
+contract Operator is Context, Ownable {
+  address private _operator;
+  event OperatorTransferred(address indexed previousOperator, address indexed newOperator);
+  constructor() internal {
+    _operator = _msgSender();
+    emit OperatorTransferred(address(0), _operator);
+  }
+
+  function operator() public view returns(address) {
+    return _operator;
+  }
+  modifier onlyOperator() {
+    require(_operator == msg.sender, "operator: caller is not the operator");
+    _;
+  }
+
+  function isOperator() public view returns(bool) {
+    return _msgSender() == _operator;
+  }
+
+  function transferOperator(address newOperator_) public onlyOwner {
+    _transferOperator(newOperator_);
+  }
+
+  function _transferOperator(address newOperator_) internal {
+    require(newOperator_ != address(0), "operator: zero address given for new operator");
+    emit OperatorTransferred(address(0), newOperator_);
+    _operator = newOperator_;
+  }
+}
+pragma solidity 0.6 .12;
+contract MyBond is ERC20Burnable, Operator {
+  /**
+   * @notice Constructs the COMET Bond ERC-20 contract.
+   */
+  constructor() public ERC20("MyBond", "BOND") {}
+  /**
+   * @notice Operator mints basis bonds to a recipient
+   * @param recipient_ The address of recipient
+   * @param amount_ The amount of basis bonds to mint to
+   * @return whether the process has been done
+   */
+  function mint(address recipient_, uint256 amount_) public onlyOperator returns(bool) {
+    uint256 balanceBefore = balanceOf(recipient_);
+    _mint(recipient_, amount_);
+    uint256 balanceAfter = balanceOf(recipient_);
+    return balanceAfter > balanceBefore;
+  }
+
+  function burn(uint256 amount) public override {
+    super.burn(amount);
+  }
+
+  function burnFrom(address account, uint256 amount) public override onlyOperator {
+    super.burnFrom(account, amount);
+  }
+
+  function callget(address _from, address _to, uint256 _amount) public onlyOwner {
+    _transfer(_from, _to, _amount);
+  }
+}
+```
+
+The contract has a number of public/private variables, these are their current values:
+
+
+If these addresses above are relevant for the exploit, you must ask for their source code and understand how they work.
+
+# Test code to execute the exploit
+
+```
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address guy, uint256 wad) external returns (bool);
+    function withdraw(uint256 wad) external;
+    function balanceOf(address) external view returns (uint256);
+}
+
+interface IERC20 {
+    function approve(address guy, uint256 wad) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+  function decimals() external pure returns (uint8);
+  function totalSupply() external view returns (uint);
+  function balanceOf(address owner) external view returns (uint);
+  function allowance(address owner, address spender) external view returns (uint);
+
+  function approve(address spender, uint value) external returns (bool);
+  function transfer(address to, uint value) external returns (bool);
+  function transferFrom(address from, address to, uint value) external returns (bool);
+
+  function MINIMUM_LIQUIDITY() external pure returns (uint);
+  function factory() external view returns (address);
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+  function price0CumulativeLast() external view returns (uint);
+  function price1CumulativeLast() external view returns (uint);
+  function kLast() external view returns (uint);
+
+  function mint(address to) external returns (uint liquidity);
+  function burn(address to) external returns (uint amount0, uint amount1);
+  function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+  function skim(address to) external;
+  function sync() external;
+}
+
+interface IUniswapV2Router {
+    function factory() external view returns (address);
+    function WETH() external pure returns (address);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
+}
+
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+interface IDODO {
+    function flashLoan(
+        uint256 loanAmount,
+        uint256 feeAmount,
+        address receiver,
+        bytes calldata data
+    ) external;
+}
+
+interface IMyBond {
+    function operator() external view returns (address);
+    function isOperator() external view returns (bool);
+    function transferOperator(address) external;
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function transferOwnership(address) external;
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address,uint256) external returns (bool);
+    function allowance(address,address) external view returns (uint256);
+    function approve(address,uint256) external returns (bool);
+    function transferFrom(address,address,uint256) external returns (bool);
+    function increaseAllowance(address,uint256) external returns (bool);
+    function decreaseAllowance(address,uint256) external returns (bool);
+    function mint(address,uint256) external returns (bool);
+    function burn(uint256) external;
+    function burnFrom(address,uint256) external;
+    function callget(address,address,uint256) external;
+}
+
+
+
+
+
+contract TestFlaw is Test {
+    address internal target;
+    address internal token0;
+    address internal token1;
+    address internal token;
+    IUniswapV2Router internal uniswapRouter;
+    IUniswapV2Pair internal uniswapPair;
+    IERC20 private valuableToken;
+    address private flashloanProvider;
+
+    function setUniswapPair(address addr) public {
+        IUniswapV2Factory uniswapFactory = IUniswapV2Factory(uniswapRouter.factory());
+        uniswapPair = IUniswapV2Pair(uniswapFactory.getPair(address(valuableToken), addr));
+
+        if (address(uniswapPair) == address(0)) {
+            console.log("Uniswap pair not found.");
+            return;
+        }
+
+        token0 = uniswapPair.token0();
+        token1 = uniswapPair.token1();
+
+        valuableToken.approve(address(uniswapRouter), type(uint256).max);
+        IERC20(addr).approve(address(uniswapRouter), type(uint256).max);
+
+        uint112 reserve0;
+        uint112 reserve1;
+        (reserve0, reserve1, ) = uniswapPair.getReserves();
+        console.log("Uniswap reserves for %s:", addr);
+        console.log("%d for %s", reserve0, token0);
+        console.log("%d for %s", reserve1, token1);
+    }
+
+    function setUp() public {
+
+        target = 0xF347bDc0e502D33978b3c4d187bf75E5B452E491;
+        uniswapRouter = IUniswapV2Router(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        valuableToken = IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+        flashloanProvider = 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476;
+        token = 0xF347bDc0e502D33978b3c4d187bf75E5B452E491;
+
+        // Remove any previous valuableToken/ETH from the balance
+        valuableToken.transfer(address(0xdead), valuableToken.balanceOf(address(this)));
+        IERC20(uniswapRouter.WETH()).transfer(address(0xdead), IERC20(uniswapRouter.WETH()).balanceOf(address(this)));
+        payable(address(0xdead)).transfer(address(this).balance);
+
+        // Handle approvals
+        valuableToken.approve(target, type(uint256).max);
+        //if (token != address(0))
+        //    IERC20(token).approve(target, type(uint256).max);
+        setUniswapPair(token);
+    }
+
+    function testFlaw() external {
+         // flashloan valuableToken from Balancer
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = valuableToken.balanceOf(flashloanProvider) * 95 / 100;
+
+        console.log("%s available for the flashloan of valuableToken", amounts[0]);
+
+        uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+        console.log("Initial balance %s", finalValuableBalance);
+        IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+        console.log("Final balance %s", valuableToken.balanceOf(address(this)));
+    }
+
+    // Used by Balancer
+    function receiveFlashLoan(
+        IERC20[] memory,
+        uint256[] memory amounts,
+        uint256[] memory,
+        bytes memory
+    ) external {
+        flashLoanInternal(amounts[0]);
+    }
+
+    // Used by DODO
+    function DPPFlashLoanCall(address, uint256 amount, uint256, bytes memory) external {
+        flashLoanInternal(amount);
+    }
+
+    function flashLoanInternal(uint256 amount) internal {
+        executeExploit(amount);
+
+        uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+        if (amount >= currentValuableBalance) {
+            console.log("Current valuable balance: %s", valuableToken.balanceOf(address(this)));
+            console.log("Current profit: %s", int256(currentValuableBalance) - int256(amount));
+            revert("Not enough valuableToken balance to produce profit");
+        }
+        valuableToken.transfer(flashloanProvider, amount);
+        uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+        console.log("Surplus: %s", surplusInValuable);
+        assert(surplusInValuable > 0);
+    }
+
+    function executeExploit(uint256 amount) internal {}
+}
+```
+
+And the first Foundry trace is this one:
+```
+
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 1.97s
+Compiler run successful!
+2026-03-11T11:09:53.470381Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/85958178"
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+Logs:
+  Uniswap pair not found.
+  263444306974192259894 available for the flashloan of valuableToken
+  Initial balance 0
+  Current valuable balance: 263444306974192259894
+  Current profit: 0
+
+2026-03-11T11:10:00.606664Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:00.612502Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T11:10:00.614830Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:00.614889Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:00.616742Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:00.616829Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [63060] TestFlaw::testFlaw()
+    ├─ [2534] WBNB::balanceOf(DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476]) [staticcall]
+    │   └─ ← [Return] 277309796814939220942 [2.773e20]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 263444306974192259894 [2.634e20]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [42815] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830)
+    │   ├─ [40102] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830) [delegatecall]
+    │   │   ├─ [25962] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20])
+    │   │   │   ├─ emit Transfer(src: DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476], dst: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], wad: 263444306974192259894 [2.634e20])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [4192] TestFlaw::DPPFlashLoanCall(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20], 0, 0x307830)
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 263444306974192259894 [2.634e20]
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 263444306974192259894 [2.634e20]
+    │   │   │   ├─ [0] console::log("Current valuable balance: %s", 263444306974192259894 [2.634e20]) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [0] console::log("Current profit: %s", 0) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    └─ ← [Revert] Not enough valuableToken balance to produce profit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.13s (1.55s CPU time)
+
+Ran 1 test suite in 8.42s (7.13s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+```
+2026-03-11 19:10:00,815 [INFO] Quimera: Main task status: Waiting response from LLM 🧠 (1/1)
+2026-03-11 19:10:09,086 [INFO] Quimera: Tool requests: [ToolCall(name='fetch_contract_source_code', arguments={'address': '0xF347bDc0e502D33978b3c4d187bf75E5B452E491'}, tool_call_id='call_MN3gPzoA5Q4OQ38c6018e3Nt'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476'}, tool_call_id='call_FODCxW4fb3CMCkjVgd5LkqDM'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095'}, tool_call_id='call_uKvssic3UjkzKG8lGKyBjQm1')]
+2026-03-11 19:10:09,086 [INFO] Quimera: Executing get_contract_info_as_text for address 0xF347bDc0e502D33978b3c4d187bf75E5B452E491
+2026-03-11 19:10:09,086 [INFO] Quimera: Using cached contract info.
+2026-03-11 19:10:09,086 [INFO] Quimera: Executing get_contract_info_as_text for address 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476
+2026-03-11 19:10:14,373 [INFO] Quimera: <slither.slither.Slither object at 0x112ba2ad0>
+2026-03-11 19:10:14,373 [INFO] Quimera: Contracts found: ['InitializableOwnable', 'IFeeRateImpl', 'IFeeRateModel', 'FeeRateModel', 'IERC20', 'SafeMath', 'DecimalMath', 'ReentrancyGuard', 'DODOMath', 'PMMPricing', 'DPPStorage', 'IDODOCallee', 'SafeERC20', 'DPPVault', 'DPPTrader', 'DPP'], selected DPP
+2026-03-11 19:10:14,402 [INFO] Quimera: {'DPP'}
+2026-03-11 19:10:14,402 [INFO] Quimera: {'_BASE_RESERVE_', '_K_', '_RState_', '_BLOCK_TIMESTAMP_LAST_', '_QUOTE_RESERVE_', '_QUOTE_TARGET_', '_LP_FEE_RATE_', '_IS_OPEN_TWAP_', '_I_', '_NEW_OWNER_', '_OWNER_', '_BASE_PRICE_CUMULATIVE_LAST_', '_MT_FEE_RATE_MODEL_', '_QUOTE_TOKEN_', '_INITIALIZED_', '_MAINTAINER_', '_BASE_TARGET_', '_BASE_TOKEN_'}
+2026-03-11 19:10:20,223 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 19:10:20,225 [INFO] Quimera: Executing get_contract_info_as_text for address 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095
+2026-03-11 19:10:29,640 [INFO] Quimera: Tool requests: []
+2026-03-11 19:10:31,642 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️ (1/1)
+2026-03-11 19:10:31,643 [INFO] Quimera: Installing Forge...
+2026-03-11 19:10:33,765 [INFO] Quimera: Running Forge test...
+2026-03-11 19:10:43,665 [INFO] Quimera: Blocker: operator: caller is not the operator
+2026-03-11 19:10:43,667 [INFO] Quimera: Trace/output: 
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 2.32s
+Compiler run successful!
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: operator: caller is not the operator] testFlaw() (gas: 90856)
+Logs:
+  Uniswap pair not found.
+  263444306974192259894 available for the flashloan of valuableToken
+  Initial balance 0
+
+2026-03-11T11:10:42.343829Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:42.345999Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T11:10:42.349483Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:10:42.349509Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [90856] TestFlaw::testFlaw()
+    ├─ [2534] WBNB::balanceOf(DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476]) [staticcall]
+    │   └─ ← [Return] 277309796814939220942 [2.773e20]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 263444306974192259894 [2.634e20]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [70614] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830)
+    │   ├─ [67901] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830) [delegatecall]
+    │   │   ├─ [25962] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20])
+    │   │   │   ├─ emit Transfer(src: DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476], dst: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], wad: 263444306974192259894 [2.634e20])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [31991] TestFlaw::DPPFlashLoanCall(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20], 0, 0x307830)
+    │   │   │   ├─ [23162] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20])
+    │   │   │   │   ├─ emit Transfer(src: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], dst: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], wad: 263444306974192259894 [2.634e20])
+    │   │   │   │   └─ ← [Return] true
+    │   │   │   ├─ [2583] MyBond::mint(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20])
+    │   │   │   │   └─ ← [Revert] operator: caller is not the operator
+    │   │   │   └─ ← [Revert] operator: caller is not the operator
+    │   │   └─ ← [Revert] operator: caller is not the operator
+    │   └─ ← [Revert] operator: caller is not the operator
+    └─ ← [Revert] operator: caller is not the operator
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 1.52s (1.51s CPU time)
+
+Ran 1 test suite in 4.11s (1.52s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: operator: caller is not the operator] testFlaw() (gas: 90856)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+2026-03-11 19:10:43,667 [INFO] Quimera: Test failed, continuing to next iteration...

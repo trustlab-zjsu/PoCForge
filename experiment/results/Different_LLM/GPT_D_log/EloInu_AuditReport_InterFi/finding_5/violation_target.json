@@ -1,0 +1,29 @@
+{
+  "target_address": "0x35207068e057a01861A654463c01B04cc111E760",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner with onlyOwner access",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35207068e057a01861A654463c01B04cc111E760",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner, call setMarketingWallet(attackerAddress) to redirect the marketing wallet to attacker's address. When token transfers occur and swapAndLiquify is triggered, marketing fees collected in ETH will be sent to attacker via transferToMarketing function. Monitor contract for incoming transfers that trigger the swap mechanism to collect diverted marketing fees.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

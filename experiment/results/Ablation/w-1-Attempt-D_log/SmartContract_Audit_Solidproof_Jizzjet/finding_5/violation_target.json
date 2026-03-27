@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected SELFDESTRUCT Instruction",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold some BNB balance (native currency) from accumulated fees or liquidity",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract inherits from Ownable but doesn't override the selfdestruct functionality. As the owner, call selfdestruct with the attacker's address as the beneficiary. This will destroy the contract and send all its BNB balance to the attacker. First ensure the contract has accumulated BNB from fees via normal token transfers, then execute selfdestruct via a low-level call or by deploying a malicious contract that calls selfdestruct on the target."
+}

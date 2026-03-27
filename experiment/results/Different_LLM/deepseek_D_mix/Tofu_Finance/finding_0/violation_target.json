@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+  "vulnerability_type": "Incorrect Burn Logic",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have at least some TOFU tokens to initiate transfer",
+      "token_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have totalSupply > 5000000000e9 (5 billion tokens with 9 decimals) for the buggy burn logic to activate",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "TofoFinance(0x19e506bbf1d8dbd08e963229434634664a577111).totalSupply()",
+      "operator": ">",
+      "expected_value": "5000000000000000000"
+    }
+  },
+  "exploit_hint": "Call the transfer() function with any amount when totalSupply > 5 billion tokens. The bug is in the _transfer() function where it subtracts newAmount from sender's balance, then subtracts burnFee again from the same sender's balance, effectively deducting (newAmount + burnFee) instead of just (amount). This causes the sender's balance to be reduced more than intended while totalSupply only decreases by burnFee, creating inconsistency between total token balances and totalSupply."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The attacker's address must not be excluded from fees prior to the exploit.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isExcludedFromFee(ATTACKER_ADDRESS)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker should call the `excludeFromFee` function, which is missing the `onlyOwner` access control modifier. By passing their own address as the `account` parameter, the attacker's address will be marked as excluded from fees. This allows the attacker to transfer tokens without incurring any of the transaction taxes (tax, liquidity, burn, dev fees) that apply to regular users, providing an unfair economic advantage."
+}

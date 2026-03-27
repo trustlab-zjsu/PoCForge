@@ -1,0 +1,55 @@
+{
+  "project_id": "QAP Token Full Smart Contract Security Audit",
+  "target_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+    "vulnerability_type": "Broken Liquidity and Transaction Limit Mechanism",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner, who holds the initial total supply of tokens, to demonstrate the flaw.",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "_maxTxAmount > totalSupply()",
+        "operator": "==",
+        "expected_value": "true"
+      }
+    },
+    "exploit_hint": "The contract's '_maxTxAmount' and 'numTokensSellToAddToLiquidity' variables are incorrectly initialized with values that are orders of magnitude larger than the token's total supply. This renders the maximum transaction limit check useless and makes the automated liquidity-adding function ('swapAndLiquify') permanently unreachable. To prove the flaw, the attacker (as the initial owner) should transfer the entire token supply in a single transaction. This will succeed, demonstrating the ineffectiveness of the '_maxTxAmount' check, and confirm that the core 'swapAndLiquify' logic cannot be triggered."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface QAPToken {\n    function _maxTxAmount() external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup required\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        uint256 maxTxAmount = QAPToken(TARGET)._maxTxAmount();\n        uint256 totalSupply = QAPToken(TARGET).totalSupply();\n        assertGt(maxTxAmount, totalSupply);\n        assertEq(maxTxAmount > totalSupply, true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The `_maxTxAmount` and `numTokensSellToAddToLiquidity` variables in the `QAPToken` contract are initialized with values that are orders of magnitude larger than the token's total supply (`_tTotal`). Specifically, `_maxTxAmount` is set to `5,000,000 * 10^15` while `_tTotal` is `150 * 10^15`. This disparity renders the maximum transaction limit check within the `_transfer` function completely ineffective, as no single transaction can ever exceed this limit. Furthermore, the `swapAndLiquify` function, designed for automated liquidity, is permanently disabled because its trigger condition (`contractTokenBalance >= numTokensSellToAddToLiquidity`) can never be met.",
+      "attack_strategy": "The exploit will directly verify the flawed state as required by the oracle. It involves fetching the values of the public state variable `_maxTxAmount` and the result of the `totalSupply()` function from the target contract. The core of the exploit is to assert that `_maxTxAmount` is greater than `totalSupply`, which directly proves the logical vulnerability.",
+      "step_by_step_plan": "1. Access the target contract instance by casting the `TARGET` address to the `QAPToken` type.\n2. Call the public getter for the `_maxTxAmount` state variable to retrieve its value.\n3. Call the `totalSupply()` function to get the total supply of the token.\n4. Use Foundry's `assertGt()` cheatcode to assert that the retrieved `_maxTxAmount` is greater than the `totalSupply`. This satisfies the oracle's condition (`_maxTxAmount > totalSupply() == true`).",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface QAPToken {\n    function _maxTxAmount() external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup required\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        uint256 maxTxAmount = QAPToken(TARGET)._maxTxAmount();\n        uint256 totalSupply = QAPToken(TARGET).totalSupply();\n        assertGt(maxTxAmount, totalSupply);\n        assertEq(maxTxAmount > totalSupply, true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 64.21308279037476,
+      "prompt_tokens": 24877,
+      "completion_tokens": 5598,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 64.21689701080322,
+  "total_prompt_tokens": 24877,
+  "total_completion_tokens": 5598,
+  "total_cost": 0.0
+}

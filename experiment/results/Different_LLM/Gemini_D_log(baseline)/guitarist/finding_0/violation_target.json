@@ -1,0 +1,35 @@
+{
+  "target_address": "0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Public mint must be active (public_mint_status == true).",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The receiver must be a contract that can re-enter `mint()` from `onERC721Received` before `_currentIndex` is updated.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The attacker must hold enough native currency to pay for two single-token public mints.",
+      "token_address": "NATIVE",
+      "min_amount": "100000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Guitarist.balanceOf(attacker), Guitarist.publicMinted(attacker), Transfer logs, and tokenOfOwnerByIndex(attacker, i)",
+      "operator": "inconsistent_with",
+      "expected_value": "After one reentrant mint, totalSupply only advances by 1, while attacker balance and publicMinted advance by 2, the same token id emits Transfer twice, and owner enumeration fails for the extra claimed slot."
+    }
+  },
+  "exploit_hint": "The old ERC721A `_safeMint` path updates `balance` and `numberMinted` before invoking `onERC721Received`, but only writes `_currentIndex` after the mint loop completes. Re-entering `mint()` from the receiver hook therefore reuses the same `startTokenId`. The real impact is not minting a second fresh token range or bypassing `MAX_SUPPLY`; it is state/accounting corruption: duplicated balance and `publicMinted` increments, duplicate `Transfer` emission for the same token id, and inconsistency between `balanceOf(attacker)` and the enumerable ownership view."
+}

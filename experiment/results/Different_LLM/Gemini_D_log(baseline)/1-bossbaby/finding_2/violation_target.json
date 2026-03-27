@@ -1,0 +1,23 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Denial of Service",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner privileges to change the marketing wallet.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "marketingWallet",
+      "operator": "==",
+      "expected_value": "ATTACKER_REVERTING_CONTRACT_ADDRESS"
+    }
+  },
+  "exploit_hint": "As the owner, deploy a contract that has a receive function that always reverts. Then, call 'changeMarketingWallet' to set the marketing address to this new malicious contract. Subsequently, any token transfer that triggers the 'swapAndSendMarketing' function (e.g., a large sell to the Uniswap pair) will revert. This is because the contract attempts to send BNB to the malicious marketing wallet, which rejects the payment, causing the entire transaction to fail and leading to a Denial of Service for token sales. [2, 3, 4]"
+}

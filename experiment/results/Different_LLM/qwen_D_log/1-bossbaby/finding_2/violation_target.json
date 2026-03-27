@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Payment Rejection DoS",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to change marketing wallet address",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have token balance >= swapTokensAtAmount to trigger swapAndSendMarketing function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Marketing wallet must be set to a contract that rejects incoming ETH payments (no receive() or reverting receive())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled and swapEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(this).balance",
+      "operator": "==",
+      "expected_value": "balance_unchanged_after_swapAndSendMarketing_execution"
+    }
+  },
+  "exploit_hint": "1. Owner calls changeMarketingWallet() to set marketingWallet to a contract address that rejects ETH (deploy a contract without receive() function or with reverting receive()). 2. Allow normal trading to accumulate tokens in contract until balance >= swapTokensAtAmount. 3. When users attempt to sell tokens (transfer to uniswapV2Pair), the _transfer function will trigger swapAndSendMarketing. 4. The payable(marketingWallet).sendValue(newBalance) call will fail silently (returns false but not checked), leaving BNB stuck in contract. 5. This blocks marketing fee distribution and can cause funds to accumulate indefinitely, potentially affecting future swap operations."
+}

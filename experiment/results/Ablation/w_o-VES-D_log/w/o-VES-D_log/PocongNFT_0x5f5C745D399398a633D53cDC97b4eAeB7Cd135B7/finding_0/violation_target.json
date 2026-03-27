@@ -1,0 +1,35 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the PocongNFT token to trigger the swapAndLiquify function",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "2154000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have sufficient token balance in its own address (at least numTokensSellToAddToLiquidity = 2154 * 10^3 * 10^9)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default state)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The swapAndLiquify function is marked as private but can be triggered by any user through the public _transfer function. First, ensure the contract has accumulated enough tokens from fees (at least numTokensSellToAddToLiquidity). Then, transfer tokens to the contract from an address that is not the uniswapV2Pair, which will trigger swapAndLiquify. This will swap half the tokens for ETH and add liquidity with the other half, sending the liquidity tokens to the owner. The attacker can front-run this transaction to profit from the swap, or repeatedly trigger it to drain contract funds through MEV opportunities."
+}

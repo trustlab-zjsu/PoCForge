@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The Soken-Sapphire_Dao contract at 0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B has an unvalidated ownership transfer. The `transferOwnership` function lacks crucial checks, such as preventing transfer to a dead or zero address and implementing a two-step ownership change. This allows the owner to inadvertently or maliciously brick the contract's administrative functions.",
+  "interface_arsenal": "interface ISokenSapphireDao {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner_) external;\n}",
+  "attack_sequence": "address originalOwner = ISokenSapphireDao(TARGET).owner();\n\nvm.startPrank(originalOwner);\nISokenSapphireDao(TARGET).transferOwnership(0x000000000000000000000000000000000000dEaD);\nvm.stopPrank();",
+  "winning_reflection": "The exploit's success hinges on realizing that the `transferOwnership` function is permissive. The core strategy was to first identify the current owner, then use a test environment's impersonation feature (`vm.prank`) to execute the function as that owner. By passing a known dead address, the PoC demonstrates that the contract's ownership can be permanently and irrevocably destroyed in a single call."
+}

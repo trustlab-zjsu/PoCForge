@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+  "vulnerability_type": "Excessive Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call updateFee function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Other users must hold tokens and perform transfers for fees to be collected",
+      "token_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "victim_contract": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner) calls updateFee() to set txFee and/or burnFee to maximum values (e.g., 100 or close to 100). 2. Set FeeAddress to attacker's controlled address. 3. Wait for or trigger victim token transfers. 4. During transfer/transferFrom, excessive fees are calculated and sent to FeeAddress. 5. Attacker's token balance increases significantly from collected fees, draining value from transferring users."
+}

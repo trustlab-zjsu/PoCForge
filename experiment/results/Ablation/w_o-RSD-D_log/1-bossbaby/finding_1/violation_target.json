@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Redundant Liquidity Functionality",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call claimStuckTokens function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated BNB from liquidity fees (though fees are zero, the contract may still receive BNB via other means)",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call claimStuckTokens(address(0x0)) to drain all BNB from the contract to your address. The liquidity fees are set to zero (liquidityFeeonBuy = 0, liquidityFeeonSell = 0), making the liquidity functionality redundant, but the contract may still accumulate BNB through other means (like direct transfers or leftover funds from initial liquidity addition). Use the owner privilege to extract any accumulated native currency."
+}

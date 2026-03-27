@@ -1,0 +1,23 @@
+{
+  "target_address": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have BNB balance to drain",
+      "token_address": null,
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call the clearStuckBNB() function which has a broken access control check (require(_msgSender() == _msgSender()) is always true). This will transfer all BNB balance from the contract to the caller's address. No special permissions or token balances required - any address can exploit this."
+}

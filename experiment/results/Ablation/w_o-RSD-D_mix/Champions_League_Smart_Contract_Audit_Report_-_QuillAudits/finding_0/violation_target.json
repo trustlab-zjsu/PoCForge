@@ -1,0 +1,23 @@
+{
+  "target_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+  "vulnerability_type": "Variable Shadowing",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 CLE token to call approve()",
+      "token_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CLEToken.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability is in the allowance() and _approve() functions where the parameter 'owner' shadows the inherited Ownable.owner state variable. Call approve() with spender=attacker_address and amount=0, which will trigger _approve() with owner=msg.sender. This will overwrite the contract's owner state variable to msg.sender (attacker) because _approve() writes to _allowances[owner][spender] where 'owner' refers to the function parameter, not the contract owner. After this, attacker becomes owner and can call owner-only functions like excludeFromFee, setMaxTxPercent, or transferDustBNB."
+}

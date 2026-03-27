@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+  "vulnerability_type": "Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the Milesinu contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract itself must hold a sufficient amount of Milesinu tokens to trigger the swapAndLiquify function. This can be achieved by normal trading activity or by the attacker sending tokens to the contract.",
+      "token_address": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, as the contract owner, can extract value from user transfers. First, the attacker calls `setDevAddress` to set the fee recipient to an address they control. Next, they call `setTaxFeePercent`, `setLiquidityFeePercent`, and `setDevFeePercent` to maximize the total fees (e.g., setting each to 33 for a total of 99%). Then, any user transfer will incur these high fees. To realize the profit, the `swapAndLiquify` function must be triggered, which happens when the contract's token balance exceeds `numTokensSellToAddToLiquidity`. This function swaps the collected tokens for native currency (BNB) and sends a portion to the attacker's specified `DevAddress`."
+}

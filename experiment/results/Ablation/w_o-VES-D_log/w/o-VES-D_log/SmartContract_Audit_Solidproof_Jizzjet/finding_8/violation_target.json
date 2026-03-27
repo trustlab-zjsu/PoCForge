@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected Ether Withdrawal",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have a positive BNB balance (native currency on BSC)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has a receive() function that allows anyone to send BNB to it, but there's no protected withdrawal mechanism. The contract accumulates BNB from token swaps and liquidity fees. Since there's no access control on the receive function and no owner-only withdrawal function, any BNB sent to the contract becomes trapped. However, the contract does have a sendBNBToAdmin function that transfers BNB to _adminWalletAddress, but this is only called during swapAndLiquify. The vulnerability is that BNB can be sent directly to the contract via the receive() fallback, but there's no way to withdraw it except through the automated swapAndLiquify process. To exploit, first ensure the contract has BNB balance (from token swaps or direct transfers), then trigger swapAndLiquify by having sufficient contract token balance and meeting the conditions (contractTokenBalance >= numTokensSellToAddToLiquidity, not inSwapAndLiquify, from != uniswapV2Pair, swapAndLiquifyEnabled). This will cause BNB to be sent to _adminWalletAddress. If you control the admin wallet or can manipulate it, you can drain funds."
+}

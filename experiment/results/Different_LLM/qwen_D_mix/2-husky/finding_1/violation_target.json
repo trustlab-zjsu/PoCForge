@@ -1,0 +1,23 @@
+{
+  "target_address": "0x40a5Ad300Ee5a5b8bA6B50719647C19F2E52d5BE",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access blacklist control functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "blacklist[victim_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call addBlacklist(address victim, true) to blacklist any address. This will prevent the blacklisted address from sending or receiving tokens as the _transfer function checks require(!blacklist[sender] && !blacklist[recipient], 'BLACKLISTED'). The owner can arbitrarily block any user from transacting with the token."
+}

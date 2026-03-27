@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 13,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner role on the contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, exploit the centralized privileges by: 1) Call issue() to mint new tokens to owner address, increasing attacker balance. 2) Call setParams() to increase basisPointsRate and maximumFee to extract fees from all transfers. 3) Call addBlackList() on target users followed by destroyBlackFunds() to confiscate their tokens. 4) Call deprecate() to redirect all token operations to a malicious upgraded contract. The owner has unrestricted control over token supply, user funds, and contract behavior."
+}

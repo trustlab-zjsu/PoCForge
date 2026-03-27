@@ -1,0 +1,29 @@
+{
+  "target_address": "0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some INCOME tokens to trigger fee collection",
+      "token_address": "0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b",
+      "min_amount": "10000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setFee() to set extremely high fees (e.g., BNBRewardsFee=99, liquidityFee=0, marketingFee=0). Then sell tokens to the Uniswap pair, which will collect excessive fees and distribute them via dividend tracker. Withdraw dividends to profit from the manipulated fee structure. Alternatively, set marketingWallet to attacker address and use setFee() with high marketingFee to directly siphon funds."
+}

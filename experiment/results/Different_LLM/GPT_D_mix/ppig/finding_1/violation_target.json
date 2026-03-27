@@ -1,0 +1,29 @@
+{
+  "target_address": "0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd",
+  "vulnerability_type": "Division By Zero",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalDistributionShares",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the `setShares` function with both `_marketingShareNew` and `burnShareNew` arguments set to 0. This will update the `totalDistributionShares` state variable to zero, creating a division-by-zero condition in the `swapAndLiquify` function which can lead to a Denial of Service on token transfers.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

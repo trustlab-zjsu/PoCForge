@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call enableBlacklist function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Target victim address must not already be blacklisted",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isBlacklisted(victim_address)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call enableBlacklist(victim_address) function with the target address as parameter. This will set blacklist[victim_address] = true, preventing the victim from sending or receiving tokens. The _transfer function checks isBlacklisted(msg.sender), isBlacklisted(recipient), and isBlacklisted(tx.origin), so blacklisted addresses cannot participate in any token transfers. Verify the exploit succeeded by checking isBlacklisted(victim_address) returns true after the call."
+}

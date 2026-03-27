@@ -1,0 +1,41 @@
+{
+  "target_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+  "vulnerability_type": "Liquidity Fee Not Added to Pair",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "taxStatus must be enabled (true) via setTax function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs BNB to swap for tokens through the Uniswap pair",
+      "token_address": "NATIVE",
+      "min_amount": "100000000000000000"
+    },
+    {
+      "type": "role",
+      "description": "Attacker must NOT be excluded from fees (excludeFee[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Uniswap V2 pair must exist and have liquidity",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "IERC20(uniswapV2Pair).balanceOf(uniswapV2Pair)",
+      "operator": "==",
+      "expected_value": "pair_token_balance_before_buy"
+    }
+  },
+  "exploit_hint": "1. Call setTax(true) as owner to enable taxation. 2. Ensure attacker address is not in excludeFee mapping. 3. Swap BNB for LuffyInu tokens via uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens(). 4. During the buy transaction (sender == uniswapV2Pair), the liquidityBuyFee (1%) is calculated but NOT transferred to the pair - it's only subtracted from the amount. 5. Verify that the liquidity fee tokens are lost (not added to pair reserves) by checking the pair's token balance remains unchanged for the liquidity fee portion. This breaks the intended liquidity accumulation mechanism."
+}

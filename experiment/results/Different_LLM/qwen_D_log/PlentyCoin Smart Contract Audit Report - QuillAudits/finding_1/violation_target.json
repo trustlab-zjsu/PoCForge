@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Locked Amount State Variable Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have WhitelistAdmin role to call lock(), transferFromWithLock(), increaseLockAmount(), and unlock() functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker or target must have sufficient PLENTYCOIN tokens to lock",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Obtain WhitelistAdmin role (via addWhitelistAdmin if you control an existing admin, or be the contract initializer). 2. Call lock() or transferFromWithLock() to lock tokens - note _lockedAmount is NOT properly incremented (missing assignment). 3. Call unlock() on the locked address - the function attempts _lockedAmount.sub() without assignment, causing state inconsistency. 4. The _lockedAmount variable remains incorrect, affecting contractTokenBalance calculation in _transfer(). 5. This can cause the contract to incorrectly calculate available tokens for swapAndLiquify, potentially allowing unauthorized token movements or enabling the attacker to unlock more tokens than should be available. 6. Monitor attacker's PLENTYCOIN balance increase after unlock operations."
+}

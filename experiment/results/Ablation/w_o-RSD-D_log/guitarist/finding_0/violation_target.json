@@ -1,0 +1,35 @@
+{
+  "target_address": "0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Public mint must be enabled (public_mint_status == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have enough ETH to pay for at least 1 NFT mint (0.05 ETH)",
+      "token_address": "NATIVE",
+      "min_amount": "50000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance from previous mints or be in active minting phase",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Create a malicious contract with a reentrant fallback/receive function. Call the mint() function with quantity=1, paying 0.05 ETH. During the _safeMint call, the contract will call onERC721Received on your malicious contract. In that callback, recursively call mint() again before the withdraw() function transfers funds to treasury. This allows multiple mints while only paying once, draining contract ETH balance."
+}

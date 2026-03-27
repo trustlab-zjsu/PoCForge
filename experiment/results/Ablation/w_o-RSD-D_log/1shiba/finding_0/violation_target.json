@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some 1SHIBA tokens to trigger fee collection",
+      "token_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setTaxFeePercent() and setLiquidityFeePercent() to set extremely high fees (e.g., 99%). Then perform token transfers to collect fees. The contract will swap tokens for BNB and send a portion to the marketing address (which could be controlled by owner). Alternatively, if marketing address is owner-controlled, directly benefit from increased fee revenue."
+}

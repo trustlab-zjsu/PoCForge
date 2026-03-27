@@ -1,0 +1,35 @@
+{
+  "target_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+  "vulnerability_type": "Transfer Lock Logic Flaw",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have token balance to initiate transferFrom",
+      "token_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "newun state variable must be address(0) (initial state before any transferFrom call)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker needs approval from token holder to call transferFrom on their behalf",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "!=",
+      "expected_value": "address(0)"
+    }
+  },
+  "exploit_hint": "Call transferFrom(from, victim_address, amount) when newun is address(0). This will set newun = victim_address, permanently blocking all future transfers TO that victim address via both transfer() and transferFrom() functions until the owner calls transfernewun() to change newun. The victim cannot receive any tokens until owner intervention."
+}

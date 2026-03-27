@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract's `blackListAddress` function is protected by both `onlyOwner` and `whenNotPaused` modifiers. The vulnerability is that if one can assume the owner's privileges, they can bypass both checks, first by calling the `onlyOwner` function `unpause()` if the contract is paused, and then calling `blackListAddress` to maliciously add an address to the blacklist.",
+  "interface_arsenal": "interface ITarget {\n    function owner() external view returns (address);\n    function blackListAddress(address listAddress, bool isBlackListed) external returns (bool);\n    function paused() external view returns (bool);\n    function unpause() external;\n}",
+  "attack_sequence": "address owner = token.owner();\nvm.startPrank(owner);\nif(token.paused()){\n    token.unpause();\n}\ntoken.blackListAddress(victim, true);",
+  "winning_reflection": "The initial exploit attempt failed because the `blackListAddress` function has a `whenNotPaused` modifier, and the contract was paused. The key insight was to realize that the `unpause()` function was also an `onlyOwner` function. By first impersonating the owner to call `unpause()`, the subsequent call to `blackListAddress` would successfully bypass both the `onlyOwner` and `whenNotPaused` checks."
+}

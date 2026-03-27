@@ -1,0 +1,41 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Owner Privilege Abuse - Excessive Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner with onlyOwner access",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Token must have active trading on Uniswap pair with users attempting transactions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true for fee collection and distribution",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner, call setBuyTaxes() or setSelTaxes() to set fee percentages to extreme values (e.g., 90-100%). When users buy or sell tokens through the Uniswap pair, the excessive fees are collected by the contract. Through the swapAndLiquify() mechanism, these tokens are swapped for BNB and distributed to marketingWalletAddress and teamWalletAddress which the owner controls, resulting in direct financial extraction from user transactions.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

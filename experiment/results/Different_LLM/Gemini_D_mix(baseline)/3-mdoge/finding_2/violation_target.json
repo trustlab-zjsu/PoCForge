@@ -1,0 +1,29 @@
+{
+  "target_address": "0x0Ea9790b1385ce5efAfc273623A013D007e50254",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "A victim address must hold a non-zero balance of the token and not be on the blacklist.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isBlacklist[<victim_address>]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the `setBlacklist(address account, bool value)` function. Set the `account` parameter to the victim's address and the `value` parameter to `true`. This action will add the victim to the blacklist, preventing them from transferring any tokens and effectively freezing their assets."
+}

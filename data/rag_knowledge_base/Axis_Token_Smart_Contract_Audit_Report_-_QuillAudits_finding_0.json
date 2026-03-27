@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `mint` function in the Axis Token contract is restricted by an `onlyOwner` modifier. This creates a severe centralization risk, as a compromised or malicious owner can arbitrarily mint new tokens, diluting the value for all other token holders.",
+  "interface_arsenal": "interface ILineAxis {\n    function mint(address to, uint256 value) external;\n    function owner() external view returns (address);\n}",
+  "attack_sequence": "address owner = ILineAxis(TARGET).owner();\nvm.prank(owner);\nILineAxis(TARGET).mint(attacker, mintAmount);",
+  "winning_reflection": "The initial exploit failed because it assumed a static, hardcoded owner address. The key insight was that ownership might have been transferred post-deployment. The successful strategy involved first dynamically querying the contract's public `owner()` view function to retrieve the current owner's address before impersonating it to call the `mint` function."
+}

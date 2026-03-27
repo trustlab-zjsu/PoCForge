@@ -1,0 +1,35 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Unprotected Admin Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fees in the contract balance (tokensForMarketing, tokensForLiquidity, tokensForDev > 0)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapEnabled must be true (can be set by anyone via updateSwapEnabled)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have sufficient token balance to trigger swapBack",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has multiple admin functions without proper access control (missing onlyOwner modifier). Call updateMarketingWallet() or updateDevWallet() to set the attacker's address as the recipient of accumulated ETH fees. Then trigger swapBack() by making a transfer that accumulates fees and meets swap conditions, causing ETH to be sent to the attacker-controlled wallet. Alternatively, call excludeFromFees() to exclude attacker from fees, then trade without paying fees to extract value."
+}

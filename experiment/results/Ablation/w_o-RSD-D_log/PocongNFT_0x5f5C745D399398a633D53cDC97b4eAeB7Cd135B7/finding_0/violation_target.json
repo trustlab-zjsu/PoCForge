@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the PocongNFT token to initiate the attack",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance from fees (at least numTokensSellToAddToLiquidity = 2154 * 10^3 * 10^9)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has private functions (_takeLiquidity, swapAndLiquify, addLiquidity) that should not be publicly accessible but appear to be callable. First, ensure the contract has accumulated fee tokens. Then call swapAndLiquify() directly to trigger token-to-ETH swap and liquidity addition. This will convert contract tokens to ETH and add liquidity, potentially allowing manipulation of the liquidity pool or extracting value. The attacker may also call _takeLiquidity() to manipulate token balances or addLiquidity() with controlled parameters."
+}

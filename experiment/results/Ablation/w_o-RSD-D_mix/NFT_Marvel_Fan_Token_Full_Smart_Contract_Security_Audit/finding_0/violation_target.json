@@ -1,0 +1,35 @@
+{
+  "target_address": "0xd0D486034C857ab4BA532ea053E2E7A32cdc23Ab",
+  "vulnerability_type": "Array Index Corruption",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be contract owner to call includeInReward()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "At least two addresses must be in the _excluded array",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Target address to include must be in the _excluded array",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_excludedAddressToId[_excluded[0]]",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As owner, call includeInReward() on an address that is not the last element in the _excluded array. This will corrupt the _excludedAddressToId mapping for the address that gets moved to the removed position, making its index mapping point to 0 while it remains in the array. This breaks the consistency between the array and mapping, potentially causing issues in _getCurrentSupply() calculations and reward distribution."
+}

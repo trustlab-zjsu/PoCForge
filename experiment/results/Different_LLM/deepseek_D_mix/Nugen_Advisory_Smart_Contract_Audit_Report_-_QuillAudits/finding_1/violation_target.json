@@ -1,0 +1,29 @@
+{
+  "target_address": "0xaba9Ecc06b23d688CB353FC57919D416eedFA095",
+  "vulnerability_type": "Missing Events Emission",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call revokeDistributionWallet function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "At least one distribution wallet must exist with unclaimed balance",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "user[<victim_address>].balance",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call revokeDistributionWallet() with an array containing victim addresses. This will delete their user struct entries and transfer any unclaimed tokens to the owner, but the missing event emission for the token transfer makes it difficult to track these state changes off-chain."
+}

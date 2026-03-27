@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Controlled Low-Level Call",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance (from token swap fees or direct transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setOperationsAddress() to set the operations address to a malicious contract. Then trigger swapBack() (via trading or forceSwapBack()) to execute the low-level call that sends all contract ETH to the malicious contract. The malicious contract should have a fallback/receive function that captures the ETH and transfers it to the attacker."
+}

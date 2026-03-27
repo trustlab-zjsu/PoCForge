@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold sufficient tokens in the contract to initiate transfer",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Attacker must deploy a malicious contract with receive/fallback function capable of re-entering transfer",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a receive/fallback function that calls transfer() again during token receipt. Call transfer() to your malicious contract, and in the receive hook, re-enter the transfer function before balance state is fully updated. This could potentially allow double-spending if the _beforeTokenTransfer hook is overridden in a child contract to make external calls before state updates. Monitor attacker token balance to verify if it increased beyond expected amount after the reentrancy attack."
+}

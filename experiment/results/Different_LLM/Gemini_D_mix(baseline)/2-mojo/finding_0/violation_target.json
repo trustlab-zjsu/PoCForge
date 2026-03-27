@@ -1,0 +1,35 @@
+{
+  "target_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+  "vulnerability_type": "Owner-Controlled Fake Pair Address for Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the CoinToken contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must control the marketing wallet address.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must control a secondary address with a non-zero balance of CoinToken to perform a transfer.",
+      "token_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "<rewardToken_address>",
+      "victim_contract": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The owner can exploit the system by first calling `setAutomatedMarketMakerPair` to register an attacker-controlled address (e.g., the owner's address itself) as a fake liquidity pair. Then, the attacker transfers CoinTokens to this fake pair address from another account. This transfer is misinterpreted as a 'sell', triggering the collection of sell fees which are sent to the contract address. Finally, the owner calls `swapManual()` to convert these collected fee tokens into the reward token and transfer them to the marketing wallet, which the owner also controls."
+}

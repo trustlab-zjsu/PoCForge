@@ -1,0 +1,29 @@
+{
+  "target_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+  "vulnerability_type": "Inconsistent Taxed Fees and Transferable Amount",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MANU tokens to initiate the transfer",
+      "token_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "There must be at least 3 token holders (including attacker) in the _accounts array to trigger the reward distribution logic",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "victim_contract": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability exists in the tax distribution logic where the same taxed amount (tLiquidity) is both subtracted from total supply AND distributed as rewards to other holders. Create multiple token holder addresses, then perform transfers between them to trigger the reward distribution. The attacker's balance will increase because they receive rewards from the tax amount while the total supply decreases, creating an inconsistency where sum of balances exceeds total supply. Execute transfers in a loop between controlled addresses to accumulate tokens."
+}

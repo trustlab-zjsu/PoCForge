@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract's ownership is susceptible to direct manipulation by writing to a predictable storage slot. The `_owner` variable from the `Ownable` contract is located at storage slot 5. An attacker can overwrite this slot to seize ownership, bypassing the `onlyOwner` modifier and enabling unauthorized calls to privileged functions like `setBurnFee`.",
+  "interface_arsenal": "interface ICHC {\n    function owner() external view returns (address);\n    function setBurnFee(uint256 fee) external;\n    function burnFee() external view returns (uint256);\n}",
+  "attack_sequence": "bytes32 ownerSlot = bytes32(uint256(5));\nbytes32 ownerValue = bytes32(uint256(uint160(attacker)));\nvm.store(TARGET, ownerSlot, ownerValue);\nICHC(TARGET).setBurnFee(100);",
+  "winning_reflection": "The key insight was that the `_owner` state variable's storage location (slot 5) was predictable based on the contract's inheritance structure (`ERC20` then `Ownable`). By using a direct storage write operation, simulated via `vm.store`, the `onlyOwner` access control could be completely bypassed, allowing the attacker to arbitrarily set the burn fee."
+}

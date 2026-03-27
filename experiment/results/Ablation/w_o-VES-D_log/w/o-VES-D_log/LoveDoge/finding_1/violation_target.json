@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have admin privileges via setAdminAddress)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have positive token balance in its address(this) account",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call sumTheBounsPool() with appropriate date strings (yesToday and twoYesToday) to transfer half of contract's token balance to dayPoolBouns mapping. Then use sumBounsPiece() to set a high piece value, and finally call receiveBounsToken() (or create a separate function to claim) to transfer the bonus tokens to your address. The vulnerability allows owner to claim unallocated bonus pool tokens that should be distributed to users."
+}

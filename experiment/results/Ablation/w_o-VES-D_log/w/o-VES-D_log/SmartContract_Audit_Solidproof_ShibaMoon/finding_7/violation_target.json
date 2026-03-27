@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+  "vulnerability_type": "Unchecked Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some SHIBAMOON tokens to initiate transfer",
+      "token_address": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to trigger swapAndLiquify (balance >= numTokensSellToAddToLiquidity = 500000 * 10^6 * 10^8)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xf7958ffc6cE46dE09e0AB69B7dA360C38b16266B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the swapAndLiquify function which calls swapTokensForEth without checking the return value of swapExactTokensForETHSupportingFeeOnTransferTokens. When the contract has accumulated enough fee tokens, trigger a transfer that activates swapAndLiquify. If the swap fails (returns 0 tokens), the contract will still add liquidity with the other half of tokens, but the ETH balance won't increase proportionally, causing the liquidity addition to use more tokens than it should. This can be exploited by manipulating the swap to fail while still proceeding with addLiquidity, potentially draining contract funds."
+}

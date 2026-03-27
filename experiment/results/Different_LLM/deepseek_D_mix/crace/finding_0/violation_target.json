@@ -1,0 +1,29 @@
+{
+  "target_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call setFees function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some CRACE tokens to trigger fee collection",
+      "token_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "min_amount": "1000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized address, call setFees with extremely high fee percentages (e.g., 5000 for each fee component) and a low feeDenominator (e.g., 100) to set total fee to 100%. Then perform a token transfer to trigger fee collection, causing most of the transferred amount to be taken as fees and distributed to marketing/liquidity receivers (which can be controlled by the attacker). Alternatively, set marketingFeeReceiver to attacker's address and transfer tokens to collect fees."
+}

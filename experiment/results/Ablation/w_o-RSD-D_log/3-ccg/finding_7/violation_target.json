@@ -1,0 +1,29 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Lack of Input Validation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (LiquidityGeneratorToken) to initiate transfers",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (contractTokenBalance >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transfer function's input validation. The function requires amount > 0 but doesn't validate that the sender has sufficient balance. Exploit by calling transfer() with an amount equal to or greater than the sender's balance, which may bypass fee calculations or cause unexpected behavior in the reflection token accounting. Specifically, craft a transfer that triggers the swapAndLiquify mechanism while manipulating the token balances through improper validation, potentially allowing the attacker to receive ETH from the liquidity swap without providing proper tokens."
+}

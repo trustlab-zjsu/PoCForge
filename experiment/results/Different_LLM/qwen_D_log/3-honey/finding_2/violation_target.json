@@ -1,0 +1,35 @@
+{
+  "target_address": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+  "vulnerability_type": "Algorithmic Logic Precision Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to modify tax configurations",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens >= swapTokensAtAmount to trigger swapAndLiquify",
+      "token_address": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+      "min_amount": "1000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled for transfers to trigger swap mechanism",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. As owner, call setTaxes/setSellTaxes to configure tax values that create precision issues in the denominator calculation (line 578: denominator = (liquidity + marketing + Stake + Dapp) * 2). 2. Ensure contract accumulates tokens >= swapTokensAtAmount through normal transfers. 3. Trigger a transfer to the pair address to execute swapAndLiquify. 4. The skewed denominator calculation causes disproportionate BNB distribution to marketing/Staking/Dapp wallets controlled by attacker, draining contract funds through precision manipulation in unitBalance = deltaBalance / (denominator - temp.liquidity)."
+}

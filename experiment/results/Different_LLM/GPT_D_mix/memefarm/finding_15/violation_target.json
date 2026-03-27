@@ -1,0 +1,35 @@
+{
+  "target_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 15,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim account must hold a non-zero balance of the contract token.",
+      "token_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_________[victim_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The contract owner can prevent any user from transferring their tokens. First, the owner should call `setMarketinWalleAddress` to set the marketing wallet address (`________`) to their own address. Then, using this new privilege, the owner can call the `qwidji` function to add any token holder's address to a blacklist (`_________` mapping), which will cause all their future transfer attempts to revert.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

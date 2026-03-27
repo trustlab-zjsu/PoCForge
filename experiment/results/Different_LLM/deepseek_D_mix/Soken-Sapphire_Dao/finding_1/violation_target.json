@@ -1,0 +1,29 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Cross-Chain Replay Attack",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have a valid EIP-712 permit signature from a token holder on another chain (e.g., Ethereum mainnet)",
+      "token_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "min_amount": "0"
+    },
+    {
+      "type": "state",
+      "description": "The DOMAIN_SEPARATOR must be identical across chains due to missing chainId in its calculation",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "SapToken.nonces(signer)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Obtain a valid EIP-712 permit signature from a token holder on another chain (e.g., Ethereum). Replay the same signature on BSC chain to bypass the nonce check and gain unauthorized token allowances. The DOMAIN_SEPARATOR is identical across chains because it uses chainid() at construction time but doesn't include it in the domain separator calculation, making signatures valid on multiple chains."
+}

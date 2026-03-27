@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC20 Non-Conformity",
+  "violation_category": "LOGIC",
+  "finding_id": 17,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must be deployed and active (not deprecated)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "transfer() return value",
+      "operator": "!=",
+      "expected_value": "true (boolean return expected by ERC20 standard)"
+    }
+  },
+  "exploit_hint": "This is a standards compliance issue rather than an exploitable vulnerability. The transfer(), transferFrom(), and approve() functions do not return boolean values as required by ERC20 standard. This can cause integration failures with contracts that expect boolean return values and check them with require() statements. To demonstrate: 1) Call transfer() from a contract that expects boolean return, 2) The calling contract may revert due to missing return value, 3) This causes DoS or unexpected behavior in integrating contracts. No direct financial gain for attacker, but can disrupt dependent contracts."
+}

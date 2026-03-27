@@ -1,0 +1,41 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Liquidity Addition Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (owner must have called setSwapAndLiquifyEnabled(true) or activateContract())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from liquidity fees (balanceOf(address(this)) >= minTokenNumberToSell)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have some BNB balance from previous swaps to execute the liquidity addition",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some PUPPY tokens to trigger swapAndLiquify via a transfer",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in swapAndLiquify() where liquidity is added with wrong token/BNB proportions. The function calculates: pooledBNB = contractTokenBalance/2, piece = (contractTokenBalance - pooledBNB)/2, otherPiece = contractTokenBalance - piece, tokenAmountToBeSwapped = pooledBNB + piece. This results in incorrect token amounts for swapping vs liquidity addition. Attack by triggering swapAndLiquify through a transfer when conditions are met (from != pancakePair, swapAndLiquifyEnabled, contract has enough tokens). The flawed math causes inefficient liquidity addition, potentially leaving excess BNB in contract that can be extracted via reward claims or other mechanisms. Monitor contract BNB balance before/after to confirm economic impact."
+}

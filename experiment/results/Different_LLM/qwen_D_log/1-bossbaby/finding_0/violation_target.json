@@ -1,0 +1,35 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Trading Restriction Honeypot",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to control trading state via enableTrading()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "tradingEnabled variable is initially false, blocking all non-excluded user transactions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Users must hold BossBaby tokens to be affected by the trading restriction",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner, maintain tradingEnabled=false while allowing users to purchase tokens through Uniswap. Users can buy tokens (sender is uniswapV2Pair which is _isExcludedFromFees) but cannot sell (recipient would be uniswapV2Pair, triggering the tradingEnabled check). Owner can selectively call enableTrading() to allow their own sells while keeping others blocked, or use excludeFromFees() to whitelist specific addresses. This creates a honeypot where victims' tokens are locked until owner permits trading."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setMarketingWallet() to set marketing address to attacker-controlled address. Then perform token transfers to trigger fee collection, which will send marketing fees to attacker's address. Alternatively, set marketing fee percentage to 100% to capture all transfer amounts as fees. Use excludeFromFee() to avoid paying fees when moving tokens."
+}

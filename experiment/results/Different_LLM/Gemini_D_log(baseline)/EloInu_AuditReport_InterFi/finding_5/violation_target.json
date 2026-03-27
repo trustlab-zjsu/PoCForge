@@ -1,0 +1,29 @@
+{
+  "target_address": "0x35207068e057a01861A654463c01B04cc111E760",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract's own token balance must be sufficient to trigger the swapAndLiquify function. The default threshold is 5,000,000,000,000,000 * 10**9.",
+      "token_address": "0x35207068e057a01861A654463c01B04cc111E760",
+      "min_amount": "5000000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35207068e057a01861A654463c01B04cc111E760",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The owner can redirect marketing fees to their own address. First, as the owner, call the `setMarketingWallet` function to change the `marketingWallet` to the attacker's address. Then, trigger the `swapAndLiquify` function by executing a token transfer. This will cause the contract to swap tokens for native currency and send the marketing portion to the new `marketingWallet`, which is the attacker's address."
+}

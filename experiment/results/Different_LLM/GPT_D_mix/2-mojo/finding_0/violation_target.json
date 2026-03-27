@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+  "vulnerability_type": "Missing Address Validation",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner privileges on the CoinToken contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "automatedMarketMakerPairs[attacker_controlled_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "1. Attacker must first obtain owner privileges (through compromise or other means). 2. Call setAutomatedMarketMakerPair() with an attacker-controlled address as the pair parameter and value=true. 3. The contract will accept any address without validating it's a legitimate UniswapV2 pair. 4. This allows the attacker to mark arbitrary addresses as AMM pairs, which affects fee calculations (buy/sell fees are applied differently for AMM pairs) and dividend exclusions. 5. The attacker can then manipulate transfer behavior and potentially drain funds through the fee collection mechanisms by exploiting the trust placed in the automatedMarketMakerPairs mapping.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

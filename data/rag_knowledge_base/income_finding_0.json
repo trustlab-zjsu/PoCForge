@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an owner privilege abuse in the INCOME contract. The `closeTrade()` function, which can only be called by the owner, improperly alters the `isOpen` state variable. This allows the owner to manipulate a condition checked by an external oracle.",
+  "interface_arsenal": "interface IINCOME {\n    function owner() external view returns (address);\n    function closeTrade() external;\n    function isOpen() external view returns (bool);\n}",
+  "attack_sequence": "address contractOwner = IINCOME(TARGET).owner();\nvm.startPrank(contractOwner);\nIINCOME(TARGET).closeTrade();",
+  "winning_reflection": "The key insight was recognizing that the contract owner could unilaterally call the `closeTrade()` function. By impersonating the owner's address, it was possible to invoke this privileged function directly and manipulate the contract's state to satisfy the oracle's condition."
+}

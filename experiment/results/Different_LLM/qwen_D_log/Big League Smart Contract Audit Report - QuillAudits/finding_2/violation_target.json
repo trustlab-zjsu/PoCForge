@@ -1,0 +1,23 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Owner Privilege Abuse - Missing Event Emission",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call privileged functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "MINT_FORBIDDEN or fees.total",
+      "operator": "!=",
+      "expected_value": "changed state without event emission"
+    }
+  },
+  "exploit_hint": "As the contract owner, call forbidMint() to permanently disable minting or call setFees() to modify fee parameters. These critical state changes will occur without any event emission, making it impossible for users and monitoring systems to detect the changes. Verify by checking that MINT_FORBIDDEN becomes true or fees struct changes without corresponding events in the transaction logs."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "vulnerability_type": "Unprotected Airdrop",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be an authorized address (owner or authorized account) to call performairdrop function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some MetaApes tokens in the 'from' address to cover the airdrop amount",
+      "token_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+      "victim_contract": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized attacker, call the performairdrop function with your own address as the 'from' parameter, and specify recipient addresses (including your own) with token amounts. The function will transfer tokens without applying fees (takeFee=false) even though it's marked as a sale (isSale=true). This allows you to airdrop tokens to yourself and others while bypassing normal fee mechanisms. Ensure the total tokens to airdrop don't exceed your balance."
+}

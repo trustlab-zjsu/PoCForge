@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must NOT be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "!=",
+      "expected_value": "15000000000000000"
+    }
+  },
+  "exploit_hint": "Call setMaxTxPercent(uint256) with any percentage value (e.g., 100 for 100%) or setMaxWalletPercent(uint256) as a non-owner address. These public functions lack the onlyOwner modifier, allowing anyone to modify critical transfer limits (_maxTxAmount) and wallet holding limits (_maxWalletToken). Original _maxTxAmount is 15000000000000000 (15000 * 10^3 * 10^9)."
+}

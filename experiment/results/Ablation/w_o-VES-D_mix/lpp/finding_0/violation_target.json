@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LinerPowerPoint(0xf14fe8ea9d35ccea2545985d7541ccad02cb6112).pause()",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the setPause() function to toggle the pause state from false to true. This will stop all transfers for non-excluded users while allowing owner and excluded addresses to continue transacting. The owner is already excluded from fees and pause restrictions via _isExcludedFromFee[owner()] = true in the constructor."
+}

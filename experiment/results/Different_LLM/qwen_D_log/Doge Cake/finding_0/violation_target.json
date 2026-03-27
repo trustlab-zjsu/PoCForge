@@ -1,0 +1,23 @@
+{
+  "target_address": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+  "vulnerability_type": "Public Dividend Distribution Function",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have non-zero total supply for distributeDividends to succeed",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalDividendsDistributed",
+      "operator": ">",
+      "expected_value": "initial_value"
+    }
+  },
+  "exploit_hint": "Call distributeDividends(uint256 amount) on either CakeDividendTracker or DogeDividendTracker contract with an arbitrarily large amount. This will inflate magnifiedDividendPerShare and totalDividendsDistributed without any actual tokens being transferred, corrupting the dividend accounting system. The attacker can then potentially claim disproportionate dividends or break the dividend distribution logic for all token holders."
+}

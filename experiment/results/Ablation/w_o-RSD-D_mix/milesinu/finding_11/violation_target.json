@@ -1,0 +1,23 @@
+{
+  "target_address": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain owner privileges)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Milesinu.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the lock() function with a sufficiently large time parameter (e.g., 1000 days) to set the owner to address(0) and lock the contract. Alternatively, call renounceOwnership() to permanently give up ownership. This will disable all onlyOwner functions including fee adjustments, max transaction limits, and liquidity management."
+}

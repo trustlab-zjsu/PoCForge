@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Exceeds Fees Limit",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MARVIN tokens to sell",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateSellFees() to set fees to 50% (or near maximum). Then sell tokens through the Uniswap pair to trigger the high fee collection. The fees will accumulate in the contract and be distributed to marketingWallet and devWallet (which are controlled by owner). Alternatively, set buy fees high and have another account buy tokens. Ensure trading is enabled first via enableTrading() if not already active."
+}

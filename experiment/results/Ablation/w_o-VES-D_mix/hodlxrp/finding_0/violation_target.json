@@ -1,0 +1,35 @@
+{
+  "target_address": "0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "AntiSnipe contract must be initialized",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "antiSnipe.isBlacklisted(victim_address)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setBlacklistEnabled(victim_address, true) or setBlacklistEnabledMultiple([victim_address], true) to blacklist any wallet from selling tokens. This will cause the antiSnipe.checkUser() call in finalizeTransfer() to revert when the blacklisted address attempts to sell, effectively preventing them from selling tokens."
+}

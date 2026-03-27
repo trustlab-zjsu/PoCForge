@@ -1,0 +1,41 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call the `_setReceiverWallet` function.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The `_adminWalletAddress` must be set to a malicious contract controlled by the attacker.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The JizzJet contract must hold a balance of its own tokens greater than `numTokensSellToAddToLiquidity` to trigger the `swapAndLiquify` function.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of JizzJet tokens to initiate the transfers.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the `_transfer` function, which calls `swapAndLiquify` before updating the user's token balance. The attacker, as the contract owner, can set a malicious contract as the `_adminWalletAddress`. They then initiate a transfer to trigger `swapAndLiquify`. This function eventually calls `_adminWalletAddress.transfer()`. The attacker's malicious contract receives the ETH and immediately re-enters the `JizzJet.transfer` function. This re-entrant call succeeds because the attacker's balance has not yet been debited from the initial transfer, allowing them to double-spend their tokens."
+}

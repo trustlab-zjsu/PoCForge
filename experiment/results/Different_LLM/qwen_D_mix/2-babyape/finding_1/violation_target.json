@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86",
+  "vulnerability_type": "Owner Privilege Abuse - Unauthorized Token Burning",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim address must have token balance greater than 0",
+      "token_address": "0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86",
+      "victim_contract": "0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the burn(address _from, uint256 _amount) function with any victim's address and the amount of tokens to destroy. The owner can burn tokens from any wallet without requiring approval or allowance from the token holder. This directly reduces the victim's token balance, causing financial loss. The attack flow: 1) Verify owner status, 2) Identify victim addresses with token balances, 3) Call burn(victim_address, amount) to destroy their tokens."
+}

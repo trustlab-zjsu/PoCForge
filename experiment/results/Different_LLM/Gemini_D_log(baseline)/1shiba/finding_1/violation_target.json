@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Liquidity Drain",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The target contract must hold a balance of its own token greater than or equal to the numTokensSellToAddToLiquidity threshold.",
+      "token_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "min_amount": "250000000000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the token to initiate a transfer.",
+      "token_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The `_transfer` function automatically triggers a `swapAndLiquify` process when the contract's token balance exceeds `numTokensSellToAddToLiquidity`. This process swaps a portion of the contract's tokens for BNB and transfers a significant amount of this BNB to a hardcoded marketing address. To exploit this, simply perform a token transfer (e.g., `transfer(some_address, 1)`). This will trigger the liquidity drain to the marketing wallet, which is assumed to be the attacker's wallet for this scenario."
+}

@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The MartianDoge contract at 0x0Ea9790b1385ce5efAfc273623A013D007e50254 is vulnerable to owner privilege abuse. A single EOA owner has the exclusive right to blacklist addresses using the `setBlacklist` function. This centralization allows anyone who can control or impersonate the owner's address to arbitrarily block accounts.",
+  "interface_arsenal": "interface IMartianDoge {\n    function owner() external view returns (address);\n    function isBlacklist(address account) external view returns (bool);\n    function setBlacklist(address account, bool value) external;\n}",
+  "attack_sequence": "vm.startPrank(owner);\ntarget.setBlacklist(victim, true);\nvm.stopPrank();",
+  "winning_reflection": "The key to the exploit was recognizing that the contract's ownership is an EOA, which is a single point of failure. By impersonating this owner address within the test environment (using `vm.startPrank`), it becomes possible to directly call the privileged `setBlacklist` function and successfully add an arbitrary address to the blacklist."
+}

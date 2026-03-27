@@ -1,0 +1,35 @@
+{
+  "target_address": "0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Public mint status must be enabled (public_mint_status == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient ETH to pay for minting (0.05 ETH per NFT)",
+      "token_address": "NATIVE",
+      "min_amount": "50000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Attacker must deploy a malicious contract implementing IERC721Receiver with reentrant onERC721Received callback",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements IERC721Receiver. In the onERC721Received callback, reenter the mint() function or call other vulnerable functions before the withdraw() completes. Call mint() with your malicious contract as the recipient. The reentrancy occurs in _safeMint -> _checkOnERC721Received which makes an external call before withdraw() sends ETH to treasury. Exploit the window between NFT minting and ETH withdrawal to drain funds or manipulate state."
+}

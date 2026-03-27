@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Unprotected Admin Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have some ETH balance from accumulated fees (tokensForMarketing, tokensForDev, tokensForLiquidity) that can be swapped to ETH",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapEnabled must be true (default is false until enableTrading is called by owner)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has multiple admin functions without proper access control (missing onlyOwner modifier). Attackers can call functions like updateMarketingWallet, updateDevWallet, excludeFromFees, excludeFromMaxTransaction, etc. to redirect fee collection to their own address. First, call updateMarketingWallet and updateDevWallet to set both to attacker's address. Then trigger swapBack() by making a transfer that accumulates enough tokens in contract balance to reach swapTokensAtAmount, causing the contract to swap accumulated fee tokens to ETH and send to the attacker-controlled wallets."
+}

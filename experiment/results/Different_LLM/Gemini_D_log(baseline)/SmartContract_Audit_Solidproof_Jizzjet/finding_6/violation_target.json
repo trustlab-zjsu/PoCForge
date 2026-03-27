@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Token Supply Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the JizzJet token to call the deliver function.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Acquire a significant amount of JizzJet tokens. Call the public `deliver(amount)` function with most of this balance. This function incorrectly updates the token's internal accounting, desynchronizing the total token supply from the reflection supply. This manipulation artificially inflates the value of your remaining tokens. Finally, transfer your now massively inflated token balance to drain liquidity from the Uniswap pair."
+}

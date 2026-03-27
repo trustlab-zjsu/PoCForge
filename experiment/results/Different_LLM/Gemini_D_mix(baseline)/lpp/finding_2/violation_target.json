@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+  "vulnerability_type": "Owner Can Blacklist Users",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The 'antibot' flag must be true (which it is by default).",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "botlist(VICTIM_ADDRESS)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, should call the `addBots` function. The function should be called with an array containing the victim's address and the status boolean set to `true`. This will add the victim's address to the `botlist` mapping, effectively preventing them from sending or receiving tokens."
+}

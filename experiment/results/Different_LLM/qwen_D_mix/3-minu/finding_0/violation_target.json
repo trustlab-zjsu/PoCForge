@@ -1,0 +1,29 @@
+{
+  "target_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+  "vulnerability_type": "Inconsistent Taxed Fees and Transferable Amount",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold MANU tokens to participate in transfers and receive reward distributions",
+      "token_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Attacker address must be in _accounts array (automatically added after first transfer)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "victim_contract": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire MANU tokens through purchase or transfer. 2. Trigger multiple transfer transactions to ensure attacker address is added to _accounts array. 3. The flawed fee calculation (tFee.mul(4) in _getTValues and _getRValues) combined with reward distribution to all _accounts causes balance inflation. 4. Each transfer distributes rBurn and tLiquidity rewards to all accounts while reducing _tTotal, creating divergence between sum of balances and totalSupply. 5. Repeated transfers amplify the imbalance, allowing attacker to accumulate tokens exceeding their proportional share. 6. Transfer or swap accumulated tokens on PancakeSwap to realize profit from the inflated balance."
+}

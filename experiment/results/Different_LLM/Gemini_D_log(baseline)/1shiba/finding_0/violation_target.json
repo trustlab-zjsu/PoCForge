@@ -1,0 +1,23 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Uncapped Transfer Fees",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "this.call(abi.encodeWithSignature(\"_taxFee()\")).return",
+      "operator": ">",
+      "expected_value": "25"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, calls the `setTaxFeePercent` function with a high value (e.g., 100) and the `setLiquidityFeePercent` function with 0. This sets the total transfer fee to 100%. Any subsequent transfer by a non-excluded user will result in all their transferred tokens being taken by the contract as fees, effectively stealing their funds."
+}

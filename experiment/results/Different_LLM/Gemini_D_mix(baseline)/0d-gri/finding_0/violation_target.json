@@ -1,0 +1,23 @@
+{
+  "target_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+  "vulnerability_type": "Owner-controlled Denial of Service",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "maxWalletToken",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The contract owner can halt token transfers for all non-owner users by calling the `setMaxWalletTokens` function with a value of `0`. This causes the `require(contractBalanceRecepient + amount <= maxWalletToken, \"Exceeds maximum wallet token amount.\")` check within the internal `_transfer` function to fail for any transfer to a non-excluded address, effectively creating a denial-of-service condition."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have MINTER_ROLE or DEFAULT_ADMIN_ROLE (which can grant MINTER_ROLE)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "If attacker has MINTER_ROLE, directly call mint() function to mint tokens to their address. If attacker has DEFAULT_ADMIN_ROLE but not MINTER_ROLE, first grant MINTER_ROLE to themselves using grantRole(), then call mint(). The minted tokens can be sold on Uniswap for profit via the existing pair."
+}

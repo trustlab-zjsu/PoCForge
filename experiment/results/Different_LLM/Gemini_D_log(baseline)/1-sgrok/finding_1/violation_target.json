@@ -1,0 +1,23 @@
+{
+  "target_address": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+  "vulnerability_type": "Unprotected Function",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The target contract must have a BNB balance greater than zero, which is typically accumulated from swap fees.",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract contains a critical vulnerability in the 'clearStuckBNB' function. This function, intended for fund recovery, lacks proper access control due to a flawed check 'require(_msgSender() == _msgSender())', which is always true. An attacker can call this function to drain the entire BNB balance of the contract. The exploit involves waiting for the contract to accumulate BNB from transaction fees and then calling 'clearStuckBNB()' to transfer all of the contract's BNB to the attacker's address."
+}

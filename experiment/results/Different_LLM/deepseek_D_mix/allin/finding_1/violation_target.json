@@ -1,0 +1,35 @@
+{
+  "target_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have authorized privileges",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be open (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the Allin token to pay fees",
+      "token_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner or authorized address, call the setFees() function with extremely high fee values (e.g., 9900 for each fee component and feeDenominator of 10000). This will set totalFee to 39600 (99% fee rate). Then perform a token transfer to trigger fee collection, which will send most of the transferred amount to the contract address. Finally, call manualSend() to transfer the accumulated BNB to the marketingFeeReceiver (which you control as owner)."
+}

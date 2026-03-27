@@ -1,0 +1,35 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Exceeds Fees Limit",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain owner privileges)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MARVIN tokens to demonstrate the exploit",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateBuyFees() or updateSellFees() with values that sum to >25% (e.g., 26% each). Then perform a token swap through the Uniswap pair to trigger the excessive fee collection. The high fees will be collected in the contract and later distributed to marketing and dev wallets (which can be controlled by the owner). Ensure trading is enabled first via enableTrading() if not already active.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "deepseek"
+}

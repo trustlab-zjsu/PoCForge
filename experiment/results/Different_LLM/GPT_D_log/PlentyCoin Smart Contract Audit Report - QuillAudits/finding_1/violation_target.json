@@ -1,0 +1,35 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "_lockedAmount Mismanagement Leading to Fund Drain",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner, who is also a WhitelistAdmin by default.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract must hold a balance of its own token greater than numTokensSellToAddToLiquidity. This can be achieved by the attacker locking their own funds.",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "500000000000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, first lock a sufficient amount of tokens (>= 500,000 * 10^18 * 10^6) by calling the `lock` function. Since `lock` fails to update the `_lockedAmount` counter, the contract's entire token balance is considered available for liquification. Then, execute a small transfer to another address. This will trigger the `swapAndLiquify` function, which will drain the locked funds, sending a portion to the owner-controlled `_buyBackAddress` and creating owner-controlled liquidity with the rest.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

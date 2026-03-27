@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Redundant Liquidity Functionality",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BossBaby tokens to trigger the swap mechanism",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Swap functionality must be enabled (swapEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to reach swapTokensAtAmount threshold",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The liquidity fees are set to zero (liquidityFeeonBuy = 0, liquidityFeeonSell = 0), but the contract still attempts to process liquidity fees. When swapAndLiquify is called, it swaps half the tokens for BNB and adds liquidity to the DEAD address (0x000...dEaD), effectively burning the liquidity. An attacker can trigger the swap mechanism by selling tokens when contract balance exceeds swapTokensAtAmount, causing the contract to waste BNB on dead liquidity instead of sending it to marketing. This reduces the marketing wallet's share of fees, potentially allowing the attacker to profit through arbitrage or by front-running the liquidity addition to the dead address."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Approve Race",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The victim (owner) must have a positive balance of BNRG tokens to approve",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract state must be Unlocked or Restricted (not Locked) to allow transfers",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Exploit the classic ERC20 approve race condition: 1) Get initial approval from victim (e.g., 100 tokens). 2) Monitor for when victim tries to change approval to a lower amount (e.g., 50 tokens). 3) When victim sends the second approval transaction, front-run it with a transferFrom for the original 100 tokens. 4) The second approval will still succeed, allowing you to transfer another 50 tokens. Result: You get 150 tokens instead of the intended 100."
+}

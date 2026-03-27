@@ -1,0 +1,29 @@
+{
+  "target_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+  "vulnerability_type": "Incorrect Fee Handling",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Tax collection must be enabled by the owner via setTax(true).",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs WBNB to initiate the arbitrage.",
+      "token_address": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "victim_contract": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transfer function's buy path. When a user swaps WBNB for the token, a 1% liquidity fee is calculated but the corresponding tokens are never transferred from the Uniswap pair contract. These fee tokens are instead abandoned in the pair, increasing the token's reserve balance without a corresponding increase in the WBNB reserve. This imbalance artificially depresses the token's price. The exploit strategy is to first swap a large amount of WBNB for the token, triggering the vulnerability and causing the price drop. Then, immediately swap the acquired tokens back to WBNB at the manipulated, lower price to receive more WBNB than initially invested."
+}

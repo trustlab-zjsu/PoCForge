@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract must have a balance of its own token, which is accumulated from taxes.",
+      "token_address": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the owner, the attacker can first call `setMarketingWallet` to designate their own address as the recipient of funds. Subsequently, calling `getAllTaxes()` will trigger the contract to swap its entire token balance for the native currency (BNB) and transfer it to the attacker's address."
+}

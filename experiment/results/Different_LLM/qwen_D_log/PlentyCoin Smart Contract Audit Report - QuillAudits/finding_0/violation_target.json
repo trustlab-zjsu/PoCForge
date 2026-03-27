@@ -1,0 +1,41 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Incorrect Transfer Sender in swapAndLiquify",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient PLENTYCOIN tokens to cover the buyback transfer amount",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "100000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated token balance >= numTokensSellToAddToLiquidity (500000 * 10^6 * 10^18 wei)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "inSwapAndLiquify must be false (not currently in swap process)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_decreased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. First ensure the contract has accumulated tokens >= numTokensSellToAddToLiquidity by transferring tokens to the contract address. 2. Trigger a token transfer transaction (to any address) that will invoke _transfer(). 3. When _transfer() detects contractTokenBalance >= numTokensSellToAddToLiquidity, it will call swapAndLiquify(). 4. Inside swapAndLiquify(), the line transfer(_buyBackAddress, rest) will incorrectly deduct tokens from msg.sender (the attacker) instead of the contract balance. 5. The attacker loses tokens equal to 'rest' (20% of contractTokenBalance) which are sent to _buyBackAddress. Verify by checking attacker's token balance decreased after the transaction."
+}

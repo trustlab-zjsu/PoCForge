@@ -1,0 +1,29 @@
+{
+  "target_address": "0x89031AaFA457245469E9641387aa94BFB51cB964",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or become owner through social engineering/compromise)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated BNB balance from taxes (swap fees) or initial deployment",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x89031AaFA457245469E9641387aa94BFB51cB964",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call sweepContingency() before liquidity is added to drain all BNB from contract to owner address. Alternatively, after liquidity is added, use setWallets() to change tax recipient wallets to attacker-controlled addresses, then trigger contractSwap() via normal trading to divert tax BNB to attacker. Can also use multiSendTokens() to transfer large amounts of tokens to attacker-controlled accounts without fees."
+}

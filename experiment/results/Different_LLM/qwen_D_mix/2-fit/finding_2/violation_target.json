@@ -1,0 +1,23 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Unlimited Token Minting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have MINTER_ROLE or DEFAULT_ADMIN_ROLE to grant themselves MINTER_ROLE",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire MINTER_ROLE by either being the DEFAULT_ADMIN_ROLE holder or having DEFAULT_ADMIN_ROLE grant you MINTER_ROLE via grantRole(). 2. Call mint(attacker_address, large_amount) to mint unlimited tokens to your address. 3. Swap the minted tokens for ETH/BNB through the UniswapV2 pair (uniswapV2Pair) using swapExactTokensForETHSupportingFeeOnTransferTokens(). This dilutes token value and extracts value from liquidity providers."
+}

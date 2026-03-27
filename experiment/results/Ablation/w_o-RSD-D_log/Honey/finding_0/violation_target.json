@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Token Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership) to call mint() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have at least one excluded account (from _excluded array)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call mint() to create new tokens for yourself. The vulnerability is that mint() only updates _tTotal and _rOwned[account] but doesn't properly handle the reflection rate for excluded accounts. This causes the reflection rate to increase disproportionately, allowing you to burn tokens from excluded accounts at a favorable rate. First ensure there are excluded accounts, then mint tokens to yourself, then burn tokens from excluded accounts (if you have access) or manipulate transfers to exploit the incorrect accounting."
+}

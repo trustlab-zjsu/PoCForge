@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "A victim address must exist that is not currently blacklisted.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isBlacklisted(VICTIM_ADDRESS)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, should call the `enableBlacklist` function, passing a victim's address as the `account` parameter. This will prevent the victim from performing any transfers, effectively freezing their assets.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

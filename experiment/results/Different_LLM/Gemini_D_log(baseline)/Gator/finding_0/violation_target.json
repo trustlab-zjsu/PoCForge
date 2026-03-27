@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+  "vulnerability_type": "Wrong Burning",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have a non-zero balance of GatorToken to perform a transfer.",
+      "token_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The transferTaxRate in the GatorToken contract must be greater than zero.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalSupply()",
+      "operator": "==",
+      "expected_value": "<initial_total_supply>"
+    }
+  },
+  "exploit_hint": "The vulnerability lies in the token's transfer function, where a portion of tokens intended to be burned are instead transferred to a dead address, failing to decrease the total supply. To exploit this, first, query and record the initial `totalSupply()` of the GatorToken. Next, execute a `transfer()` of any amount of the token to another address. This action triggers the tax mechanism, which includes the flawed 'burn' process. The oracle's check will then confirm that the `totalSupply()` after the transfer remains identical to the initial total supply, proving that the burn mechanism is implemented incorrectly and does not reduce the circulating supply as expected."
+}

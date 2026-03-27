@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "ERC-20 Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some TST token balance to initiate the attack",
+      "token_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (unrestricted == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The approve() function has a race condition vulnerability due to the requirement 'allowed[msg.sender][_spender] == 0 || _value == 0'. Attack by: 1) First approve a spender with non-zero amount, 2) While that approval is pending, send another approve transaction with zero amount, 3) The spender can front-run and transfer tokens using the first approval before it's set to zero, then the second approval sets allowance to zero, allowing the spender to double-spend the same allowance."
+}

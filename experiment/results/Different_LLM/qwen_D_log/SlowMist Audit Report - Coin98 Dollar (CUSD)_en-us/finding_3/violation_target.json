@@ -1,0 +1,23 @@
+{
+  "target_address": "0xC285B7E09A4584D027E5BC36571785B515898246",
+  "vulnerability_type": "Ownership Transfer Without Validation",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "owner()",
+      "operator": "==",
+      "expected_value": "attacker_address"
+    }
+  },
+  "exploit_hint": "1. As the current owner, call transferOwnership(attacker_address) to set the pending owner. 2. Call acceptOwnership() from the attacker address to complete the ownership transfer. 3. Verify that owner() now returns the attacker's address, confirming full control of the contract including minting, freezing, blacklisting, and withdrawal capabilities."
+}

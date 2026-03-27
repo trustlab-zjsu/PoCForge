@@ -1,0 +1,23 @@
+{
+  "target_address": "0x46bCBBB0D888dF90Eda86c9CA159C7727a8731D5",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x46bCBBB0D888dF90Eda86c9CA159C7727a8731D5",
+      "victim_contract": "0x46bCBBB0D888dF90Eda86c9CA159C7727a8731D5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call adminAdd() to add attacker address as admin, then use admin privileges to call initGame() to mint large amounts of HUB tokens to attacker-controlled wallets. Alternatively, use blackListAdd() to block other users from transferring tokens while owner remains unrestricted. The owner can also arbitrarily add/remove signers and admins, controlling all privileged functions."
+}

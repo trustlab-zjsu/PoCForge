@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an Owner Privilege Abuse in the Web3Inu contract. The owner has the unilateral power to halt all token transfers for regular users by calling the `setMaxTxPercent` function with an argument of 0. This sets the maximum transaction amount to zero, effectively freezing the token.",
+  "interface_arsenal": "interface IWEB3 {\n    function owner() external view returns (address);\n    function setMaxTxPercent(uint256 maxTxPercent) external;\n    function _maxTxAmount() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = token.owner();\nvm.startPrank(owner);\ntoken.setMaxTxPercent(0);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was recognizing that the owner's `setMaxTxPercent` function lacked a zero-value check. By impersonating the contract owner, it's possible to call this function with `0`, which sets `_maxTxAmount` to zero and freezes transfers for all non-owner accounts, demonstrating a critical centralization flaw."
+}

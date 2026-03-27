@@ -1,0 +1,16 @@
+{
+  "target_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+  "vulnerability_type": "BEP Standard Violation",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "blacklist[address]",
+      "operator": "==",
+      "expected_value": "not_enforced_in_transfers"
+    }
+  },
+  "exploit_hint": "The ByTradeToken contract declares a blacklist mapping but never enforces it in transfer, transferFrom, or approve functions. To demonstrate the BEP20 standard violation: 1) Query the blacklist mapping for any address, 2) Attempt token transfers from that address regardless of blacklist status, 3) Verify transfers succeed even for blacklisted addresses. This shows the contract does not behave as advertised, violating expected BEP20 compliance where declared security features should be enforced. The pause functionality works correctly (only owner can transfer when paused), but the blacklist feature is completely non-functional despite being publicly exposed."
+}

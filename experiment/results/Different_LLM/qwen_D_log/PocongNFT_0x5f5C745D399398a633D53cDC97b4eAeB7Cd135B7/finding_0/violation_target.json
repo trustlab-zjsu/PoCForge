@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient PocongNFT tokens to trigger swapAndLiquify mechanism",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "2154000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire sufficient PocongNFT tokens (at least numTokensSellToAddToLiquidity = 2154 * 10^3 * 10^9). 2. Transfer tokens to the contract address to build up contract balance. 3. Trigger another transfer to activate swapAndLiquify() which swaps half the tokens for ETH and adds liquidity. 4. If _takeLiquidity or addLiquidity are publicly accessible, call them directly to manipulate liquidity pool. 5. Monitor attacker's ETH balance for increase from liquidity manipulation or fee extraction through devWallet transfers."
+}

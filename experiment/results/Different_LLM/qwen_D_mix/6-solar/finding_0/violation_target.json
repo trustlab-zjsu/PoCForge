@@ -1,0 +1,23 @@
+{
+  "target_address": "0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call the mint function",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8",
+      "victim_contract": "0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call the mint(address _to, uint256 _amount) function with the attacker's address as _to and a large _amount (up to _maxTotalSupply - current totalSupply). The mint function is protected by onlyOwner modifier, so the attacker must first obtain ownership. After minting, the attacker's token balance will increase, allowing them to sell or transfer the newly minted tokens for profit."
+}

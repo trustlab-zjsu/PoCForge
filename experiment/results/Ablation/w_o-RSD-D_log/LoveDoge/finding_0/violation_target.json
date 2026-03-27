@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Incorrect Burn Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (LoveDoge) to initiate transfer",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "The contract must not be in admin mode for the attacker's address (adminAddress[attacker] must be false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The _userTransfer() function incorrectly handles burn tokens. It calculates burn amount (2% of transfer) and adds it to totalBurn, but doesn't actually burn tokens by decreasing totalSupply or sending to address(0). Instead, it deducts the full amount from sender but only transfers (amount - burn - term - bouns) to recipient. This creates an accounting mismatch where totalSupply remains unchanged but totalBurn increases. Exploit by transferring tokens between two non-admin accounts, then checking if the recipient receives more tokens than expected due to the missing burn deduction from totalSupply. The attacker can profit by repeatedly transferring tokens between controlled accounts, as the burn amount is only accounted for in totalBurn but not actually removed from circulation."
+}

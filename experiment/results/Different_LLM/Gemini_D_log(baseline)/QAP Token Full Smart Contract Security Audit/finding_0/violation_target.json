@@ -1,0 +1,23 @@
+{
+  "target_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+  "vulnerability_type": "Broken Liquidity and Transaction Limit Mechanism",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner, who holds the initial total supply of tokens, to demonstrate the flaw.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount > totalSupply()",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The contract's '_maxTxAmount' and 'numTokensSellToAddToLiquidity' variables are incorrectly initialized with values that are orders of magnitude larger than the token's total supply. This renders the maximum transaction limit check useless and makes the automated liquidity-adding function ('swapAndLiquify') permanently unreachable. To prove the flaw, the attacker (as the initial owner) should transfer the entire token supply in a single transaction. This will succeed, demonstrating the ineffectiveness of the '_maxTxAmount' check, and confirm that the core 'swapAndLiquify' logic cannot be triggered."
+}

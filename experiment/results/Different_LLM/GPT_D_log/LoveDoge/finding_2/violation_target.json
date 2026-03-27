@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "dayPoolBounsPiece[contract.getDays()[0]]",
+      "operator": ">",
+      "expected_value": "100000000000000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "As the contract owner, first, determine the string for 'yesterday' by calling the `getDays()` view function. Then, execute the `sumBounsPiece()` function, providing the retrieved 'yesterday' string and an extremely large integer (e.g., 10**50) for the `num` parameter. This action will set `dayPoolBounsPiece` for that day to an immense value, causing any future calls to `receiveBounsToken()` by users to revert due to an arithmetic underflow in the `_sumCanGetToken` function. This effectively triggers a denial-of-service condition, preventing users from claiming their bonus tokens.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

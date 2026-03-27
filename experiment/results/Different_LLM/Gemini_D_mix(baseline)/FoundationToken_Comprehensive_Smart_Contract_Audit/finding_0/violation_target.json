@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Owner-controlled Low-Level Call",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract's balance of its own token must be greater than or equal to the `swapTokensAtAmount` threshold to enable the swap functionality.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The owner can drain all ETH from the contract. First, as the owner, call `setOperationsAddress` to set the operations address to the attacker's EOA. Then, ensure the contract has enough of its own tokens (greater than `swapTokensAtAmount`) to trigger a swap, for example by transferring them to the contract. Finally, as the owner, call `forceSwapBack`. This will trigger the `swapBack` function, which converts some tokens to ETH and then sends the contract's entire resulting ETH balance to the attacker-controlled `operationsAddress`."
+}

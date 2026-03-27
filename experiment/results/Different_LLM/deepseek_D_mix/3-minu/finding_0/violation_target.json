@@ -1,0 +1,29 @@
+{
+  "target_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+  "vulnerability_type": "Inconsistent Taxed Fees and Transferable Amount",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MANU tokens to initiate the transfer",
+      "token_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "The contract must have at least 3 token holders (including attacker and marketing address) for the reward distribution to trigger",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "victim_contract": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the tax calculation and distribution logic. When a transfer occurs, the contract calculates a tax (tLiquidity) and distributes it to existing token holders. However, the same tax amount is also subtracted from total supply (_tTotal = _tTotal.sub(tLiquidity)), creating an inconsistency. To exploit: 1. Ensure there are multiple token holders (create at least 3 accounts). 2. Perform a transfer between two accounts while fees are enabled. 3. The tax distribution will credit the attacker's balance while also reducing total supply, allowing the attacker to accumulate tokens disproportionately. The attack works best with small transfer amounts to maximize the rounding error exploitation."
+}

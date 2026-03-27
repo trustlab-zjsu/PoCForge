@@ -1,0 +1,29 @@
+{
+  "target_address": "0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim address must hold a non-zero balance of the HODLXRP token.",
+      "token_address": "0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isBlacklisted(<victim_address>)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker, who is the contract owner, should call the `setBlacklistEnabled` function. The `account` parameter should be the victim's address, and the `enabled` parameter should be `true`. This action will blacklist the victim, preventing them from transferring their tokens."
+}

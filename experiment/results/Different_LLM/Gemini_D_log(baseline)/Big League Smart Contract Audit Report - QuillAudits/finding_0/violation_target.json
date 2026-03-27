@@ -1,0 +1,29 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Backdoor in transferFrom function",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The victim must hold a balance of BGLG tokens greater than zero.",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The victim must have called the `approve` function to grant the attacker an allowance equal to the maximum value of uint256 (2**256 - 1).",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "victim_contract": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit requires a precondition where a victim has approved the attacker for the maximum uint256 value. The attacker then calls the `transferFrom` function, specifying the victim's address as `_from`, the attacker's address as `_to`, and the amount of tokens to steal. Due to the flawed check `allowance[_from][msg.sender] < ~uint256(0)`, the attacker's allowance is never reduced, allowing them to repeatedly call `transferFrom` to drain the victim's entire balance."
+}

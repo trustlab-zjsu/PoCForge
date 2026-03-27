@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Reflection Fee Calculation",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the token to perform a transfer.",
+      "token_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The contract's tax fee (_TAX_FEE) or charity fee (_CHARITY_FEE) must be greater than zero, which is set at contract creation.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_rTotal",
+      "operator": "<",
+      "expected_value": "A value representing the correctly calculated total reflective supply after a transfer. The oracle must compute this value as `_rTotal_initial - rBurn`, where `rBurn` is the reflection-equivalent of the burn fee for the transaction."
+    }
+  },
+  "exploit_hint": "The vulnerability exists in the `_reflectFee` function, which incorrectly handles fee calculations. During a token transfer, this function subtracts the reflection fee (`rFee`) and the charity fee (`rCharity`) from the total reflective supply (`_rTotal`). This is incorrect; `rFee` should be redistributed to holders (by not changing `_rTotal`), and `rCharity` is already accounted for when sent to the charity address. An attacker can trigger this flawed logic by simply executing a `transfer` of any amount. The oracle can then verify the exploit by comparing the resulting `_rTotal` with the correctly calculated value, proving the state corruption."
+}

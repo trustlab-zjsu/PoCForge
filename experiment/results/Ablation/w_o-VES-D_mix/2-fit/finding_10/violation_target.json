@@ -1,0 +1,29 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have DEFAULT_ADMIN_ROLE or be able to obtain it through privilege escalation",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have some token balance for the attacker to steal",
+      "token_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner (DEFAULT_ADMIN_ROLE), grant yourself MINTER_ROLE and BURNER_ROLE. Then use mint() to create unlimited tokens for yourself, or use burn() to destroy others' tokens. Alternatively, set addressForBosses to your address and call withDraw() to transfer all contract tokens to yourself, or use sweepTokenForBosses() to swap tokens for ETH sent to your address."
+}

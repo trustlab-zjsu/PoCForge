@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The target contract, `LionsLounge`, contains an owner-only function, `setSellTxLimitInPercent`, which allows setting the maximum token amount that can be sold in a single transaction. An attacker can identify the owner via the public `getOwner()` function, impersonate them, and call `setSellTxLimitInPercent(0)`. This sets the maximum sell amount to zero, effectively trapping all funds from other users by preventing them from selling their tokens.",
+  "interface_arsenal": "interface Ilsl {\n    function getOwner() external view returns (address);\n    function setSellTxLimitInPercent(uint256 maxSellTxPercent) external;\n    function _maxSellTxAmount() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = target.getOwner();\nvm.startPrank(owner);\ntarget.setSellTxLimitInPercent(0);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was that a critical contract parameter, the sell limit, could be manipulated by a function (`setSellTxLimitInPercent`) protected only by an `onlyOwner` modifier. The owner's address was publicly exposed through `getOwner()`, allowing the attacker to easily impersonate the owner in a forked environment and invoke the function to set the sell limit to zero, thus creating a honeypot."
+}

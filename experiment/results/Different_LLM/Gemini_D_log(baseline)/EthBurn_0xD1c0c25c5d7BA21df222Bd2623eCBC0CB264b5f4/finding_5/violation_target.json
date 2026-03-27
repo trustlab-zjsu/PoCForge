@@ -1,0 +1,53 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Attacker must be a contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a sufficient amount of EthBurn tokens to be eligible for dividends.",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Attacker must have enabled automatic dividend reinvestment by calling 'setReinvest(true)'.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The 'EthBurn' contract must have accumulated enough tokens from fees to trigger a swap (`balanceOf(this) >= swapTokensAtAmount`).",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The 'EthBurnDividendTracker' contract must have a balance of ETH to distribute as dividends.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract owner must have enabled auto-reinvestment globally by calling 'setAllowAutoReinvest(true)' on the EthBurn contract, which delegates to the dividend tracker.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit leverages a reentrancy vulnerability during the dividend reinvestment process. The 'EthBurnDividendTracker._reinvestDividendOfUser' function performs a swap on Uniswap to buy EthBurn tokens. This operation triggers a callback to the main 'EthBurn' contract's '_transfer' function. Since the reentrancy guard ('swapping' flag) is in the 'EthBurn' contract and not the 'EthBurnDividendTracker', this re-entrant call is unguarded. The attacker can make this re-entrant '_transfer' call trigger another 'swapAndSendDividends' cycle. This forces the contract to prematurely convert tokens (held for fees/liquidity) into ETH and distribute them as dividends. The attacker, as a token holder, receives a share of these illicitly generated dividends and can then claim them for a profit.\n\nAttack Steps:\n1. As the attacker contract, acquire EthBurn tokens.\n2. Call `setReinvest(true)` on the EthBurn contract.\n3. Wait for the contract to accumulate fees (EthBurn tokens) and for dividends (ETH) to be available in the tracker.\n4. Trigger the reinvestment for the attacker contract by having `EthBurnDividendTracker.processAccount(attacker_address, true)` called.\n5. This triggers the reentrancy, causing an inflated dividend distribution.\n6. Call `setReinvest(false)`.\n7. Call `claim()` to withdraw the ETH dividends, realizing the profit."
+}

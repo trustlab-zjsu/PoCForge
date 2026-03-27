@@ -1,0 +1,23 @@
+{
+  "target_address": "0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+  "vulnerability_type": "Unauthorized Ownership Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the previous owner of the contract after a legitimate ownership transfer has occurred.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "marketingFeeReceiver",
+      "operator": "==",
+      "expected_value": "ATTACKER_ADDRESS"
+    }
+  },
+  "exploit_hint": "The exploit involves a two-step process. First, the current owner calls `transferOwnership` to a new address. Then, the previous owner (the attacker) calls the `setFeeReceivers` function, which is protected by the `authorized` modifier. Because the previous owner's authorization is not revoked upon ownership transfer, they can successfully call this function and change the `marketingFeeReceiver` to their own address, demonstrating retained control."
+}

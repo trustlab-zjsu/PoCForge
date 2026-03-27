@@ -1,0 +1,23 @@
+{
+  "target_address": "0xB19a9F26956d3d3c162c07A2509359AB42E0013d",
+  "vulnerability_type": "Token Inflation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xB19a9F26956d3d3c162c07A2509359AB42E0013d",
+      "victim_contract": "0xB19a9F26956d3d3c162c07A2509359AB42E0013d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract owner can call the `change_percentage` function with a large `_percentage_base1000` (e.g., 1000 for 100% increase) and `reduce` set to `false`. This action increases the contract's `_totalSupply` variable. Due to the way `rate` is calculated (`rSupply.div(_totalSupply)`) and how `balanceOf` is determined (`_rBalance[account].div(rate)`), an increase in `_totalSupply` will decrease `rate`, thereby effectively increasing the owner's token balance without requiring new tokens to be transferred to them. This results in token inflation and dilutes the value for other token holders."
+}

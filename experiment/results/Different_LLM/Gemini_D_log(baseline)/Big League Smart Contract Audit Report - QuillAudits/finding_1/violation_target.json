@@ -1,0 +1,29 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Denial of Service via Flawed Liquidity Logic",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must possess enough BGLG tokens to transfer to the contract to surpass its swap threshold.",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "12500000000000000000001"
+    },
+    {
+      "type": "state",
+      "description": "The contract's liquidity fee must be zero, which is the default state.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(0xea01d8d9eacca9996db6bb3377c1fe64308e7328)",
+      "operator": ">",
+      "expected_value": "12500000000000000000000"
+    }
+  },
+  "exploit_hint": "The contract's `_sellAndDistributeAccumulatedTKNFee` function is flawed. When triggered, it attempts to add liquidity via `addLiquidityETH` with a non-zero amount of BNB but zero tokens, because `fees.liquidity` is 0. This call is guaranteed to revert, causing any transaction that triggers it (i.e., a token sale) to fail. The exploit is to 'arm' this Denial of Service condition. First, calculate the token threshold that triggers the function: `(totalSupply * _SWAPBACK_THRESHOLD[0]) / _SWAPBACK_THRESHOLD[1]`. Then, directly transfer an amount of tokens greater than this threshold to the contract address itself. This action will succeed and put the contract in a state where any subsequent attempt by any user to sell the token will fail."
+}

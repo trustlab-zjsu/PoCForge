@@ -1,0 +1,29 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Infinite Allowance Backdoor",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "allowance",
+      "description": "Victim user has granted infinite approval (type(uint256).max) to attacker address",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim user holds token balance that can be transferred",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "victim_contract": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Identify a victim address that has granted infinite approval (allowance = type(uint256).max) to your attacker address. 2. Call transferFrom(victim_address, attacker_address, amount) where amount is less than or equal to victim's balance. 3. The allowance will NOT be decremented due to the condition 'if (allowance[_from][msg.sender] < ~uint256(0))' being false when allowance equals max uint256. 4. Repeat transferFrom calls to drain the victim's entire token balance without the allowance ever being reduced. 5. Verify attacker's token balance increased after each transfer."
+}

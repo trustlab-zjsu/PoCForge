@@ -1,0 +1,23 @@
+{
+  "target_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+  "vulnerability_type": "Missing Required Functionality",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access owner-only functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "blacklist[attacker_address]",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "The contract declares a blacklist mapping but provides no functions to add or remove addresses from it. Additionally, the blacklist is never checked in transfer functions. To demonstrate this logic violation: 1) Verify the blacklist mapping exists in the contract state, 2) Attempt to call non-existent blacklist management functions (addToBlacklist, removeFromBlacklist), 3) Confirm that any address can transfer tokens regardless of blacklist status since the check is never performed. This proves the contract does not meet functional requirements for blacklist functionality."
+}

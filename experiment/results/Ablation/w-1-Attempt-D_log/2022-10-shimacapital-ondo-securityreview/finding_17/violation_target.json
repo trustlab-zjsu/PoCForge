@@ -1,0 +1,35 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC20 Non-conformity",
+  "violation_category": "ECONOMIC",
+  "finding_id": 17,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the target token to initiate transfer",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused == false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted (isBlackListed[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract's transfer function has a fee calculation bug where it subtracts the full _value from sender's balance but only adds (value - fee) to recipient. This creates an inconsistency. Exploit by: 1. Ensure contract is not paused and you're not blacklisted. 2. Call transfer() with a value that triggers fee calculation (basisPointsRate > 0). 3. The fee will be minted to owner but the total supply doesn't increase accordingly, creating potential for balance inflation if owner transfers fees to attacker."
+}

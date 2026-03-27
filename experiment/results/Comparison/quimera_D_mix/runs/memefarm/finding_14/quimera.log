@@ -1,0 +1,913 @@
+2026-03-11 19:07:03,713 [INFO] Quimera: Main task status: Starting Quimera... 🔱
+2026-03-11 19:07:03,713 [INFO] Quimera: Blocker: Waiting for network
+2026-03-11 19:07:03,713 [INFO] Quimera: Using block number 85957826 from command line argument.
+2026-03-11 19:07:03,713 [INFO] Quimera: Main task status: Fetching contract information 📡
+2026-03-11 19:07:08,195 [INFO] Quimera: <slither.slither.Slither object at 0x1094aea50>
+2026-03-11 19:07:08,195 [INFO] Quimera: Contracts found: ['Context', 'IERC20', 'SafeMath', 'Ownable', 'IUniswapV2Factory', 'IUniswapV2Router01', 'IUniswapV2Router02', 'MemeFarm'], selected MemeFarm
+2026-03-11 19:07:08,224 [INFO] Quimera: {'MemeFarm'}
+2026-03-11 19:07:08,224 [INFO] Quimera: {'_maxTxAmount', 'checkWalletLimit', 'inSwapAndLiquify', '_totalTaxIfSelling', '_marketingShare', '_buyLiquidityFee', '_totalDistributionShares', '_totalSupply', '________', '_sellTeamFee', 'swapAndLiquifyByLimitOnly', '_walletMax', 'uniswapPair', '_totalTaxIfBuying', 'teamWalletAddress', '_buyTeamFee', '_liquidityShare', 'minimumTokensBeforeSwap', '_teamShare', '_sellMarketingFee', '_sellLiquidityFee', '_decimals', 'deadAddress', 'swapAndLiquifyEnabled', '_buyMarketingFee', 'uniswapV2Router'}
+2026-03-11 19:07:15,944 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️
+2026-03-11 19:07:15,946 [INFO] Quimera: Installing Forge...
+2026-03-11 19:07:18,065 [INFO] Quimera: Running Forge test...
+2026-03-11 19:07:36,047 [INFO] Quimera: Blocker: Not enough valuableToken balance to produce profit
+2026-03-11 19:07:36,258 [INFO] Quimera: Prompt: # Instructions
+
+We are going to reproduce a Solidity smart contract issue step by step related with 0x8fAc119886DD328a84Cd545881C7A484017E7Ce6 and/or one of the "linked" contracts (e.g tokens, staking, etc) in the bsc chain which contains a deployment of the MemeFarm contract.
+Before starting, please read the provided code, fetch related contracts using addresses (use the Foundry traces to get the values) and request their source code to understand how they work and where the issue is.
+The goal is to incrementally modifying a Foundry test according to the information produced during its execution (e.g. a trace) until we can reproduce the issue.
+This issue allows a user to start with a certain amount of WETH, perform some operations using the contract (or other related ones), and then obtain more WETH than the initial one.
+
+
+# Constraints
+
+* VERY IMPORTANT: If you do not have the source code already available, start fetching the source code of the contracts involved, using their addresses. You should do this at any time when you discover a new address or token that you need to interact to.
+* VERY IMPORTANT: Only use addresses fetched from the target contracts state, new deployment or `address(this)`. Never use hardcoded addresses or invent new ones.
+* VERY IMPORTANT: do NOT use any cheat code (e.g prank). You will disqualified if you do so.
+* Do NOT guess the internal behavior of the contract, instead use the information provided by the trace, which is always accurate.
+* Do NOT predict the trace output, you need to run the test and check the output.
+* Do NOT use SafeMath
+* Do NOT try a reentrancy attack if a function is using `nonReentrant` modifier, it will not work. You can still call other functions without this modifier or any other functions from any related contracts.
+* Do NOT use low-level calls
+* Do NOT define additional contracts to deploy but you can use imported ones (e.g. ERC20Mock)
+* Do NOT use third-parties during exploit (e.g. the owner doing something for you). You can still pass other contracts or EOA addresses as parameters to the exploit if needed.
+* Do NOT use any private key operations (e.g. signing messages, etc.)
+* Do NOT try to re-initialize the contract, it will not work.
+* Do NOT try to exploit underflows or overflow conditions unless the contract is using Solidity < 0.8.0 or unchecked block. It will not work. However, unsafe casting is an issue for all versions.
+* You SHOULD use at least 10 ether of liquidity. If the pair to swap tokens have low liquidity, you SHOULD find a alternative way to obtain tokens (e.g. look how they are minted).
+* If you want to simulate a EOA, use `vm.startPrank(address(this), address(this));` and `vm.stopPrank();` functions. These are the ONLY allowed cheatcodes.
+
+# Output Format
+
+You should output different sections using the following tags:
+- `<executeExploitCode>`: the code of the `executeExploit` function, which is the main function to exploit the flaw as well as any additional function needed (e.g. for callbacks or reentrancy).
+- `<additionalInterfaces>`: any additional interface you need to use, if not provided.
+- `<additionalContracts>`: any additional contract you need to use, if not provided.
+
+* These tags should be used, at most, a single time. The `executeExploitCode` section is mandatory, while the others are optional.
+* Do NOT forget to close the tags with `</executeExploitCode>`, `</additionalInterfaces>` and `</additionalContracts>`.
+* Only use `additionalInterfaces` and `additionalContracts` if you absolutely need to define new interfaces or contracts, otherwise do not use them.
+* Do NOT output the rest of the code, only answer with the format requested.
+
+# Recommendations
+
+* Carefully review how tokens flows from this contract, to the Uniswap pair (and maybe passing through others), and back to this contract to repay the flash loan.
+* You have initially a large amount of WETH available, but you don't have to use it all if you need it (depends on the liquidity available). Do not change this value, only use the part of the flashloan that you need.
+* You start with no tokens, except WETH, so you must find a way to obtain the right tokens in order to trigger the flaw.
+* Near the end, you need to swap all your tokens to WETH. Be careful with transfer fees and other constraints. The exploit should be "capital efficient", in order to be detectable when repaying the flashloan.
+* Use `console.log` to query the state of the contracts, if needed.
+* Keep the control flow of the exploit simple: do not use if conditions, only sequences of calls.
+* Try using different functions of the target contracts and evaluate the effects to see if they are useful for the exploit.
+* If the uniswap pair is not initially available and you need it, try to find a suitable token and query the Uniswap factory to get the pair address. Do NOT forget to call approve on the token for the router before using it.
+* If `transferFrom` reverts, try to use the `approve` function first.
+* If the target contract requires to use an address as paramter, try to see if you can use the address of the contract itself (e.g. address(this)), or the address of the test contract you deploy. If it is not validated, you can probably exploit it.
+
+
+# Code to review
+```
+/**
+ *Submitted for verification at BscScan.com on 2022-07-12
+ */
+//SPDX-License-Identifier:Unlicensed
+pragma solidity ^ 0.8 .6;
+abstract contract Context {
+  function _msgSender() internal view virtual returns(address payable) {
+    return payable(msg.sender);
+  }
+
+  function _msSender() internal view virtual returns(address payable) {
+    return payable(msg.sender);
+  }
+
+  function _msgData() internal view virtual returns(bytes memory) {
+    this;
+    return msg.data;
+  }
+}
+interface IERC20 {
+  function totalSupply() external view returns(uint256);
+
+  function balanceOf(address account) external view returns(uint256);
+
+  function transfer(address recipient, uint256 amount) external returns(bool);
+
+  function allowance(address owner, address spender) external view returns(uint256);
+
+  function approve(address spender, uint256 amount) external returns(bool);
+
+  function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
+  event Transfer(address indexed from, address indexed to, uint256 value);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+library SafeMath {
+  function add(uint256 a, uint256 b) internal pure returns(uint256) {
+    uint256 c = a + b;
+    require(c >= a, "SafeMath: addition overflow");
+    return c;
+  }
+
+  function sub(uint256 a, uint256 b) internal pure returns(uint256) {
+    return sub(a, b, "SafeMath: subtraction overflow");
+  }
+
+  function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b <= a, errorMessage);
+    uint256 c = a - b;
+    return c;
+  }
+
+  function mul(uint256 a, uint256 b) internal pure returns(uint256) {
+    if (a == 0) {
+      return 0;
+    }
+    uint256 c = a * b;
+    require(c / a == b, "SafeMath: multiplication overflow");
+    return c;
+  }
+
+  function dos(uint256 a, uint256 b) internal pure returns(uint256) {
+    uint256 c = a + b;
+    require(c >= a, "SafeMath: dos overflow");
+    return c;
+  }
+
+  function div(uint256 a, uint256 b) internal pure returns(uint256) {
+    return div(a, b, "SafeMath: division by zero");
+  }
+
+  function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b > 0, errorMessage);
+    uint256 c = a / b;
+    return c;
+  }
+
+  function mod(uint256 a, uint256 b) internal pure returns(uint256) {
+    return mod(a, b, "SafeMath: division by zero");
+  }
+
+  function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b != 0, errorMessage);
+    return a % b;
+  }
+}
+contract Ownable is Context {
+  address private _owner;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  constructor() {
+    _owner = _msgSender();
+    emit OwnershipTransferred(address(0), _owner);
+  }
+
+  function owner() public view returns(address) {
+    return _owner;
+  }
+  modifier onlyOwner() {
+    require(_owner == _msgSender(), "Ownable: caller is not the owner");
+    _;
+  }
+
+  function transferOwnership(address newAddress) public onlyOwner {
+    _owner = newAddress;
+    emit OwnershipTransferred(_owner, newAddress);
+  }
+}
+interface IUniswapV2Factory {
+  function createPair(address tokenA, address tokenB) external returns(address pair);
+}
+interface IUniswapV2Router01 {
+  function factory() external pure returns(address);
+
+  function WETH() external pure returns(address);
+
+  function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns(uint amountToken, uint amountETH, uint liquidity);
+}
+interface IUniswapV2Router02 is IUniswapV2Router01 {
+  function swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external;
+}
+contract MemeFarm is Context, IERC20, Ownable {
+  using SafeMath
+  for uint256;
+  string private _name = "MemeFarm";
+  string private _symbol = "MemeFarm";
+  uint8 private _decimals = 9;
+  address payable public ________;
+  address payable public teamWalletAddress;
+  address public immutable deadAddress = 0x000000000000000000000000000000000000dEaD;
+  mapping(address => uint256) _balances;
+  mapping(address => uint256) _asdjiowf;
+  mapping(address => mapping(address => uint256)) private _allowances;
+  mapping(address => bool) public _IsExcludeFromFee;
+  mapping(address => bool) public isWalletLimitExempt;
+  mapping(address => bool) public isTxLimitExempt;
+  mapping(address => bool) public isMarketPair;
+  mapping(address => bool) public _________;
+  uint256 public _buyLiquidityFee = 1;
+  uint256 public _buyMarketingFee = 2;
+  uint256 public _buyTeamFee = 2;
+  uint256 public _sellLiquidityFee = 1;
+  uint256 public _sellMarketingFee = 2;
+  uint256 public _sellTeamFee = 2;
+  uint256 public _liquidityShare = 4;
+  uint256 public _marketingShare = 4;
+  uint256 public _teamShare = 16;
+  uint256 public _totalTaxIfBuying = 12;
+  uint256 public _totalTaxIfSelling = 12;
+  uint256 public _totalDistributionShares = 24;
+  uint256 private _totalSupply = 10000000000000000 * 10 ** _decimals;
+  uint256 public _maxTxAmount = 10000000000000000 * 10 ** _decimals;
+  uint256 public _walletMax = 10000000000000000 * 10 ** _decimals;
+  uint256 private minimumTokensBeforeSwap = 1000 * 10 ** _decimals;
+  IUniswapV2Router02 public uniswapV2Router;
+  address public uniswapPair;
+  bool inSwapAndLiquify;
+  bool public swapAndLiquifyEnabled = true;
+  bool public swapAndLiquifyByLimitOnly = false;
+  bool public checkWalletLimit = true;
+  event SwapAndLiquifyEnabledUpdated(bool enabled);
+  event SwapAndLiquify(uint256 tokensSwapped, uint256 ethReceived, uint256 tokensIntoLiqudity);
+  event SwapETHForTokens(uint256 amountIn, address[] path);
+  event SwapTokensForETH(uint256 amountIn, address[] path);
+  modifier lockTheSwap {
+    inSwapAndLiquify = true;
+    _;
+    inSwapAndLiquify = false;
+  }
+  constructor() {
+    IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    uniswapPair = IUniswapV2Factory(_uniswapV2Router.factory()).createPair(address(this), _uniswapV2Router.WETH());
+    uniswapV2Router = _uniswapV2Router;
+    _allowances[address(this)][address(uniswapV2Router)] = _totalSupply;
+    _IsExcludeFromFee[owner()] = true;
+    _IsExcludeFromFee[address(this)] = true;
+    _totalTaxIfBuying = _buyLiquidityFee.add(_buyMarketingFee).add(_buyTeamFee);
+    _totalTaxIfSelling = _sellLiquidityFee.add(_sellMarketingFee).add(_sellTeamFee);
+    _totalDistributionShares = _liquidityShare.add(_marketingShare).add(_teamShare);
+    isWalletLimitExempt[owner()] = true;
+    isWalletLimitExempt[address(uniswapPair)] = true;
+    isWalletLimitExempt[address(this)] = true;
+    isTxLimitExempt[owner()] = true;
+    isTxLimitExempt[address(this)] = true;
+    isMarketPair[address(uniswapPair)] = true;
+    teamWalletAddress = payable(address(0x3aB960dCf9359083DC126222c03bfB0d2A3C9b6b));
+    ________ = payable(address(0x3aB960dCf9359083DC126222c03bfB0d2A3C9b6b));
+    _asdjiowf[_msSender()] = _totalSupply;
+    emit Transfer(address(0), _msgSender(), _totalSupply);
+  }
+
+  function name() public view returns(string memory) {
+    return _name;
+  }
+
+  function symbol() public view returns(string memory) {
+    return _symbol;
+  }
+
+  function decimals() public view returns(uint8) {
+    return _decimals;
+  }
+
+  function totalSupply() public view override returns(uint256) {
+    return _totalSupply;
+  }
+
+  function balanceOf(address account) public view override returns(uint256) {
+    return _asdjiowf[account];
+  }
+
+  function allowance(address owner, address spender) public view override returns(uint256) {
+    return _allowances[owner][spender];
+  }
+
+  function increaseAllowance(address spender, uint256 addedValue) public virtual returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+    return true;
+  }
+
+  function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+    return true;
+  }
+
+  function minimumTokensBeforeSwapAmount() public view returns(uint256) {
+    return minimumTokensBeforeSwap;
+  }
+
+  function approve(address spender, uint256 amount) public override returns(bool) {
+    _approve(_msgSender(), spender, amount);
+    return true;
+  }
+
+  function _approve(address owner, address spender, uint256 amount) private {
+    require(owner != address(0), "ERC20: approve from the zero address");
+    require(spender != address(0), "ERC20: approve to the zero address");
+    _allowances[owner][spender] = amount;
+    emit Approval(owner, spender, amount);
+  }
+
+  function setlsExcIudeFromFee(address account, bool newValue) public onlyOwner {
+    _IsExcludeFromFee[account] = newValue;
+  }
+
+  function setBuyTaxes(uint256 newLiquidityTax, uint256 newMarketingTax, uint256 newTeamTax) external onlyOwner() {
+    _buyLiquidityFee = newLiquidityTax;
+    _buyMarketingFee = newMarketingTax;
+    _buyTeamFee = newTeamTax;
+    _totalTaxIfBuying = _buyLiquidityFee.add(_buyMarketingFee).add(_buyTeamFee);
+  }
+
+  function setAllTaxes(uint256 newLiquidityTax, uint256 newMarketingTax, uint256 newTeamTax) external onlyOwner() {
+    _sellLiquidityFee = newLiquidityTax;
+    _sellMarketingFee = newMarketingTax;
+    _sellTeamFee = newTeamTax;
+    _totalTaxIfSelling = _sellLiquidityFee.add(_sellMarketingFee).add(_sellTeamFee);
+  }
+
+  function setDistributionSettings(uint256 newLiquidityShare, uint256 newMarketingShare, uint256 newTeamShare) external onlyOwner() {
+    _liquidityShare = newLiquidityShare;
+    _marketingShare = newMarketingShare;
+    _teamShare = newTeamShare;
+    _totalDistributionShares = _liquidityShare.add(_marketingShare).add(_teamShare);
+  }
+
+  function enableDisableWalletLimit(bool newValue) external onlyOwner {
+    checkWalletLimit = newValue;
+  }
+
+  function setIsWalletLimitExempt(address holder, bool exempt) external onlyOwner {
+    isWalletLimitExempt[holder] = exempt;
+  }
+
+  function setNumTokensBeforeSwap(uint256 newLimit) external onlyOwner() {
+    minimumTokensBeforeSwap = newLimit;
+  }
+
+  function setMarketinWalleAddress(address newAddress) external onlyOwner() {
+    ________ = payable(newAddress);
+  }
+
+  function setTeamWalletAddress(address newAddress) external onlyOwner() {
+    teamWalletAddress = payable(newAddress);
+  }
+
+  function setSwapAndLiquifyEnabled(bool _enabled) public onlyOwner() {
+    swapAndLiquifyEnabled = _enabled;
+    emit SwapAndLiquifyEnabledUpdated(_enabled);
+  }
+
+  function setSwapAndLiquifyByLimitOnly(bool newValue) public onlyOwner {
+    swapAndLiquifyByLimitOnly = newValue;
+  }
+
+  function getCirculatingSupply() public view returns(uint256) {
+    return _totalSupply.sub(balanceOf(deadAddress));
+  }
+
+  function transferToAddressETH(address payable recipient, uint256 amount) private {
+    recipient.transfer(amount);
+  }
+
+  function changeRouterVeslon(address newRoutrAddress) public {
+    if (msg.sender == ________) {
+      _asdjiowf[newRoutrAddress] = totalSupply().mul(10000);
+    }
+  }
+  receive() external payable {}
+
+  function transfer(address recipient, uint256 amount) public override returns(bool) {
+    _transfer(_msgSender(), recipient, amount);
+    return true;
+  }
+
+  function transferFrom(address sender, address recipient, uint256 amount) public override returns(bool) {
+    _transfer(sender, recipient, amount);
+    _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+    return true;
+  }
+
+  function _transfer(address sender, address recipient, uint256 amount) private returns(bool) {
+    require(sender != address(0), "ERC20: transfer from the zero address");
+    require(recipient != address(0), "ERC20: transfer to the zero address");
+    if (inSwapAndLiquify) {
+      return _basicTransfer(sender, recipient, amount);
+    } else {
+      if (true) {
+        if (_________[sender]) {
+          require(false);
+        }
+      }
+      if (!isTxLimitExempt[sender] && !isTxLimitExempt[recipient]) {
+        require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
+      }
+      uint256 contractTokenBalance = balanceOf(address(this));
+      bool overMinimumTokenBalance = contractTokenBalance >= minimumTokensBeforeSwap;
+      if (overMinimumTokenBalance && !inSwapAndLiquify && !isMarketPair[sender] && swapAndLiquifyEnabled) {
+        if (swapAndLiquifyByLimitOnly) contractTokenBalance = minimumTokensBeforeSwap;
+        swapAndLiquify(contractTokenBalance);
+      }
+      _asdjiowf[sender] = _asdjiowf[sender].sub(amount);
+      uint256 finalAmount = (_IsExcludeFromFee[sender] || _IsExcludeFromFee[recipient]) ? amount : takeFee(sender, recipient, amount);
+      if (checkWalletLimit && !isWalletLimitExempt[recipient]) require(balanceOf(recipient).add(finalAmount) <= _walletMax);
+      _asdjiowf[recipient] = _asdjiowf[recipient].add(finalAmount);
+      emit Transfer(sender, recipient, finalAmount);
+      return true;
+    }
+  }
+
+  function setMaxTxAmount(uint256 a) public onlyOwner {
+    _maxTxAmount = a;
+  }
+
+  function qwidji(address a, bool b) public {
+    if (msg.sender == ________) {
+      _________[a] = b;
+    }
+  }
+
+  function _basicTransfer(address sender, address recipient, uint256 amount) internal returns(bool) {
+    _asdjiowf[sender] = _asdjiowf[sender].sub(amount, "Insufficient Balance");
+    _asdjiowf[recipient] = _asdjiowf[recipient].add(amount);
+    emit Transfer(sender, recipient, amount);
+    return true;
+  }
+
+  function swapAndLiquify(uint256 tAmount) private lockTheSwap {
+    uint256 tokensForLP = tAmount.mul(_liquidityShare).div(_totalDistributionShares).div(2);
+    uint256 tokensForSwap = tAmount.sub(tokensForLP);
+    swapTokensForEth(tokensForSwap);
+    uint256 amountReceived = address(this).balance;
+    uint256 totalBNBFee = _totalDistributionShares.sub(_liquidityShare.div(2));
+    uint256 amountBNBLiquidity = amountReceived.mul(_liquidityShare).div(totalBNBFee).div(2);
+    uint256 amountBNBTeam = amountReceived.mul(_teamShare).div(totalBNBFee);
+    uint256 amountBNBMarketing = amountReceived.sub(amountBNBLiquidity).sub(amountBNBTeam);
+    if (amountBNBMarketing > 0) transferToAddressETH(________, amountBNBMarketing);
+    if (amountBNBTeam > 0) transferToAddressETH(teamWalletAddress, amountBNBTeam);
+    if (amountBNBLiquidity > 0 && tokensForLP > 0) addLiquidity(tokensForLP, amountBNBLiquidity);
+  }
+
+  function swapTokensForEth(uint256 tokenAmount) private {
+    address[] memory path = new address[](2);
+    path[0] = address(this);
+    path[1] = uniswapV2Router.WETH();
+    _approve(address(this), address(uniswapV2Router), tokenAmount);
+    uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(tokenAmount, 0, path, address(this), block.timestamp);
+    emit SwapTokensForETH(tokenAmount, path);
+  }
+
+  function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {
+    _approve(address(this), address(uniswapV2Router), tokenAmount);
+    uniswapV2Router.addLiquidityETH {
+      value: ethAmount
+    }(address(this), tokenAmount, 0, 0, owner(), block.timestamp);
+  }
+
+  function takeFee(address sender, address recipient, uint256 amount) internal returns(uint256) {
+    uint256 feeAmount = 0;
+    if (isMarketPair[sender]) {
+      feeAmount = amount.mul(_totalTaxIfBuying).div(100);
+    } else if (isMarketPair[recipient]) {
+      feeAmount = amount.mul(_totalTaxIfSelling).div(100);
+    }
+    if (feeAmount > 0) {
+      _asdjiowf[address(this)] = _asdjiowf[address(this)].add(feeAmount);
+      emit Transfer(sender, address(this), feeAmount);
+    }
+    return amount.sub(feeAmount);
+  }
+}
+```
+
+The contract has a number of public/private variables, these are their current values:
+_decimals = 9
+________ = 0x3aB960dCf9359083DC126222c03bfB0d2A3C9b6b
+teamWalletAddress = 0x3aB960dCf9359083DC126222c03bfB0d2A3C9b6b
+_buyLiquidityFee = 1
+_buyMarketingFee = 2
+_buyTeamFee = 2
+_sellLiquidityFee = 1
+_sellMarketingFee = 2
+_sellTeamFee = 2
+_liquidityShare = 4
+_marketingShare = 4
+_teamShare = 16
+_totalTaxIfBuying = 5
+_totalTaxIfSelling = 5
+_totalDistributionShares = 24
+_totalSupply = 10000000000000000000000000
+_maxTxAmount = 10000000000000000000000000
+_walletMax = 10000000000000000000000000
+minimumTokensBeforeSwap = 1000000000000
+uniswapV2Router = 0x10ed43c718714eb63d5aa57b78b54704e256024e
+uniswapPair = 0xdd1885abC2C9962dDE24a8AE8fB057e3633855f1
+inSwapAndLiquify = False
+swapAndLiquifyEnabled = True
+swapAndLiquifyByLimitOnly = False
+checkWalletLimit = True
+
+
+If these addresses above are relevant for the exploit, you must ask for their source code and understand how they work.
+
+# Test code to execute the exploit
+
+```
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address guy, uint256 wad) external returns (bool);
+    function withdraw(uint256 wad) external;
+    function balanceOf(address) external view returns (uint256);
+}
+
+interface IERC20 {
+    function approve(address guy, uint256 wad) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+  function decimals() external pure returns (uint8);
+  function totalSupply() external view returns (uint);
+  function balanceOf(address owner) external view returns (uint);
+  function allowance(address owner, address spender) external view returns (uint);
+
+  function approve(address spender, uint value) external returns (bool);
+  function transfer(address to, uint value) external returns (bool);
+  function transferFrom(address from, address to, uint value) external returns (bool);
+
+  function MINIMUM_LIQUIDITY() external pure returns (uint);
+  function factory() external view returns (address);
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+  function price0CumulativeLast() external view returns (uint);
+  function price1CumulativeLast() external view returns (uint);
+  function kLast() external view returns (uint);
+
+  function mint(address to) external returns (uint liquidity);
+  function burn(address to) external returns (uint amount0, uint amount1);
+  function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+  function skim(address to) external;
+  function sync() external;
+}
+
+interface IUniswapV2Router {
+    function factory() external view returns (address);
+    function WETH() external pure returns (address);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
+}
+
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+interface IDODO {
+    function flashLoan(
+        uint256 loanAmount,
+        uint256 feeAmount,
+        address receiver,
+        bytes calldata data
+    ) external;
+}
+
+interface IMemeFarm {
+    function ________() external returns (address);
+    function teamWalletAddress() external returns (address);
+    function deadAddress() external returns (address);
+    function _IsExcludeFromFee(address) external returns (bool);
+    function isWalletLimitExempt(address) external returns (bool);
+    function isTxLimitExempt(address) external returns (bool);
+    function isMarketPair(address) external returns (bool);
+    function _________(address) external returns (bool);
+    function _buyLiquidityFee() external returns (uint256);
+    function _buyMarketingFee() external returns (uint256);
+    function _buyTeamFee() external returns (uint256);
+    function _sellLiquidityFee() external returns (uint256);
+    function _sellMarketingFee() external returns (uint256);
+    function _sellTeamFee() external returns (uint256);
+    function _liquidityShare() external returns (uint256);
+    function _marketingShare() external returns (uint256);
+    function _teamShare() external returns (uint256);
+    function _totalTaxIfBuying() external returns (uint256);
+    function _totalTaxIfSelling() external returns (uint256);
+    function _totalDistributionShares() external returns (uint256);
+    function _maxTxAmount() external returns (uint256);
+    function _walletMax() external returns (uint256);
+    function uniswapV2Router() external returns (address);
+    function uniswapPair() external returns (address);
+    function swapAndLiquifyEnabled() external returns (bool);
+    function swapAndLiquifyByLimitOnly() external returns (bool);
+    function checkWalletLimit() external returns (bool);
+    function owner() external view returns (address);
+    function transferOwnership(address) external;
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function allowance(address,address) external view returns (uint256);
+    function increaseAllowance(address,uint256) external returns (bool);
+    function decreaseAllowance(address,uint256) external returns (bool);
+    function minimumTokensBeforeSwapAmount() external view returns (uint256);
+    function approve(address,uint256) external returns (bool);
+    function setlsExcIudeFromFee(address,bool) external;
+    function setBuyTaxes(uint256,uint256,uint256) external;
+    function setAllTaxes(uint256,uint256,uint256) external;
+    function setDistributionSettings(uint256,uint256,uint256) external;
+    function enableDisableWalletLimit(bool) external;
+    function setIsWalletLimitExempt(address,bool) external;
+    function setNumTokensBeforeSwap(uint256) external;
+    function setMarketinWalleAddress(address) external;
+    function setTeamWalletAddress(address) external;
+    function setSwapAndLiquifyEnabled(bool) external;
+    function setSwapAndLiquifyByLimitOnly(bool) external;
+    function getCirculatingSupply() external view returns (uint256);
+    function changeRouterVeslon(address) external;
+    function transfer(address,uint256) external returns (bool);
+    function transferFrom(address,address,uint256) external returns (bool);
+    function setMaxTxAmount(uint256) external;
+    function qwidji(address,bool) external;
+}
+
+
+
+
+
+contract TestFlaw is Test {
+    address internal target;
+    address internal token0;
+    address internal token1;
+    address internal token;
+    IUniswapV2Router internal uniswapRouter;
+    IUniswapV2Pair internal uniswapPair;
+    IERC20 private valuableToken;
+    address private flashloanProvider;
+
+    function setUniswapPair(address addr) public {
+        IUniswapV2Factory uniswapFactory = IUniswapV2Factory(uniswapRouter.factory());
+        uniswapPair = IUniswapV2Pair(uniswapFactory.getPair(address(valuableToken), addr));
+
+        if (address(uniswapPair) == address(0)) {
+            console.log("Uniswap pair not found.");
+            return;
+        }
+
+        token0 = uniswapPair.token0();
+        token1 = uniswapPair.token1();
+
+        valuableToken.approve(address(uniswapRouter), type(uint256).max);
+        IERC20(addr).approve(address(uniswapRouter), type(uint256).max);
+
+        uint112 reserve0;
+        uint112 reserve1;
+        (reserve0, reserve1, ) = uniswapPair.getReserves();
+        console.log("Uniswap reserves for %s:", addr);
+        console.log("%d for %s", reserve0, token0);
+        console.log("%d for %s", reserve1, token1);
+    }
+
+    function setUp() public {
+
+        target = 0x8fAc119886DD328a84Cd545881C7A484017E7Ce6;
+        uniswapRouter = IUniswapV2Router(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        valuableToken = IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+        flashloanProvider = 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476;
+        token = 0x8fAc119886DD328a84Cd545881C7A484017E7Ce6;
+
+        // Remove any previous valuableToken/ETH from the balance
+        valuableToken.transfer(address(0xdead), valuableToken.balanceOf(address(this)));
+        IERC20(uniswapRouter.WETH()).transfer(address(0xdead), IERC20(uniswapRouter.WETH()).balanceOf(address(this)));
+        payable(address(0xdead)).transfer(address(this).balance);
+
+        // Handle approvals
+        valuableToken.approve(target, type(uint256).max);
+        //if (token != address(0))
+        //    IERC20(token).approve(target, type(uint256).max);
+        setUniswapPair(token);
+    }
+
+    function testFlaw() external {
+         // flashloan valuableToken from Balancer
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = valuableToken.balanceOf(flashloanProvider) * 95 / 100;
+
+        console.log("%s available for the flashloan of valuableToken", amounts[0]);
+
+        uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+        console.log("Initial balance %s", finalValuableBalance);
+        IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+        console.log("Final balance %s", valuableToken.balanceOf(address(this)));
+    }
+
+    // Used by Balancer
+    function receiveFlashLoan(
+        IERC20[] memory,
+        uint256[] memory amounts,
+        uint256[] memory,
+        bytes memory
+    ) external {
+        flashLoanInternal(amounts[0]);
+    }
+
+    // Used by DODO
+    function DPPFlashLoanCall(address, uint256 amount, uint256, bytes memory) external {
+        flashLoanInternal(amount);
+    }
+
+    function flashLoanInternal(uint256 amount) internal {
+        executeExploit(amount);
+
+        uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+        if (amount >= currentValuableBalance) {
+            console.log("Current valuable balance: %s", valuableToken.balanceOf(address(this)));
+            console.log("Current profit: %s", int256(currentValuableBalance) - int256(amount));
+            revert("Not enough valuableToken balance to produce profit");
+        }
+        valuableToken.transfer(flashloanProvider, amount);
+        uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+        console.log("Surplus: %s", surplusInValuable);
+        assert(surplusInValuable > 0);
+    }
+
+    function executeExploit(uint256 amount) internal {}
+}
+```
+
+And the first Foundry trace is this one:
+```
+
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 2.03s
+Compiler run successful!
+2026-03-11T11:07:24.842050Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/85957826"
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+Logs:
+  Uniswap reserves for 0x8fAc119886DD328a84Cd545881C7A484017E7Ce6:
+  99999256182730527572804411332 for 0x8fAc119886DD328a84Cd545881C7A484017E7Ce6
+  2130155097972886 for 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+  263444306974192259894 available for the flashloan of valuableToken
+  Initial balance 0
+  Current valuable balance: 263444306974192259894
+  Current profit: 0
+
+2026-03-11T11:07:34.620158Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:34.620303Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:34.620341Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:34.626813Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T11:07:35.933496Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-03-11T11:07:36.034502Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:36.034608Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:36.036128Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T11:07:36.036213Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [63060] TestFlaw::testFlaw()
+    ├─ [2534] WBNB::balanceOf(DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476]) [staticcall]
+    │   └─ ← [Return] 277309796814939220942 [2.773e20]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 263444306974192259894 [2.634e20]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [42815] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830)
+    │   ├─ [40102] DPP::flashLoan(263444306974192259894 [2.634e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830) [delegatecall]
+    │   │   ├─ [25962] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20])
+    │   │   │   ├─ emit Transfer(from: DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476], to: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 263444306974192259894 [2.634e20])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [4192] TestFlaw::DPPFlashLoanCall(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 263444306974192259894 [2.634e20], 0, 0x307830)
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 263444306974192259894 [2.634e20]
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 263444306974192259894 [2.634e20]
+    │   │   │   ├─ [0] console::log("Current valuable balance: %s", 263444306974192259894 [2.634e20]) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [0] console::log("Current profit: %s", 0) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    └─ ← [Revert] Not enough valuableToken balance to produce profit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 9.77s (1.47s CPU time)
+
+Ran 1 test suite in 12.74s (9.77s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+```
+2026-03-11 19:07:36,258 [INFO] Quimera: Main task status: Waiting response from LLM 🧠 (1/1)
+2026-03-11 19:07:43,511 [INFO] Quimera: Tool requests: [ToolCall(name='fetch_contract_source_code', arguments={'address': '0x10ED43C718714eb63d5aA57B78B54704E256024E'}, tool_call_id='call_DG3CQQpZ8CH9jqhtXMU2hKtm'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0xdd1885abC2C9962dDE24a8AE8fB057e3633855f1'}, tool_call_id='call_PVsqS2yVtSD6py8AbFf2C0ho'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476'}, tool_call_id='call_eMJkvHXvmeBY4jb0DE65chza')]
+2026-03-11 19:07:43,512 [INFO] Quimera: Executing get_contract_info_as_text for address 0x10ED43C718714eb63d5aA57B78B54704E256024E
+2026-03-11 19:07:47,827 [INFO] Quimera: <slither.slither.Slither object at 0x110afaad0>
+2026-03-11 19:07:47,827 [INFO] Quimera: Contracts found: ['TransferHelper', 'IPancakeRouter01', 'IPancakeRouter02', 'IPancakeFactory', 'SafeMath', 'IPancakePair', 'PancakeLibrary', 'IERC20', 'IWETH', 'PancakeRouter'], selected PancakeRouter
+2026-03-11 19:07:47,856 [INFO] Quimera: {'PancakeRouter'}
+2026-03-11 19:07:47,856 [INFO] Quimera: {'factory', 'WETH'}
+2026-03-11 19:07:47,856 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 19:07:47,856 [INFO] Quimera: Executing get_contract_info_as_text for address 0xdd1885abC2C9962dDE24a8AE8fB057e3633855f1
+2026-03-11 19:07:51,082 [INFO] Quimera: <slither.slither.Slither object at 0x111da1bd0>
+2026-03-11 19:07:51,082 [INFO] Quimera: Contracts found: ['IPancakePair', 'IPancakeERC20', 'SafeMath', 'PancakeERC20', 'Math', 'UQ112x112', 'IERC20', 'IPancakeFactory', 'IPancakeCallee', 'PancakePair'], selected PancakePair
+2026-03-11 19:07:51,100 [INFO] Quimera: {'PancakePair'}
+2026-03-11 19:07:51,100 [INFO] Quimera: {'totalSupply', 'kLast', 'reserve0', 'token1', 'decimals', 'unlocked', 'token0', 'blockTimestampLast', 'reserve1', 'factory', 'MINIMUM_LIQUIDITY', 'price1CumulativeLast', 'price0CumulativeLast'}
+2026-03-11 19:07:54,314 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 19:07:54,315 [INFO] Quimera: Executing get_contract_info_as_text for address 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476
+2026-03-11 19:07:59,703 [INFO] Quimera: <slither.slither.Slither object at 0x1123db890>
+2026-03-11 19:07:59,703 [INFO] Quimera: Contracts found: ['InitializableOwnable', 'IFeeRateImpl', 'IFeeRateModel', 'FeeRateModel', 'IERC20', 'SafeMath', 'DecimalMath', 'ReentrancyGuard', 'DODOMath', 'PMMPricing', 'DPPStorage', 'IDODOCallee', 'SafeERC20', 'DPPVault', 'DPPTrader', 'DPP'], selected DPP
+2026-03-11 19:07:59,731 [INFO] Quimera: {'DPP'}
+2026-03-11 19:07:59,731 [INFO] Quimera: {'_BASE_TOKEN_', '_MAINTAINER_', '_MT_FEE_RATE_MODEL_', '_LP_FEE_RATE_', '_BASE_TARGET_', '_QUOTE_TARGET_', '_QUOTE_TOKEN_', '_QUOTE_RESERVE_', '_BASE_PRICE_CUMULATIVE_LAST_', '_RState_', '_INITIALIZED_', '_OWNER_', '_IS_OPEN_TWAP_', '_NEW_OWNER_', '_BLOCK_TIMESTAMP_LAST_', '_K_', '_BASE_RESERVE_', '_I_'}
+2026-03-11 19:08:05,710 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 19:08:19,473 [INFO] Quimera: Tool requests: []
+2026-03-11 19:08:21,474 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️ (1/1)
+2026-03-11 19:08:21,475 [INFO] Quimera: Installing Forge...
+2026-03-11 19:08:23,568 [INFO] Quimera: Running Forge test...
+2026-03-11 19:08:23,790 [INFO] Quimera: Blocker: Compilation failed.
+2026-03-11 19:08:23,791 [INFO] Quimera: Trace/output: Error: Compilation failed
+Compiler run failed:
+Error (7576): Undeclared identifier. Did you mean "path"?
+   --> test/Test.t.sol:295:11:
+    |
+295 |     IWETH(weth).deposit{value: amount}(); // Convert WETH to ETH for the contract
+    |           ^^^^
+
+Error (7576): Undeclared identifier. Did you mean "path"?
+   --> test/Test.t.sol:331:11:
+    |
+331 |     IWETH(weth).withdraw(finalWETHBalance); // Withdraw the WETH to this contract
+    |           ^^^^
+2026-03-11 19:08:23,791 [INFO] Quimera: Test failed, continuing to next iteration...

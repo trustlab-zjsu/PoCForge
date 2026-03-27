@@ -1,0 +1,41 @@
+{
+  "target_address": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+  "vulnerability_type": "Precision Loss in Fee Distribution",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fees (balanceOf(address(this)) >= swapTokensAtAmount)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some Honey tokens to trigger swapAndLiquify",
+      "token_address": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+      "min_amount": "10000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in swapAndLiquify() where denominator calculation can cause precision loss. Set taxes such that (temp.liquidity + temp.marketing + temp.Stake + temp.Dapp) * 2 results in a small denominator (e.g., 2). Then trigger fee accumulation and swapAndLiquify. The division 'deltaBalance / (denominator - temp.liquidity)' will have precision loss, causing unitBalance to be zero, making bnbToAddLiquidityWith, marketingAmt, StakeAmt, and DappAmt all zero. This leaves all BNB in the contract, which can be extracted via rescueBNB() if you're the owner, or through other means if you can manipulate the contract state."
+}

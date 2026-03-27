@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "vulnerability_type": "Reordering Attack",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient balance of the input token for the swap",
+      "token_address": "<input_token_address>",
+      "min_amount": "<amount_in>"
+    },
+    {
+      "type": "state",
+      "description": "A Uniswap V2 pair must exist for the token swap path",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "<output_token_address>",
+      "victim_contract": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Perform a reordering attack by front-running a victim's swap transaction. First, observe a pending swap transaction (e.g., swapExactTokensForTokens) with a large amount. Then, submit your own swap transaction with higher gas price to execute first, manipulating the pool reserves. This causes the victim's swap to execute at a worse price, while your subsequent swap (or arbitrage) profits from the price discrepancy. The attack exploits the lack of atomicity in Uniswap V2 swaps and the public mempool."
+}

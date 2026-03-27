@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Unsafe Ether Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call Sweep() or setMarketingAddress()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have BNB balance to transfer",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Deploy a malicious contract with a fallback/receive function that consumes more than 2300 gas. 2. As owner, call setMarketingAddress() to set the malicious contract as the marketing address, OR call Sweep() with the malicious contract as owner. 3. Trigger a transfer by calling swapTokens() (which transfers to marketingAddress) or Sweep(). 4. The .transfer() call will fail due to 2300 gas limit, causing the BNB to remain locked in the contract instead of reaching the intended recipient. This demonstrates the vulnerability where legitimate transfers can fail, potentially locking funds."
+}

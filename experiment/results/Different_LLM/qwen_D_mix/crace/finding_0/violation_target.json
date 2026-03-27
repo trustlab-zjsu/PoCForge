@@ -1,0 +1,29 @@
+{
+  "target_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+  "vulnerability_type": "Owner Privilege Abuse - Excessive Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or an authorized address to call setFees function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker or victims must hold CRACE tokens that will be subject to excessive fees during transfers",
+      "token_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "min_amount": "1000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner/authorized) calls setFees() with extremely high fee values (e.g., liquidityFee=2500, buybackFee=2500, reflectionFee=2500, marketingFee=2500, feeDenominator=10000) to set total fees to 100%. 2. Victims transfer CRACE tokens (or attacker transfers their own tokens to pair). 3. takeFee() function deducts excessive fees, accumulating tokens in contract balance. 4. swapBack() converts accumulated tokens to BNB. 5. Attacker extracts BNB through manualSend() function or receives marketing fees directly to marketingFeeReceiver address. 6. Attacker's BNB balance increases from the extracted fees."
+}

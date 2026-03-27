@@ -1,0 +1,29 @@
+{
+  "target_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated token balance from fees",
+      "token_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, set _percentageOfLiquidityForMarketing to a value greater than 100 (e.g., 1000) using setPercentageOfLiquidityForMarketing(). This will cause swapAndLiquify() to allocate more than 100% of the swapped BNB to marketing fees, draining all BNB from the contract to the marketing and investing wallets (which the owner controls). Ensure the contract has accumulated tokens from fees first by having users trade, then trigger swapAndLiquify by transferring tokens to create contract balance above _minTokenBalance."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to initiate the transfer",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The reentrancy vulnerability exists in the swapAndLiquify function which calls swapTokensForEth that uses swapExactTokensForETHSupportingFeeOnTransferTokens. This external call to the Uniswap router can be exploited if the attacker's contract receives ETH from the swap and re-enters the transfer function before state updates. Create a malicious contract that: 1. Holds JizzJet tokens, 2. Implements a fallback/receive function that calls transfer() again when receiving ETH, 3. Transfers tokens to trigger swapAndLiquify when contract balance is high enough, 4. Re-enters during the ETH transfer to manipulate balances before fees are properly accounted for."
+}

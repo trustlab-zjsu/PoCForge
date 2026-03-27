@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Owner-Controlled Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to set the marketing address and withdraw funds.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be set to true by the owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract's balance of its own token must be greater than minimumTokensBeforeSwap to trigger the vulnerable swap mechanism.",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "20000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in a reentrancy path controllable by the owner. First, the owner sets the marketingAddress to a malicious contract they control. Then, they trigger a token transfer to the Uniswap pair, which activates the swapTokens function. This function sells tokens for ETH and then attempts to send this ETH to the marketingAddress using .transfer(). The malicious marketing contract's receive() function is triggered, which then re-enters the main contract by calling the owner-only withdraw() function. This withdraws all ETH from the contract (including the ETH just received from the swap) before the initial function can complete, resulting in a theft of funds."
+}

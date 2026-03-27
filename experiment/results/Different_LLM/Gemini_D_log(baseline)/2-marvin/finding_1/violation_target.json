@@ -1,0 +1,35 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Liquidity Pool Drain",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a significant amount of MarvinInu tokens to profit from the liquidity drain. The owner receives the total supply upon deployment.",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "10000000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "An active Uniswap V2 liquidity pool for MarvinInu/WETH must exist.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, as the contract owner, first calls `enableTrading()` to activate token trading. Then, they call `setAutoLPBurnSettings()` with a high `_percent` (e.g., 1000 for 10% of LP burned per event) and the minimum `_frequencyInSeconds` (600 seconds or 10 minutes) to configure aggressive liquidity burns. After each burn frequency period, a transfer to the Uniswap pair (e.g., a legitimate user's trade or a small trade initiated by a separate attacker-controlled account not excluded from fees) is made to trigger `autoBurnLiquidityPairTokens()`. This action repeatedly burns a portion of the LP tokens held in the Uniswap pair. Once the liquidity pool is significantly depleted by these burns, the attacker sells a large quantity of their MarvinInu tokens via `swapExactTokensForETHSupportingFeeOnTransferTokens()` to extract a disproportionate amount of WETH, leveraging the artificially shallow liquidity."
+}

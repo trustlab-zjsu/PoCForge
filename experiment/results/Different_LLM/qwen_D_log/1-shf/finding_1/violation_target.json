@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+  "vulnerability_type": "Owner Privilege Abuse - Unauthorized Token Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner or an authorized address (can be authorized by owner via authorize() function)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "launchMode must still be true (not yet disabled via tradingStatus_launchmode)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim users must have SHF token balance in their wallets",
+      "token_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "victim_contract": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner or authorized address) calls multiTransfer() function with: from=victim_address, addresses=[attacker_address], tokens=[victim_balance]. 2. The function bypasses normal transfer checks and uses _basicTransfer() to move tokens directly from victim to attacker. 3. This works because multiTransfer() only checks if msg.sender is authorized, not if they have permission to transfer from the 'from' address. 4. Can drain multiple victim wallets in a single transaction by specifying multiple addresses in the arrays. 5. Must be executed before launchMode is disabled (tradingStatus_launchmode(100))."
+}

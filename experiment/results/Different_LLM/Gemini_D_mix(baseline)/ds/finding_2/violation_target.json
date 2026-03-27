@@ -1,0 +1,23 @@
+{
+  "target_address": "0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE",
+  "vulnerability_type": "Owner-controlled Token Blacklist",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the DoctorShiba contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "!=",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The attacker, leveraging owner privileges, must call the `transfernewun` function. The `_newun` argument should be the address of a major liquidity pool (e.g., a PancakeSwap pair) for this token. This action sets the `newun` state variable, which blocks any future transfers to that address from non-owner accounts via the `_transfer` and `transferFrom` functions, effectively preventing users from selling the token on that DEX."
+}

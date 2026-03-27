@@ -1,0 +1,23 @@
+{
+  "target_address": "0xCA54954bb4E1b35AeE6eB04130CD406340EBA9B4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call EnemyAddress function",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_isEnemy[victim_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call EnemyAddress(victim_address, true) to blacklist any address from transferring tokens. This will cause all transfer attempts from or to the blacklisted address to revert with 'Enemy address' error. The owner can arbitrarily prevent any user or contract from interacting with the token, demonstrating excessive centralized control over token transfers."
+}

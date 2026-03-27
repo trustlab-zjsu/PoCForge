@@ -1,0 +1,35 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The contract must be deployed with a derived implementation that overrides the _beforeTokenTransfer hook to make an external call to the recipient of a transfer.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim user must hold a balance of the token.",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "The victim user must have approved the attacker's contract to spend their tokens.",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability exists in the `transferFrom` function due to the violation of the Checks-Effects-Interactions pattern. The function calls `_transfer`, which contains the `_beforeTokenTransfer` hook, before it updates the spender's allowance. An attacker can exploit this by having a victim approve their contract for a certain amount. The attacker's contract then calls `transferFrom`, and when the `_beforeTokenTransfer` hook calls back into the attacker's contract, it can re-enter `transferFrom` to execute another transfer before the allowance from the first call is deducted, effectively spending the allowance multiple times to drain more tokens from the victim than was authorized in a single transaction."
+}

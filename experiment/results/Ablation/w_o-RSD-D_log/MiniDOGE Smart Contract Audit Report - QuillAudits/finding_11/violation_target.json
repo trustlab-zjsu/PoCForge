@@ -1,0 +1,35 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MiniDOGE tokens to initiate the attack",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "1000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is false, but owner may enable it)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens (minimumTokensBeforeSwap = 200000 * 10**6 * 10**9) from fees to trigger swap",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. The attack exploits the transferToAddressETH() function which uses recipient.transfer(amount) after swapping tokens for ETH. When the contract calls transferToAddressETH(marketingAddress, ...), if marketingAddress is a malicious contract, it can re-enter the swapTokens function via its fallback function before the inSwapAndLiquify flag is reset. This allows multiple swaps to occur in a single transaction, draining ETH from the contract. The attacker needs to trigger the swap by selling tokens to the pair when contract has accumulated enough fee tokens."
+}

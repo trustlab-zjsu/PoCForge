@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Return Value of Low-Level Call",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the FoundationToken contract to call setOperationsAddress and forceSwapBack.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The FoundationToken contract must have a token balance greater than or equal to `swapTokensAtAmount` to allow `forceSwapBack` to be called.",
+      "token_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(this).balance",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, acting as the owner, must first deploy a contract that is designed to revert any incoming Ether transactions. Subsequently, the attacker calls `setOperationsAddress` on the target contract, pointing it to the malicious reverting contract. To meet the conditions for a swap, the attacker transfers a quantity of FoundationToken to the target contract that is at least equal to the `swapTokensAtAmount` threshold. With the preconditions met, the attacker calls `forceSwapBack`. This triggers the `swapBack` function, which swaps the tokens for ETH. When the function then attempts to transfer the resulting ETH to the malicious `operationsAddress`, the transaction fails. Due to the unchecked return value of the low-level call, the contract does not register the failure and continues execution, effectively trapping the ETH within the contract permanently."
+}

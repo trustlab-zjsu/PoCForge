@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The swapAndLiquifyEnabled flag in the NOMOS contract must be set to true.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The NOMOS contract must hold a balance of its own tokens greater than the minimumTokensBeforeSwap amount.",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "2000000000000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of NOMOS tokens.",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the _transfer function, which performs an external call for swapping tokens (swapAndLiquify) before updating the sender's balance (in _tokenTransfer). This creates a window for a reentrancy attack.\n\n1. The attacker must first ensure the preconditions are met. This involves making sure 'swapAndLiquifyEnabled' is true and priming the contract by executing sales to accumulate enough tokens in the contract to trigger the swap mechanism.\n2. The attacker's contract initiates a token sale by calling `transfer()` to the Uniswap V2 pair address.\n3. This triggers `_transfer()` which, under the right conditions, calls `swapAndLiquify()`. This function contains an external call to the Uniswap Router.\n4. During the external call to the router, the attacker needs to regain execution control and re-enter the NOMOS contract.\n5. The re-entrant call will be another `transfer()` of the same tokens to an address controlled by the attacker. Since the original call has not yet updated the attacker's balance, this second transfer succeeds.\n6. The initial transaction will eventually revert, but the re-entrant transaction will have already completed, allowing the attacker to drain funds."
+}

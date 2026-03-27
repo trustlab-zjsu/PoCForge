@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or become owner through social engineering/compromise)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must be initialized and trading enabled",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setWallets() to change marketing/development wallets to attacker-controlled addresses, then trigger contractSwap() via a sell transaction to divert ETH fees to attacker wallets. Alternatively, use sweepContingency() before liquidity is added, or manipulate taxes/ratios to extract maximum value from traders."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Uninitialized Storage Pointer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to initiate transfer",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (numTokensSellToAddToLiquidity threshold)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transferBothExcluded function which uses uninitialized storage pointers for tOwned and rOwned mappings when both sender and recipient are excluded. Call excludeFromReward on attacker address to become excluded, then transfer tokens to another excluded address (like owner or contract). This may bypass fee calculations and cause incorrect token accounting, potentially allowing fee evasion or manipulation of swapAndLiquify to drain BNB from contract. First get excluded via owner call, then trigger transfers between excluded addresses to exploit the uninitialized pointer issue."
+}

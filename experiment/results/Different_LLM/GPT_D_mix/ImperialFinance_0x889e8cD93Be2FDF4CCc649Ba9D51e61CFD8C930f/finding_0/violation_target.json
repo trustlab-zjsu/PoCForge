@@ -1,0 +1,35 @@
+{
+  "target_address": "0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The ImperialToken contract (0x889e8cd93be2fdf4ccc649ba9d51e61cfd8c930f) must have a balance of its own token greater than zero, accumulated from fees.",
+      "token_address": "0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      "victim_contract": "0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the `withdrawAllToOwner(address _receiver)` function, providing the attacker's address as the `_receiver`. This action will trigger a swap of the contract's entire balance of ImperialToken for BUSD, which is then transferred to the attacker's specified address.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

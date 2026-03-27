@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Arithmetic Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have whitelist admin role to call lock functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some PLENTYCOIN tokens to lock",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the unlock() function where _lockedAmount.sub() is called without checking for underflow. First, become a whitelist admin (or compromise an existing admin). Then use lock() or transferFromWithLock() to lock tokens. Wait for lock period to expire. Call unlock() which will transfer tokens to you and attempt to subtract from _lockedAmount. Due to missing updates in lock functions, _lockedAmount may be lower than actual locked tokens, causing underflow that wraps _lockedAmount to a very high value. This underflow bypasses the contract's liquidity calculation in _transfer(), allowing you to drain contract tokens through normal transfers."
+}

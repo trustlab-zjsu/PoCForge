@@ -1,0 +1,29 @@
+{
+  "target_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call blacklistAddress function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim address must hold some LILO tokens to demonstrate the blacklisting effect",
+      "token_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LionsLounge(0x401e15Af5eDB56BE940D5a16b948F9436D2944F0).isBlacklisted(victim_address)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As an authorized address, call the blacklistAddress function to blacklist a target address. This will prevent the blacklisted address from sending or receiving tokens through the contract's transfer functions. The exploit demonstrates unauthorized privilege escalation where the owner can arbitrarily restrict any address from using the token."
+}

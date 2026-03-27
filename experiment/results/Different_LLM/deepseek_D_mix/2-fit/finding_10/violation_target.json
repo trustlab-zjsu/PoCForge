@@ -1,0 +1,29 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have DEFAULT_ADMIN_ROLE or be able to obtain it through privilege escalation",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold some FIT tokens (from fee accumulation) for the attacker to steal",
+      "token_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner (DEFAULT_ADMIN_ROLE), first set the attacker's address as addressForBosses using setAddressForBosses(). Then call withDraw() to transfer all contract-held FIT tokens to the attacker's address, or call sweepTokenForBosses() to swap tokens for ETH and send to the attacker. Alternatively, grant yourself MINTER_ROLE and mint unlimited tokens to your address, then sell them on Uniswap for profit."
+}

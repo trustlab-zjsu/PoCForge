@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "State Update Error after Position Closure",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have access to an account with 'riskControl' privileges to trigger the vulnerable position closure function.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must have an open position with non-zero available funds within the target contract before the exploit.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability exists in a function responsible for closing user positions, which is likely callable by a 'riskControl' role. When this function is executed, it fails to correctly reset the user's 'available funds' to zero. The exploit strategy is as follows: 1. The attacker first establishes a position in the contract. 2. A privileged 'riskControl' account then calls the flawed function to close the attacker's position. 3. Because the attacker's available funds were not cleared, the attacker can then call the standard withdrawal function to illegitimately extract these funds from the contract, resulting in a theft of assets."
+}

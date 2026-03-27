@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Incorrect Pair Validation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The exploit must be executed by front-running the contract's deployment transaction. The Uniswap V2 pair for the JizzJet token and WETH must not have been created yet.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "deploy",
+      "description": "Attacker must deploy a fake token contract to act as the second token in the malicious pair.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker needs to front-run the target contract's deployment. First, pre-compute the address where the JizzJet contract will be deployed. Second, deploy a fake token. Third, call 'createPair' on the Uniswap V2 factory, pairing the pre-computed JizzJet address with the attacker's fake token address. Once the JizzJet contract is deployed, its constructor will fetch and store the address of this malicious pair. The attacker then waits for any token transfer to trigger the 'swapAndLiquify' function. This function will swap JizzJet tokens for ETH and then call 'addLiquidity', sending both JizzJet tokens and the acquired ETH to the malicious pool. The attacker can then drain the funds from this pool."
+}

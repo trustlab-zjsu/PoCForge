@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access privileged functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true) for fee collection to occur",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner: 1) Call updateFees() to maximize sellRewardsFee, sellMarketingFees, and sellDevFee (up to 15% total). 2) Call setExcludeFees(attacker_address, true) to exclude attacker from fees. 3) Set marketingWallet and devWallet to attacker-controlled addresses. 4) Trigger trading activity from other users to accumulate fees in contract. 5) Call forceSwapAndSendDividends() or wait for automatic swap to drain collected fees to attacker wallets. The owner can also manipulate stakingAmounts via updateStakingAmounts() to affect dividend calculations."
+}

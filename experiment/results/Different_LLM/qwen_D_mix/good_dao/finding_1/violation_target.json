@@ -1,0 +1,23 @@
+{
+  "target_address": "0x048FFa8aAE293470932388b615A90A8265bFB25F",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setMaxTxAmount",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setMaxTxAmount(0) to set the maximum transaction amount to zero. This will cause all transfers where neither sender nor recipient is the owner to revert (since any amount > 0 will exceed _maxTxAmount). The owner retains full transfer capabilities while all other users are effectively blocked from transferring tokens."
+}

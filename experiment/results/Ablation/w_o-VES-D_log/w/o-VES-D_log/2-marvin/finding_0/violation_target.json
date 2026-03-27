@@ -1,0 +1,35 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Exceeds Fees Limit",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain owner privileges)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MARVIN tokens to sell",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be active (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateSellFees() to set fees above 25% (e.g., 50% total fees). Then sell MARVIN tokens through the Uniswap pair. The high sell fee will cause a significant portion of the sale amount to be collected as fees and distributed to marketingWallet and devWallet (both controlled by owner). The owner can then withdraw the accumulated ETH from these wallets."
+}

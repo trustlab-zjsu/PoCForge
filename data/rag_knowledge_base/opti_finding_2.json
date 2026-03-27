@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract's owner has the unilateral ability to blacklist any address by calling the `setBotBlacklist` function. This centralization of power allows the owner to arbitrarily block users or contracts from interacting with the system, representing an abuse of privilege.",
+  "interface_arsenal": "interface IOpti {\n    function owner() external view returns (address);\n    function setBotBlacklist(address _botAddress, bool _flag) external;\n    function blacklist(address) external view returns (bool);\n}",
+  "attack_sequence": "address owner = opti.owner();\nvm.prank(owner);\nopti.setBotBlacklist(VICTIM_CONTRACT, true);",
+  "winning_reflection": "The key insight was recognizing that the `setBotBlacklist` function was only protected by an owner check. By identifying the owner address and then impersonating it using a testing framework feature (`vm.prank`), it was possible to directly call this privileged function and manipulate the contract's blacklist state at will."
+}

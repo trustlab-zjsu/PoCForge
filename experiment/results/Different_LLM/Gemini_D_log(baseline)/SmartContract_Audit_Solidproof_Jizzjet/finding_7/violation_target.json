@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker's contract must be set as the `_adminWalletAddress`. This can be done by the contract owner via the `_setReceiverWallet` function.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract's own token balance must be greater than or equal to `numTokensSellToAddToLiquidity` (1e18) to trigger the `swapAndLiquify` mechanism during a transfer.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the `_transfer` function, which calls `swapAndLiquify` before updating the sender's token balance. The exploit requires the attacker to first become the `_adminWalletAddress` via the owner-controlled `_setReceiverWallet` function. The attacker then seeds the JizzJet contract with enough tokens to enable the `swapAndLiquify` feature. Next, the attacker calls `transfer` from their malicious contract. This triggers `swapAndLiquify`, which eventually sends the contract's entire BNB balance to the attacker's contract via `_adminWalletAddress.transfer()`. Inside the attacker's `receive()` function, it re-enters the `JizzJet.transfer()` function, allowing for a second token transfer (a double spend) before the original call has deducted the balance. This drains the attacker's tokens for a larger-than-intended effect on the protocol, while also receiving the BNB from the liquify process, resulting in a net profit for the attacker."
+}

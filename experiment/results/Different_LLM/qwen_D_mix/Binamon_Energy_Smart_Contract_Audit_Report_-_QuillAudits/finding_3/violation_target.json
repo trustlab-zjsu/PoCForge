@@ -1,0 +1,23 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setStakingContract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Call setStakingContract(address) with attacker's address as the new staking contract address. 2. Call deliver(address user, uint256 numTokens) with attacker's address as user and desired token amount. 3. The deliver function will mint new tokens to the attacker since msg.sender now matches the stakingContractAddress. This allows unlimited token minting without restrictions."
+}

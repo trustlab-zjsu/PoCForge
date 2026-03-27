@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some BNRG tokens to approve (can be minimal amount)",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be in Locked state (should be Restricted or Unlocked)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The approve function is vulnerable to a race condition where a spender can front-run approval changes. Attack strategy: 1) As token owner, approve spender for amount X. 2) Spender monitors mempool for new approval transaction for amount Y (where Y < X). 3) Spender front-runs the new approval by calling transferFrom to use the old allowance X before it's reduced to Y. 4) After the new approval sets allowance to Y, spender can still use Y, effectively getting X+Y total tokens. Execute two rapid transactions: first transferFrom using old allowance, then another transferFrom using new allowance."
+}

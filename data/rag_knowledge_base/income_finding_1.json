@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `setFee` function in the INCOME contract is vulnerable to owner privilege abuse. It lacks input validation to enforce a maximum total fee percentage. A malicious or compromised owner can set fees that sum to a value far greater than the documented limit (e.g., 25%), breaking the contract's intended economic model.",
+  "interface_arsenal": "interface INCOME {\n    function owner() external view returns (address);\n    function setFee(uint256 _bnbRewardFee, uint256 _liquidityFee, uint256 _marketingFee) external;\n    function totalFees() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = income.owner();\nvm.startPrank(owner);\n// Set fees to a sum (60) greater than the expected max (25).\nincome.setFee(20, 20, 20);\nvm.stopPrank();",
+  "winning_reflection": "The exploit hinges on the realization that the `setFee` function, despite being owner-restricted, completely trusts the owner's inputs. It fails to implement a crucial check to ensure the sum of the new fees does not exceed a predefined maximum threshold. By impersonating the owner, the PoC could call this function with arbitrarily high values, violating the system's core economic invariants."
+}

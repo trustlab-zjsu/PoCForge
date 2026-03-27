@@ -1,0 +1,23 @@
+{
+  "target_address": "0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or authorized address (owner, MarketingWallet, or Developer)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner or authorized address, call the UpdateTaxes function to set buyTax or sellTax to the maximum allowed value (20%). Then perform token trades (buy/sell) to extract excessive fees from users. The increased tax rates will result in more BNB being collected in the contract's MarketingBalance, DevBalance, or BuyBackBalance, which can then be withdrawn using WithdrawAllMarketing, WithdrawAllDev, or TriggerBuyBack functions."
+}

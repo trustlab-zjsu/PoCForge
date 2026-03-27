@@ -1,0 +1,23 @@
+{
+  "target_address": "0x048FFa8aAE293470932388b615A90A8265bFB25F",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, should call the `setMaxTxAmount` function with the `maxTxAmount` parameter set to 0. This will prevent any non-owner from transferring tokens by causing the `require(amount <= _maxTxAmount)` check in the `_transfer` function to fail for any amount greater than 0."
+}

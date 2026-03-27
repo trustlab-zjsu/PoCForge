@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected Ether Withdrawal",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have a positive BNB balance (native currency)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has a receive() function that allows it to accept BNB, but there's no protected withdrawal mechanism. As the contract owner, directly call the sendBNBToAdmin function (if accessible) or exploit the swapAndLiquify mechanism to drain BNB. Alternatively, if you can become owner through transferOwnership, use owner privileges to drain funds via admin functions. The contract accumulates BNB from swap fees and liquidity operations."
+}

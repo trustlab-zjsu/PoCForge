@@ -1,0 +1,29 @@
+{
+  "target_address": "0x33555617F481be5973E93b432d8ecEa2D20524be",
+  "vulnerability_type": "Owner-controlled Transaction Lock",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim user must hold a non-zero balance of the token.",
+      "token_address": "0x33555617F481be5973E93b432d8ecEa2D20524be",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, first call enableAntiwhale(true). Subsequently, call setMaxTxPercent(0). This action sets the _maxTxAmount to 0, effectively preventing any user other than the owner from transferring tokens, thus trapping their funds."
+}

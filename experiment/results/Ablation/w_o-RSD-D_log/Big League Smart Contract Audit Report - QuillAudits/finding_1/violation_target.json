@@ -1,0 +1,35 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Denial of Service via Fee Processing",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (BGLG) to initiate transfer",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fee tokens in its balance (balanceOf[address(this)]) that meet or exceed the swap threshold",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have zero or insufficient BNB balance to complete the addLiquidityETH call",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "StandardToken(0xea01d8d9eacca9996db6bb3377c1fe64308e7328).paused()",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "Trigger a transfer to the pair address (which has isPair set to true) when the contract has accumulated fee tokens above the swap threshold but insufficient BNB balance. This will cause _sellAndDistributeAccumulatedTKNFee() to execute, which will attempt to add liquidity via addLiquidityETH with the contract's entire BNB balance. If the contract has zero BNB, the call will revert, causing the entire transfer to fail. Repeatedly trigger this condition to create a persistent denial of service for transfers to the pair."
+}

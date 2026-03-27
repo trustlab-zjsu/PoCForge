@@ -1,0 +1,23 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access owner-only functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_isBlacklisted[victim_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call multipleBotlistAddress() function with an array of victim addresses and set excluded=true to blacklist them. This will prevent blacklisted addresses from sending or receiving tokens through the _transfer function, which checks require(!_isBlacklisted[sender] && !_isBlacklisted[recipient]). The owner can selectively freeze any user's ability to trade while maintaining their own trading ability."
+}

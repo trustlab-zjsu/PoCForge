@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Transfer Revert Propagation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BossBaby tokens to trigger the swap mechanism",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "1000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Swap must be enabled (default is true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract token balance must be >= swapTokensAtAmount to trigger swapAndSendMarketing",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Set up a malicious contract as the marketingWallet that reverts on receiving BNB (e.g., in its fallback/receive function). Then trigger a swap by selling tokens to the pair, causing swapAndSendMarketing to fail when sending BNB to marketingWallet. This will revert the entire transaction, preventing fee collection while allowing the token transfer to proceed (if the revert happens after the swap). Alternatively, if the contract accumulates fees but cannot send them, the BNB remains trapped in the contract, potentially allowing the attacker to claim it later if they gain ownership."
+}

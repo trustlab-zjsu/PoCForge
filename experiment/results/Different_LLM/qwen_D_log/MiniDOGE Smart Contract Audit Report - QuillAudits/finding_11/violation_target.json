@@ -1,0 +1,41 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Reentrancy Vulnerability",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true to trigger swap operations during transfers",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must hold sufficient token balance (>= minimumTokensBeforeSwap = 200000 * 10^15) to trigger swapTokens",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "200000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must hold BNB balance for buyback operations",
+      "token_address": "NATIVE",
+      "min_amount": "100000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs tokens to trigger transfer to Uniswap pair",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Deploy a malicious contract with receive() fallback that reenters the MiniDOGE contract. 2. Transfer tokens to the Uniswap pair to trigger swapTokens() via _transfer(). 3. During swapTokensForEth(), the Uniswap router callback can trigger _transfer() again. 4. When transferToAddressETH() sends BNB to marketingAddress, if attacker controls it, reenter during receive(). 5. Exploit the window before inSwapAndLiquify is reset to false to drain BNB or tokens through repeated swap/buyback cycles. 6. Key functions to target: transfer(), swapTokens(), buyBackTokens(), and the router swap callbacks."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x21032D09Cb4F8949883bdEf62D3F1eb5288259BC",
+  "vulnerability_type": "Permanent Trade Lock",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call openTrade() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "tradeEnabled must be false initially (default state)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "tradeEnabled",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "Call the openTrade() function as the contract owner. This will permanently set tradeEnabled to true, preventing the owner from ever disabling trading again. The vulnerability is that there's no closeTrade() or disableTrade() function, making the state change irreversible once executed.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "deepseek"
+}

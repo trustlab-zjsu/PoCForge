@@ -1,0 +1,29 @@
+{
+  "target_address": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have admin permission (index 0) or be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must hold tokens (BUSD, WBNB, or other ERC20 tokens) that can be transferred",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
+      "victim_contract": "0x99DE5611BC1f5b8e3D8876EF567b65f94C5a2ca3",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker has admin permission (index 0) by calling grantPermission or grantAllPermissions as owner. 2. Call safeOtherTokens(token_address, attacker_address, amount) where token_address is BUSD (0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56) or other tokens held by contract, and amount is the full contract balance. 3. For native BNB, pass address(0) as token and call safeOtherTokens to transfer contract's BNB balance. This allows unlimited transfer of any contract funds to attacker's wallet."
+}

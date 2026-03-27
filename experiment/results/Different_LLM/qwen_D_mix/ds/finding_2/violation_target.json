@@ -1,0 +1,29 @@
+{
+  "target_address": "0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call transfernewun()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Target victim address should hold DS tokens to demonstrate the transfer restriction",
+      "token_address": "0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "!=",
+      "expected_value": "address(0)"
+    }
+  },
+  "exploit_hint": "As the contract owner, call transfernewun(address _newun) with the victim's address as the parameter. This sets the newun state variable, which causes the _transfer function to revert with 'please wait' when the victim tries to transfer tokens to any recipient other than the owner. The victim's tokens become effectively locked, preventing them from selling on exchanges or transferring to other addresses."
+}

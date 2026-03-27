@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Low-Level Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through the vulnerability)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance (from fee accumulation or direct transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in lines 557 and 563 where low-level calls to transfer ETH don't check return values. If the operationsAddress is set to a contract that reverts on receive() or has a fallback that fails, ETH will remain locked. However, the withdrawStuckETH() function at line 569 also has the same unchecked call vulnerability. As owner, call withdrawStuckETH() when the contract has ETH balance. If the ETH transfer fails (e.g., due to gas limits or receiver contract issues), the function will still succeed, leaving ETH trapped. To exploit for economic gain: 1) Become owner (if not already) 2) Ensure contract has ETH balance 3) Call withdrawStuckETH() - if the low-level call fails silently, ETH remains locked but function returns success. This could be used to prevent legitimate ETH withdrawals while appearing successful."
+}

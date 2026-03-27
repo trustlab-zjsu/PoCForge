@@ -1,0 +1,23 @@
+{
+  "target_address": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+  "vulnerability_type": "Temporary Locking of Contract",
+  "violation_category": "LOGIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the Milesinu contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The attacker, who is the current owner of the contract, must call the `lock(uint256 time)` function. A substantial value for `time`, such as 604800 (representing 7 days), should be used. This will set the `_owner` address to `address(0)`, thereby preventing any `onlyOwner` functions from being executed until the lock duration expires and the `unlock` function is called by the previous owner."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected SELFDESTRUCT",
+  "violation_category": "LOGIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract is deployed and contains a selfdestruct function without proper access control modifiers",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(target).code.length",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Search for any public or external function in the contract that contains a selfdestruct instruction without onlyOwner or similar access control modifiers. Common function names include 'destroy', 'kill', 'selfDestruct', 'emergencyShutdown', or 'killContract'. Call this function directly from any address to permanently destroy the contract and render all funds inaccessible. No special privileges or token balances required if the function is truly unprotected."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+  "vulnerability_type": "Inconsistent Tax Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MANU tokens to initiate transfer",
+      "token_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have at least 3 token holders (including attacker) for the reward distribution to trigger",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "victim_contract": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the tax distribution logic where the same taxed amount (tLiquidity) is both subtracted from total supply AND distributed to existing holders. This creates an inconsistency between rOwned and tOwned accounting. To exploit: 1) Ensure there are at least 3 token holders (create multiple addresses if needed). 2) Transfer tokens between two addresses while taking the fee (ensure sender/receiver are not excluded from fees). 3) The tax amount (tLiquidity) will be subtracted from _tTotal but also distributed as rewards to other holders via _rOwned increases, creating an imbalance where reflection balances can exceed total supply. 4) Repeated transfers can amplify the imbalance, allowing attackers to extract value through the reflection mechanism."
+}

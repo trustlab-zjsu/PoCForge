@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have some ETH balance from accumulated taxes",
+      "token_address": "NATIVE",
+      "min_amount": "100000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setWallets() to change the marketing and development wallet addresses to attacker-controlled addresses. Then trigger a sell transaction to accumulate taxes in the contract, which will be automatically swapped to ETH and distributed to the attacker-controlled wallets via contractSwap(). Alternatively, use sweepContingency() before liquidity is added to drain any ETH in the contract."
+}

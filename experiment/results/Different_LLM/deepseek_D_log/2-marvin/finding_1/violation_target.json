@@ -1,0 +1,35 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Automatic Liquidity Pair Token Burning",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained owner privileges) to enable trading and set LP burn parameters",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MARVIN tokens to interact with the liquidity pool",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be active (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, enable trading and set LP burn parameters to maximize token burning frequency and percentage. Then execute trades through the Uniswap pair to trigger the autoBurnLiquidityPairTokens() function, which burns LP tokens and reduces total supply. The attacker can profit by holding tokens while the supply decreases (deflationary pressure) or by front-running the burn mechanism. Key steps: 1) Call enableTrading() as owner, 2) Use setAutoLPBurnSettings() to set high burn frequency (minimum 600 seconds) and high burn percentage (up to 10%), 3) Execute sell transactions to trigger the automatic burn function, 4) Monitor for price appreciation due to reduced supply."
+}

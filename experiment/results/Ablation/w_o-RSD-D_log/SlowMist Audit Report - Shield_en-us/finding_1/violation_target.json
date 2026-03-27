@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "Price Oracle Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some WBTC tokens to open a position",
+      "token_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability allows users to pass arbitrary prices when opening and closing positions. Attack strategy: 1) Open a position with a manipulated low price to acquire more tokens than deserved. 2) Close the position with a manipulated high price to extract more value. 3) Alternatively, manipulate prices to create profitable arbitrage opportunities. The exact functions to call depend on the trading/position logic not shown in the provided code, but the core issue is that price parameters are user-controlled rather than obtained from a trusted oracle."
+}

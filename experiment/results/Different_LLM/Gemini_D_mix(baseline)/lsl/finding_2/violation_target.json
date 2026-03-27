@@ -1,0 +1,23 @@
+{
+  "target_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract or an authorized address.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "isBlacklisted(VICTIM_ADDRESS)",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner or an authorized address, should call the `blacklistAddress(address _address, bool _value)` function. The `_address` parameter should be the victim's address, and the `_value` parameter should be `true`. This will prevent the victim from being able to send or receive the token, effectively freezing their assets."
+}

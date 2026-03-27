@@ -1,0 +1,29 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have BURNER_ROLE to call the burn function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim address must have token balance to burn",
+      "token_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire BURNER_ROLE through grantRole() call by DEFAULT_ADMIN_ROLE holder. 2. Call burn(victim_address, amount) function to burn tokens from any victim's account. 3. The burn function reduces victim's token balance and total supply without victim's consent. 4. This demonstrates centralized control where privileged accounts can destroy any user's tokens arbitrarily."
+}

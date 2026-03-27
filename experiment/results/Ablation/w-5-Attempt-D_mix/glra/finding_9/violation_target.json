@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the CoinToken to benefit from tax manipulation",
+      "token_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, set tax wallets to attacker-controlled addresses, then manipulate buy/sell taxes to divert funds. Specifically: 1) Call setTaxWallets() to set dev/marketing/charity wallets to attacker addresses. 2) Optionally adjust buy/sell taxes via setBuyTax()/setSellTax() to maximize tax collection. 3) Execute trades (buy/sell) to trigger tax collection, which will send ETH to attacker-controlled wallets. 4) Use triggerTax() to force processing of accumulated tax tokens if needed."
+}

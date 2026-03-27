@@ -1,0 +1,23 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call sumBounsPiece()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "dayPoolBounsPiece[yesToday]",
+      "operator": ">",
+      "expected_value": "abnormally_high_value_causing_revert"
+    }
+  },
+  "exploit_hint": "As the contract owner, call sumBounsPiece(yesToday, veryLargeNumber) to set dayPoolBounsPiece to an excessively high value. This will cause _sumCanGetToken() to revert when users attempt to claim bonuses via receiveBounsToken(), as the subtraction dayPoolBouns[yesToday].sub(_yesTodayToken) will fail due to the inflated dayPoolBounsPiece value making _yesTodayToken larger than dayPoolBouns[yesToday]. This effectively breaks the bonus distribution mechanism for all users."
+}

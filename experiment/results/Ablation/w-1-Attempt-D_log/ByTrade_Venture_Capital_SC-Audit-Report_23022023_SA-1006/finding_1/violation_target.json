@@ -1,0 +1,29 @@
+{
+  "target_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+  "vulnerability_type": "BEP Standard Violation",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call pause() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not already be paused",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "ByTradeToken.paused",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The contract violates BEP20 standard by allowing the owner to bypass pause restrictions. The owner can call pause() to pause all token transfers for regular users, but the whenNotPaused modifier allows the owner to continue transferring tokens even when paused. As owner, call pause() to freeze other users' transfers while maintaining your own ability to transfer tokens."
+}

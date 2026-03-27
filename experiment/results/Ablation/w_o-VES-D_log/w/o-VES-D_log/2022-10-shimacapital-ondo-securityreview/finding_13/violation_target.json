@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Upgradeable Contract Privilege Escalation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 13,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be deprecated (deprecated == false) initially",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call deprecate() with a malicious upgradedAddress that implements UpgradedStandardToken interface. The malicious contract should override transferByLegacy, transferFromByLegacy, and approveByLegacy functions to allow the attacker to steal funds. After deprecation, all token operations will be routed through the malicious contract, enabling arbitrary balance manipulation."
+}

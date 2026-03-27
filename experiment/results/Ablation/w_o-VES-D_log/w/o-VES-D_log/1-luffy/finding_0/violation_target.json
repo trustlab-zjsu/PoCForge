@@ -1,0 +1,29 @@
+{
+  "target_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+  "vulnerability_type": "Fee Logic Bypass",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LuffyInu tokens to sell",
+      "token_address": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Tax must be enabled (taxStatus == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "victim_contract": "0x720f6edD18f5e2F414DBa8fCD81E98724708c39E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is that when selling tokens to the pair (uniswapV2Pair), the liquidity fee is transferred to the pair address but not actually added to liquidity. This creates an imbalance where the pair holds extra tokens that don't contribute to reserves. Exploit by: 1. Ensure taxStatus is true, 2. Sell tokens to trigger the fee logic, 3. The pair receives _LiquidityFee tokens but they're not added to reserves, 4. Buy back tokens at a better rate due to the inflated pair balance without corresponding reserve increase, 5. Profit from the arbitrage opportunity created by the fee accounting error."
+}

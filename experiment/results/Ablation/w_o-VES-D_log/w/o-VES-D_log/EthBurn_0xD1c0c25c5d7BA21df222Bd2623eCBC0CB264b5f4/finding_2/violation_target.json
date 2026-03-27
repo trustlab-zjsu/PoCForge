@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to receive dividends",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "100000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call updateFees() to set buyRewardsFee and sellRewardsFee to maximum (15% each), then purchase tokens to accumulate high dividend fees. Alternatively, use setExcludeFees() to exclude attacker's address from fees while others pay. Also use setExcludeDividends() to exclude other holders from receiving dividends, concentrating rewards to attacker. Finally, trigger dividend distribution via trading or forceSwapAndSendDividends()."
+}

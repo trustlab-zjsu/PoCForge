@@ -1,0 +1,35 @@
+{
+  "target_address": "0x89031AaFA457245469E9641387aa94BFB51cB964",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must have a non-zero BNB balance.",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Liquidity must not have been added yet (_hasLiqBeenAdded must be false).",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x89031AaFA457245469E9641387aa94BFB51cB964",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the `sweepContingency()` function before liquidity is added. This function will transfer the entire BNB balance of the contract to the owner's address, effectively draining all native currency from the contract."
+}

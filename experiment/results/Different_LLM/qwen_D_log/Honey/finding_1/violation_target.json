@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Charity Fee Accounting Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold honeyToken tokens to trigger transfer fees",
+      "token_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Execute multiple token transfers to trigger the charity fee mechanism. The _reflectFee function only reduces _tTotal by tBurn but not by tCharity, causing total supply accounting inconsistency. Monitor the FeeAddress balance accumulation versus _tTotal reduction to verify the accounting error. This creates token inflation where charity fees are collected but not properly removed from total supply, potentially diluting token value."
+}

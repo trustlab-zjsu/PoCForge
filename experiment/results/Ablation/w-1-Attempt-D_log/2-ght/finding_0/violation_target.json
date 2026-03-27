@@ -1,0 +1,35 @@
+{
+  "target_address": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+  "vulnerability_type": "Rebase Denial of Service",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "rewardsPool address must be set (via setRewardsPool)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "pair address must be set (via setPair)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "rebaseMultiple",
+      "operator": ">",
+      "expected_value": "1"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the rebase() function with a large multiple value (e.g., type(uint256).max / currentRebaseMultiple). This will cause rebaseMultiple to overflow or become extremely large, making all division operations in balanceOf(), totalSupply(), transfer(), etc., revert due to integer division by zero or overflow issues. This effectively halts all token transfers and contract functionality."
+}

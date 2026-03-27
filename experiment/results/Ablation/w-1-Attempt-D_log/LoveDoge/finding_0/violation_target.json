@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Incorrect Burn Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (LoveDoge) to initiate transfer",
+      "token_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "The contract must not be in admin mode for the attacker's address (adminAddress[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "victim_contract": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The _userTransfer() function incorrectly handles burn accounting. It calculates burn tokens (2% of transfer amount) and adds them to totalBurn, but doesn't actually burn them by decreasing totalSupply or sending to address(0). Instead, it subtracts the burn amount from the sender's balance but doesn't remove it from circulation. Perform a regular transfer to another non-admin address you control. The recipient will receive 90% of the amount (after 2% burn, 2% term, 6% bonus fees), but the burn tokens remain in circulation. Since totalSupply remains unchanged while totalBurn increases, the effective circulating supply calculation in _getMarketTotalToken() becomes incorrect, potentially allowing bonus pool manipulation."
+}

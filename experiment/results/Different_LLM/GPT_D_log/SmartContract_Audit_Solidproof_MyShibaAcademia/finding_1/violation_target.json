@@ -1,0 +1,35 @@
+{
+  "target_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setTaxFeePercent and setLiquidityFeePercent",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victims must hold tokens and attempt to transfer them",
+      "token_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "victim_contract": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As contract owner, call setTaxFeePercent(50) and setLiquidityFeePercent(49) to set combined fees to 99%. When victims transfer tokens, 99% is deducted as fees and accumulated in the contract. The owner can then: (1) Exclude themselves from fees via excludeFromFee(), (2) Enable swapAndLiquify, (3) Trigger token transfers to accumulate fees in contract, (4) Extract value through marketingAddress (which owner can set), swapAndLiquify mechanism, or by removing liquidity. The fees are distributed to marketing wallet and liquidity pool which owner controls.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

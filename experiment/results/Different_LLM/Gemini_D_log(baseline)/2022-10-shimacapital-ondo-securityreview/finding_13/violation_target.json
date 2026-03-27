@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 13,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim address must hold a non-zero balance of the TetherToken.",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, the attacker can first blacklist a victim's address holding tokens using the `addBlackList` function. Subsequently, the attacker calls `destroyBlackFunds` with the victim's address to burn the victim's entire balance. [3] To realize a financial gain, the attacker then calls the `issue` function with the same amount of destroyed funds, minting new tokens to their own address and effectively appropriating the victim's assets."
+}

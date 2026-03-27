@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token to exploit tax manipulation",
+      "token_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, set the tax wallets (dev, marketing, charity) to your own addresses, then manipulate buy/sell taxes to extract value. First call setTaxWallets() to redirect tax distributions to your addresses. Then use setBuyTax() and setSellTax() to set high tax rates (up to 100%). Finally, trigger tax collection by making trades through the Uniswap pair or calling triggerTax() to force distribution of accumulated taxes to your wallets."
+}

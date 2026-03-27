@@ -1,0 +1,29 @@
+{
+  "target_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+  "vulnerability_type": "Inconsistent taxed fees and transferable amount after taxes",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the MANU token to perform a transfer.",
+      "token_address": "0x16bE19fB70F902EcF39b54aD988eE427cB1b6848",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_tTotal",
+      "operator": "<",
+      "expected_value": "EXPLOIT_PLACEHOLDER_PRE_TOTAL_SUPPLY"
+    }
+  },
+  "exploit_hint": "The attacker should call the `transfer` function. The contract's `_getTValues` function calculates the amount transferred to the recipient by subtracting four times the fee (`tAmount.sub(tFee.mul(4))`). However, the subsequent logic that handles fee distribution and token burning (`_tTotal = _tTotal.sub(tLiquidity)`) only accounts for a single fee amount (`tLiquidity` is equal to `tFee`). This results in three times the fee amount being removed from the sender-recipient interaction without being accounted for in the burn or fee distribution, causing the sum of user balances to diverge from the total supply. The exploit consists of making a single transfer to trigger this state corruption. The oracle verifies that the total supply has decreased, as a proxy for the buggy fee mechanism being triggered.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access onlyOwner functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens and BNB from trading fees",
+      "token_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "min_amount": "0"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner: 1) Call setdevAddress() to set your own address as the dev wallet. 2) Call setBuydevFeePercent() and setSelldevFeePercent() to maximize dev fees (e.g., set to high values). 3) Trigger swapAndLiquify() by having users trade (buy/sell tokens through PancakeSwap), which will accumulate fees in the contract. 4) When swapAndLiquify executes, it will send BNB and tokens to your dev address. 5) Alternatively, directly call transferTokens() to drain any tokens held by the contract to your address. This allows the owner to extract all accumulated fees and contract balance."
+}

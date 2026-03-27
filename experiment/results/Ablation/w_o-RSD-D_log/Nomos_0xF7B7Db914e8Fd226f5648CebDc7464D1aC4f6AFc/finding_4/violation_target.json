@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some NOMOS tokens to initiate the attack",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default after presale)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in marketingAccumulator to trigger swapTokens function",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. First, ensure the victim contract has accumulated marketing fees. Then call transfer() to the Uniswap pair, which will trigger swapTokens() in _transfer(). The swapTokensForEth() function will send ETH to the marketing address, but if the marketing address is your malicious contract, you can re-enter the transfer flow during the ETH transfer. Use the reentrancy to manipulate token balances before fees are deducted, allowing you to extract more tokens than you should be able to."
+}

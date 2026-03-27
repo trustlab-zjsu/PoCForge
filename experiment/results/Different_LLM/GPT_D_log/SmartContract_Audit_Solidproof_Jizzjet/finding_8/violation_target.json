@@ -1,0 +1,41 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unprotected Ether Withdrawal",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The target contract must have a BNB balance greater than zero to be exploited for profit.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The function `_setReceiverWallet` lacks the `onlyOwner` modifier, allowing any address to change the `_adminWalletAddress`.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The attacker needs a small amount of JizzJet tokens to transfer to the contract and subsequently trigger the swapAndLiquify mechanism. The contract's token balance must be at least `numTokensSellToAddToLiquidity` (1e18).",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in an unprotected `_setReceiverWallet` function. The exploit involves three steps: First, call `_setReceiverWallet` to set the `_adminWalletAddress` to the attacker's address. Second, transfer enough JizzJet tokens to the contract to meet the `numTokensSellToAddToLiquidity` threshold, which enables the `swapAndLiquify` function. Finally, make any small transfer of the token; this will trigger the `_transfer` function, which in turn calls `swapAndLiquify`. This process will swap the contract's tokens for BNB and then transfer the contract's entire BNB balance to the attacker's address.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

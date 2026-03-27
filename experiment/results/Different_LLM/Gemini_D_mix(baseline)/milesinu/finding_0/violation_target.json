@@ -1,0 +1,23 @@
+{
+  "target_address": "0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711",
+  "vulnerability_type": "ST - Stop Transactions",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to call the setMaxTxPercent function.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, should call the `setMaxTxPercent` function with the argument `0`. This sets the `_maxTxAmount` state variable to zero. As a result, any transfer from a user not excluded from the max transaction limit will fail the `require(amount <= _maxTxAmount)` check, effectively halting token transfers for regular users."
+}

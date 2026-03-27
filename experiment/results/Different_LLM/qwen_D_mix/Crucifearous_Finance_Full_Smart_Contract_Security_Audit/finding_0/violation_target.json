@@ -1,0 +1,29 @@
+{
+  "target_address": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+  "vulnerability_type": "Incorrect Token Unit Conversion in Mint/Burn",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call mint() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs existing token balance to exploit burn() function",
+      "token_address": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "victim_contract": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The mint() and burn() functions do not properly convert between reflection (_rOwned) and token (_tOwned) amounts. Call mint() with a large amount as owner - this adds the amount directly to both _tTotal and _rOwned without applying the reflection rate conversion (_getRate()). This creates an imbalance where the attacker receives more reflection value than intended. After minting, transfer tokens to realize the economic gain. Alternatively, call burn() to manipulate the _rTotal/_tTotal ratio, then mint or transfer to exploit the skewed rate. The key is that reflection tokens should be converted using currentRate = _rTotal/_tTotal, but these functions bypass this conversion."
+}

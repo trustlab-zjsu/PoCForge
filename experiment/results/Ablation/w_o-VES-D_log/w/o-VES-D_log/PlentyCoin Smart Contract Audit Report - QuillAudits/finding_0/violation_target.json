@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Incorrect Transfer Sender",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some PLENTYCOIN tokens (the contract's own token) to trigger the swapAndLiquify function",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "500000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have swapAndLiquifyEnabled = true and contract token balance must be >= numTokensSellToAddToLiquidity (500000 * 10^6 * 10^18)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Trigger the swapAndLiquify function by making a transfer that causes contract token balance to exceed threshold. The vulnerable transfer(_buyBackAddress, rest) call will deduct tokens from the attacker's balance instead of the contract's balance, but the contract will still receive ETH from swapping half the tokens and add liquidity. The attacker can profit by setting _buyBackAddress to their own address, causing the 'rest' tokens to be transferred from the attacker to themselves (no net loss) while the contract uses its tokens for liquidity. Alternatively, the attacker can front-run legitimate swapAndLiquify transactions to steal tokens from other users."
+}

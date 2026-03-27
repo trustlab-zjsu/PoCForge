@@ -1,0 +1,41 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Automatic Liquidity Pair Token Burning",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to enable trading and set LP burn parameters",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Must hold some MARVIN tokens to interact with the liquidity pool",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be active (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "LP burn must be enabled (lpBurnEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, enable trading and set aggressive LP burn parameters (high frequency and high percentage). Then wait for the automatic burning to trigger, which will burn liquidity pair tokens and increase the value of remaining tokens. Sell tokens after the burn to realize profit from the reduced supply and increased price."
+}

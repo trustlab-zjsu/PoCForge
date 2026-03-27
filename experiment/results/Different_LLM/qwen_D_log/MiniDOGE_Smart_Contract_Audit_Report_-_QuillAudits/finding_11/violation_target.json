@@ -1,0 +1,35 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Reentrancy Vulnerability",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold MiniDOGE tokens to trigger transfer functions that activate swap mechanism",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "200000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens above minimumTokensBeforeSwap threshold (200,000 * 10^15) to trigger swapTokens",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "200000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true and buyBackEnabled must be true for swap operations to execute",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Deploy a malicious contract with a receive/fallback function that can reenter the MiniDOGE contract. 2. Trigger token transfers to the Uniswap pair to accumulate contract balance above minimumTokensBeforeSwap. 3. Initiate a transfer that triggers swapTokens() function. 4. During the external call to uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(), the malicious contract reenters through transfer callbacks. 5. Extract ETH from the contract before inSwapAndLiquify flag is reset. 6. Repeat the reentrancy to drain contract's ETH balance accumulated from swap operations."
+}

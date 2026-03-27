@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+  "vulnerability_type": "Improper Token Burning",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold GatorToken balance to perform transfer",
+      "token_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "transferTaxRate must be greater than 0 for burn mechanism to trigger",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "GatorToken.totalSupply()",
+      "operator": "==",
+      "expected_value": "unchanged_after_burn_transfer"
+    }
+  },
+  "exploit_hint": "Transfer tokens to the BURN_ADDRESS (0x000000000000000000000000000000000000dEaD) using the transfer() function. The contract sends burnAmount to BURN_ADDRESS via super._transfer() instead of calling _burn(). Verify that totalSupply() remains unchanged after the transfer, demonstrating that tokens are not properly burned (totalSupply should decrease but doesn't). This creates inflationary pressure as burned tokens remain in totalSupply calculation."
+}

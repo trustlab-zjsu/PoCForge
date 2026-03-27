@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability lies in the `setMaxTxPercent` function of the Milesinu contract. An attacker, impersonating the contract owner, can call this function with an argument of `0`. This sets the `_maxTxAmount` state variable to zero, which effectively halts all subsequent transactions, as any transfer amount would exceed the maximum allowed.",
+  "interface_arsenal": "interface IMilesinu {\n    function owner() external view returns (address);\n    function setMaxTxPercent(uint256 maxTxPercent) external;\n    function _maxTxAmount() external view returns (uint256);\n}",
+  "attack_sequence": "vm.startPrank(owner);\ntarget.setMaxTxPercent(0);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was to recognize that the transaction-halting condition could be achieved by setting the maximum transaction amount to zero. The exploit leverages the ability to impersonate the contract's owner to call the administrative function `setMaxTxPercent(0)`, thereby successfully bricking the token's transfer functionality."
+}

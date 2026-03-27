@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+      "victim_contract": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call changeBurnFee() with parameters that set _burnFee > 2500 (25% limit). For example, set _burnFee = 5000 and _burnDivisor = 1000 to create a 50% burn fee. Then perform a token transfer to a non-excluded address - the recipient will receive tokens but immediately have 50% burned, effectively stealing value from users through excessive fees. Alternatively, use transferForeignToken() to drain any other tokens accidentally sent to the contract."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (deployer)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MSA tokens to demonstrate the exploit",
+      "token_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled should be true (default is false, but owner can enable it)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setTaxFeePercent() and setLiquidityFeePercent() to set both fees to high values (e.g., 49 each, totaling 98%). Then transfer tokens to the Uniswap pair to trigger the fee mechanism. The high fees will cause most of the transferred amount to be taken as fees (tax + liquidity), which will be swapped to BNB and sent to marketing address (controlled by owner) or added to liquidity (owned by owner). Enable swapAndLiquifyEnabled first if needed."
+}

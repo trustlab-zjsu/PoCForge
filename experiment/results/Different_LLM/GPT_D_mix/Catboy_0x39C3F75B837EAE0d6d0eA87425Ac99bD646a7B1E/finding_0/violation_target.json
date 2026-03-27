@@ -1,0 +1,35 @@
+{
+  "target_address": "0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or an authorized address",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have BNB balance from accumulated fees",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call clearStuckBalance() with amountPercentage = 100 to drain all BNB from the contract to the owner's address. This function has no access control beyond onlyOwner modifier, allowing the owner to steal accumulated fee revenue.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "deepseek"
+}

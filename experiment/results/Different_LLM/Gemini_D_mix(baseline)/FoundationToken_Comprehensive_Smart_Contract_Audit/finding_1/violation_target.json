@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to call `setOperationsAddress` and `withdrawStuckETH`.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The 'operationsAddress' is set to a malicious contract that reverts upon receiving ETH.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The contract's own token balance must be greater than or equal to `swapTokensAtAmount` to trigger the `swapBack` function via `forceSwapBack`.",
+      "token_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the fact that low-level `.call` return values are not checked. [2, 3, 4] An attacker can exploit this by first deploying a contract that reverts when it receives ETH. As the owner, the attacker then calls `setOperationsAddress` to set this malicious contract as the recipient for operational funds. The owner then calls `forceSwapBack()`. This function swaps tokens for ETH and attempts to send the proceeds to the `operationsAddress`. The transfer fails because the recipient contract reverts, but since the return value is not checked, the transaction does not revert, and the ETH remains in the `FoundationToken` contract. [6, 7] Finally, the owner calls `withdrawStuckETH()` to transfer all ETH from the contract to their own address, effectively stealing the funds intended for operations."
+}

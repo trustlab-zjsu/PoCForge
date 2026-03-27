@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "botlist[<victim_address>]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the addBots() function with an array containing the victim's address and set _status to true. This will blacklist the victim address, preventing them from making transactions when antibot is enabled. The owner can also manipulate other critical functions like setPause(), setTrade(), or excludeFromFee() to control the contract arbitrarily."
+}

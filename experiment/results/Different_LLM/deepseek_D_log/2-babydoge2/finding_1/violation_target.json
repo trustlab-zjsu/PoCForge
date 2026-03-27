@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or marketing wallet address",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold some token balance (collected taxes) that can be drained",
+      "token_address": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5681152e9AD9628C1518266A9aB29B6d8B35693B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner or marketing wallet, call getAllTaxes() function to drain all accumulated tax tokens from the contract. The function will swap the contract's token balance for ETH and transfer it to the marketing wallet without any limits. This can be done repeatedly whenever taxes accumulate."
+}

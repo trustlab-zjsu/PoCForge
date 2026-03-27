@@ -1,0 +1,41 @@
+{
+  "target_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold MVK tokens to trigger transfer functions that may call swapAndLiquify",
+      "token_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true to trigger swapAndLiquify during transfers",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated sufficient tokens in its balance to trigger swap (above minTokensBeforeSwap)",
+      "token_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have BNB balance for reward claims or marketing transfers",
+      "token_address": null,
+      "min_amount": "100000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with receive() fallback function. Step 1: Acquire MVK tokens. Step 2: Trigger transfer() to your malicious contract which will call swapAndLiquify if conditions are met. Step 3: During the external call in swapTokensForEth() to PancakeRouter or marketingwallet.transfer(), re-enter the contract via transfer() or claimReward(). Step 4: In claimReward(), the BNB transfer occurs before UserrewardPoolOnLastClaim is updated, allowing multiple claims. Step 5: Drain BNB from reward pool or marketing funds through repeated reentrant calls before state variables are properly updated."
+}

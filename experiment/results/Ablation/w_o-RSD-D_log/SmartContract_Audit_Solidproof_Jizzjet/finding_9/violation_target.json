@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unchecked Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to trigger the swapAndLiquify function",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "100000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to reach numTokensSellToAddToLiquidity threshold",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the sendBNBToAdmin function which uses transfer() without checking the return value. If the admin wallet is a contract that reverts on receive (or has fallen), the entire swapAndLiquify transaction will fail, locking funds in the contract. As an attacker, you could become the admin wallet (if ownership allows) or exploit when admin wallet is non-functional. First, ensure you're excluded from fees, then trigger swapAndLiquify by transferring tokens to cause contract to accumulate fees. When sendBNBToAdmin fails due to unchecked transfer, funds remain trapped. If you can become admin via _setReceiverWallet (requires owner), you can then claim the trapped BNB."
+}

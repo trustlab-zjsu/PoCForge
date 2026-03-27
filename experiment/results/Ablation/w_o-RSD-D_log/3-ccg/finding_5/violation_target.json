@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the LiquidityGeneratorToken to initiate the transfer",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to trigger swapAndLiquify (balanceOf(address(this)) >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. Call transfer() to the malicious contract with an amount that doesn't trigger swapAndLiquify initially. The malicious contract should have a fallback function that repeatedly calls transfer() again before the state updates in _transferStandard/_transferToExcluded/_transferFromExcluded are completed. This can potentially bypass fee deductions or cause double-spending by re-entering during the token balance update process."
+}

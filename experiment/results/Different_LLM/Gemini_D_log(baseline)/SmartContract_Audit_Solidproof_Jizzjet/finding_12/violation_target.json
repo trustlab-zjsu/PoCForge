@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reflection Rate Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold a non-zero balance of the JizzJet token to perform the exploit. The exploit is more profitable with a larger initial holding.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit involves two attacker-controlled addresses, let's call them Sacrifice and Beneficiary. The Sacrifice address calls the public `deliver()` function, passing its entire token balance as the `tAmount`. This action reduces the contract's `_rTotal` value without a corresponding change in `_tTotal`, thus artificially lowering the reflection rate (`_getRate()`). Since a user's balance is calculated by dividing their reflection balance by this rate (`tokenFromReflection`), the Beneficiary address's token balance increases without any direct transfer. The attacker profits if the value gained by the Beneficiary address is greater than the value of the tokens sacrificed by the Sacrifice address."
+}

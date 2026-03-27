@@ -1,0 +1,35 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Victim (token owner) must have sufficient BNRG token balance to approve and transfer",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract state must be Unlocked or Restricted (not Locked) to allow transfers",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker must be approved as spender by victim",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The approve function is vulnerable to a race condition where a spender can front-run an approval reduction. 1) Victim approves spender for amount X. 2) Victim tries to reduce approval to amount Y (Y < X). 3) Spender front-runs the reduction transaction with transferFrom for amount X. 4) The reduction transaction then sets allowance to Y, but spender already transferred X. 5) Spender can now transfer Y more tokens, effectively getting X+Y tokens instead of max(X,Y). Execute: Monitor mempool for victim's approve transactions, front-run with transferFrom for old allowance, then let new approval go through."
+}

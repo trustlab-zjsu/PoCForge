@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+  "vulnerability_type": "Incorrect Burn Logic",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some TOFU tokens to initiate transfer",
+      "token_address": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+      "min_amount": "1000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have totalSupply > 5000000000e9 (5 billion tokens with 9 decimals) for the buggy burn logic to activate",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+      "victim_contract": "0x19E506BbF1d8Dbd08e963229434634664A577111",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transfer function when totalSupply > 5000000000e9. The function calculates burnFee = amount * 2/100 and newAmount = amount - burnFee. However, it incorrectly subtracts newAmount from sender's balance first, then subtracts burnFee again from the same sender's balance. This double subtraction causes the sender to lose more tokens than intended, but the receiver gets newAmount and burn address gets burnFee. The total token count (sum of all balances) becomes greater than totalSupply. To exploit, attacker should transfer tokens to themselves or another controlled address when totalSupply > 5 billion. The attacker's total token holdings across all addresses will increase relative to the burned amount."
+}

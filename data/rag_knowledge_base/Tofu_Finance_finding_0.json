@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "A 'Wrong Burn' vulnerability exists in the Tofu_Finance contract's `_transfer` function. When the total supply is above a specific threshold (5,000,000,000e9), any token transfer triggers a flawed logic path that incorrectly burns tokens, causing the total supply to decrease.",
+  "interface_arsenal": "interface TofoFinance {\n    function totalSupply() external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n}",
+  "attack_sequence": "deal(TARGET, attacker, 1000 * 1e9);\nTofoFinance(TARGET).transfer(address(0xdead), 100 * 1e9);",
+  "winning_reflection": "The key insight was to recognize that the vulnerable burn logic in the `_transfer` function is gated by a `totalSupply` check. Since the contract's initial supply already exceeded this threshold, the vulnerability could be triggered by simply acquiring some tokens and executing a standard `transfer` call, leading to an unintended reduction of the total supply."
+}

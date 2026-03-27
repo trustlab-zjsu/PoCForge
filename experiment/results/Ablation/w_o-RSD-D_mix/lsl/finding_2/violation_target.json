@@ -1,0 +1,29 @@
+{
+  "target_address": "0x401e15Af5eDB56BE940D5a16b948F9436D2944F0",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call blacklistAddress function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be open (tradingOpen == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LionsLounge.isBlacklisted[<victim_address>]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As an authorized address, call the blacklistAddress function with a victim's address and set _value to true. This will prevent the victim from sending or receiving tokens through the contract's transfer functions, effectively blocking their transactions."
+}

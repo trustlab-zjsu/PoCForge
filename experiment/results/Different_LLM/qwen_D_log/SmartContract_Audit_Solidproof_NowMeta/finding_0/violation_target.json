@@ -1,0 +1,23 @@
+{
+  "target_address": "0xfac45d4b406D94cddFC48b198839673351CB2Bf9",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Call setMaxTxAmount(0) as the contract owner. This will set the maximum transaction amount to 0, causing all subsequent transfer attempts to fail with 'Transfer Limit exceeded!' since any transfer amount > 0 will exceed maxTxAmount. This effectively locks all user funds in the contract."
+}

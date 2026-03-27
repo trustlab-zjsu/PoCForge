@@ -1,0 +1,35 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Denial of Service via Liquidity Addition Failure",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold sufficient BGLG tokens to trigger the swapback threshold when transferring to the pair address",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1250000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fees in its balance exceeding the _SWAPBACK_THRESHOLD (1/10000 of totalSupply)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract BNB balance must be insufficient relative to token amount for liquidity addition, causing addLiquidityETH to revert",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "paused",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "1. Accumulate sufficient BGLG tokens in the contract through transfers to pair address (triggers fee collection). 2. Ensure contract has imbalanced BNB-to-token ratio by having tokens swapped but not enough BNB for proportional liquidity. 3. Attempt a transfer to the pair address - this will trigger _sellAndDistributeAccumulatedTKNFee() which calls addLiquidityETH. 4. The addLiquidityETH will revert due to BNB/token disparity, causing the entire transfer transaction to revert. 5. This creates a DoS condition where all transfers to the pair address fail, effectively blocking trading functionality."
+}

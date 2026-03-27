@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Unsafe Ether Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to trigger Sweep() function, or marketingAddress must be a contract with gas-intensive fallback",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance to transfer",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(this).balance",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The vulnerability exists in transferToAddressETH() which uses recipient.transfer(amount) with hardcoded 2300 gas limit. To exploit: 1) If attacker controls marketingAddress, deploy a contract with fallback function requiring >2300 gas. 2) Trigger swapTokens() which calls transferToAddressETH(marketingAddress, ...). 3) The transfer will fail, causing the entire transaction to revert, potentially DoSing the swap/liquidity mechanism. Alternatively, owner can call Sweep() which also uses .transfer() to send ETH to owner address."
+}

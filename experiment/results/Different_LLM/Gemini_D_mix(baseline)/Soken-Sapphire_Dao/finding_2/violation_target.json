@@ -1,0 +1,23 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Unvalidated Ownership Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "The caller must be the current owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "owner()",
+      "operator": "==",
+      "expected_value": "0x000000000000000000000000000000000000dEaD"
+    }
+  },
+  "exploit_hint": "The vulnerability lies in the `transferOwnership` function, which allows the current owner to set a new owner without verifying if the new address is a usable account. To exploit this, the current owner should call `transferOwnership`, providing a 'dead' or uncontrolled address (e.g., 0x000000000000000000000000000000000000dEaD) as the `newOwner_` parameter. This action will permanently lock all owner-restricted functions, as no one possesses the private key for the new owner address. [3, 9, 10, 14]"
+}

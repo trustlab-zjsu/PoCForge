@@ -1,0 +1,35 @@
+{
+  "target_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+  "vulnerability_type": "Unchecked Fee Percentage",
+  "violation_category": "ECONOMIC",
+  "finding_id": 8,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the TeaToken contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim user must hold a non-zero balance of TeaToken to demonstrate the impact.",
+      "token_address": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "min_amount": "100000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "victim_contract": "0x5e18Be2A7cE626B33C539919EAca06303f1Db568",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, should call `setTaxFeePercent` and/or `setLiquidityFeePercent` to set the total transfer fee to 100% (e.g., by calling `setLiquidityFeePercent(100)`). Afterwards, any transfer made by another user will result in their entire transfer amount being taken as a fee and transferred to the contract. The owner can then profit from these accumulated fees through the `swapAndLiquify` mechanism, which ultimately sends the resulting LP tokens to the owner's address.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

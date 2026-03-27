@@ -1,0 +1,29 @@
+{
+  "target_address": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+  "vulnerability_type": "Owner Privilege Abuse - Unlimited Minting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access onlyOwner functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "rewardsPool address must be set to a non-zero address (required by rebase function)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+      "victim_contract": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker controls the contract owner account. 2. Call setRewardsPool() to set rewardsPool to attacker's address. 3. Call rebase() with a high multiple value (e.g., 100 or higher) to mint tokens. The function mints rewardsPoolAmount * (multiple - 1) tokens to rewardsPool. 4. The newly minted tokens will be credited to attacker's balance. 5. Transfer or swap the minted tokens on DEX for profit, causing token inflation and devaluation for other holders."
+}

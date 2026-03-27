@@ -1,0 +1,35 @@
+{
+  "target_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 15,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised the owner's private key)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the MemeFarm token to sell",
+      "token_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Liquidity pool must exist with sufficient ETH balance for the exploit to be profitable",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, first set sell taxes to 100% using setAllTaxes(100,0,0) to trap users' tokens when they sell. Then use qwidji() to blacklist specific addresses (including yourself) to prevent them from selling. Finally, set yourself as fee-exempt using setlsExcIudeFromFee() and sell your tokens tax-free while other users cannot sell or face 100% taxes. Optionally, use changeRouterVeslon() to mint unlimited tokens to yourself if you control the ________ address."
+}

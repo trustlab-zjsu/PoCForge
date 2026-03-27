@@ -1,0 +1,29 @@
+{
+  "target_address": "0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim address must hold some DoctorShiba tokens",
+      "token_address": "0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "==",
+      "expected_value": "<victim_address>"
+    }
+  },
+  "exploit_hint": "As the contract owner, call transfernewun() with the victim's address as parameter. This will set newun to the victim's address, preventing them from selling tokens because the _transfer() function will revert with 'please wait' when recipient == newun && sender != owner()."
+}

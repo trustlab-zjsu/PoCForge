@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Denial of Service via Restricted Mode",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must be in Restricted state (bot protection enabled)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have at least 1 wei of BNRG tokens to initiate a transfer",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "lastTx[attacker_address]",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "When contract is in Restricted state, call transfer() or transferFrom() with attacker's address as both sender and recipient (or use a controlled address as recipient). This will update lastTx timestamps for both addresses, blocking them from making transactions for 60 seconds. Repeat with different address pairs to block multiple users. The attack exploits the modifier's requirement that both sender and recipient must wait 60 seconds between transactions."
+}

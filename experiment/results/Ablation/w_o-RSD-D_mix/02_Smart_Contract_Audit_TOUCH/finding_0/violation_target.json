@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "ERC-20 Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some TST token balance to initiate the attack",
+      "token_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (unrestricted = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The approve() function has a race condition vulnerability due to the requirement 'allowed[msg.sender][_spender] == 0 || _value == 0'. An attacker can front-run a victim's approval transaction: 1) First approve a small amount to establish allowance, 2) When victim tries to approve a larger amount, front-run with approve(0) to reset allowance to 0, 3) Then approve a large amount again before victim's transaction executes, allowing the attacker to steal tokens via transferFrom() from the victim's account."
+}

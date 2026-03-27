@@ -1,0 +1,29 @@
+{
+  "target_address": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+  "vulnerability_type": "Incorrect Token Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some initial token balance to exploit the burn function",
+      "token_address": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "victim_contract": "0x6bf3a93793e52f75543c92AfEC4636559988e3c1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the burn() and mint() functions which incorrectly use reflection values instead of token amounts. As owner, call mint() with a small amount to create tokens, then call burn() with a large reflection value to burn far fewer tokens than intended, resulting in net token gain. Specifically: 1. Call mint(attacker_address, 1) to add 1 token. 2. Call burn(large_reflection_value) where large_reflection_value is much larger than the token equivalent due to the reflection rate. The burn function subtracts the reflection value directly from _rOwned but only subtracts the same value from _tTotal (not converted to token amount), allowing you to burn very few actual tokens while appearing to burn many."
+}

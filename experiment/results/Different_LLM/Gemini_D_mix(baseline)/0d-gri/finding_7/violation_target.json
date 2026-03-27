@@ -1,0 +1,23 @@
+{
+  "target_address": "0x134C857757308AEeC4c20CA2A583F560a906ed28",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "maxWalletToken",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, who must be the contract owner, calls the `setMaxWalletTokens` function with the `_maxToken` parameter set to 0. This action will cause the transfer check `require(contractBalanceRecepient + amount <= maxWalletToken)` to fail for almost all transfers where the recipient is not the owner, effectively halting token transfers for regular users."
+}

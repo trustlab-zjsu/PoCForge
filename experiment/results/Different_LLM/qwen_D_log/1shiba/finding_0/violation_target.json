@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Owner Privilege Abuse - Unlimited Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setTaxFeePercent and setLiquidityFeePercent functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Users must hold tokens and attempt transfers for fees to be collected",
+      "token_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner) calls setTaxFeePercent with maximum value (e.g., 99 or 100) to set tax fee to 99-100%. 2. Attacker calls setLiquidityFeePercent with maximum value to set liquidity fee to 99-100%. 3. Wait for users to transfer tokens - nearly all transferred tokens will be collected as fees. 4. Fees accumulate in contract and are converted to BNB via swapAndLiquify function. 5. 2/3 of swapped BNB is sent to marketing address (0x1E0A894269812ae0CeAb7f10e25b885d3beBA110). If attacker controls marketing address or is owner, they extract value from user transfers."
+}

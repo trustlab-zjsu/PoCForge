@@ -1,0 +1,35 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Redundant Liquidity Functionality",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to attempt fee configuration changes",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled on the contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold tokens above swapTokensAtAmount threshold to trigger swap logic",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "84138000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "liquidityFeeonBuy + liquidityFeeonSell",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "This is a design flaw where liquidity fees are hardcoded to 0 in the constructor (liquidityFeeonBuy = 0, liquidityFeeonSell = 0) with no owner function to modify them. The swapAndLiquify() function will never execute because liquidityShare = liquidityFeeonBuy + liquidityFeeonSell = 0. To verify: 1) Check that liquidityFee variables remain 0 after any transfer, 2) Monitor contract balance to confirm no tokens are being accumulated for liquidity, 3) Verify swapAndLiquify is never called despite transfers to uniswapV2Pair. This misleads investors who expect liquidity to be added to the pool."
+}

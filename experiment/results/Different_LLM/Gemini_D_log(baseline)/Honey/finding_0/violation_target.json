@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Mint Calculation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "The attacker must be the owner of the contract to call the mint function.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the owner-only `mint` function. It incorrectly increases the owner's reflected balance `_rOwned` by the token amount being minted, instead of the properly scaled reflection amount (`amount * rate`). This results in the owner's actual token balance increasing by more than the amount they minted. The attacker, as the owner, can repeatedly call `mint` to generate tokens for themselves, with the extra profit growing as the reflection rate decreases with each mint."
+}

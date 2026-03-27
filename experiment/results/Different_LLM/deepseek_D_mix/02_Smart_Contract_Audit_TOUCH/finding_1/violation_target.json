@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "Integer Overflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the moderator (owner) of the contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (unrestricted = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the maximumTokenIssue calculation which uses unsafe multiplication (1000000000 * 10**18). In Solidity 0.4.x, this calculation can overflow if the result exceeds 2^256-1. However, the actual exploit requires being the moderator to call generateTokens (which is internal) or using transfer functions. Since generateTokens is internal and only called in constructor, the real exploit path is: 1) Become moderator via reassignModerator if current moderator is compromised, 2) Ensure unrestricted=true, 3) Use integer overflow in transfer/approval functions by providing values that cause overflow in SafeMath operations, particularly in add/sub operations on balances or allowances."
+}

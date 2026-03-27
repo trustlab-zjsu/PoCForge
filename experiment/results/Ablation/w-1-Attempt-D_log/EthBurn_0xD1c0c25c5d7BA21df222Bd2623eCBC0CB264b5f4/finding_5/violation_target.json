@@ -1,0 +1,35 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to initiate the attack",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true) and the attacker must not be excluded from fees",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract must have accumulated ETH in the dividend tracker from previous dividend distributions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The reentrancy vulnerability exists in the dividend distribution mechanism. When dividends are distributed via the receive() function in DividendPayingToken, it calls distributeDividends() which updates state after external calls. Create a malicious contract that implements a fallback function to recursively call withdrawDividend() or claim() during the dividend distribution. This can drain ETH from the dividend tracker by repeatedly claiming dividends before state updates complete. The attack should: 1. Deploy a malicious contract that holds BURNING tokens, 2. Trigger dividend distribution by sending ETH to the contract, 3. In the fallback, recursively call claim() or withdrawDividend() to drain funds before state variables like withdrawnDividends are updated."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to initiate the attack",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true) and the contract must have accumulated fees in buyAmount/sellAmount",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true and contract token balance must be >= swapTokensAtAmount",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The reentrancy vulnerability exists in the swapAndSendDividends function which calls external contracts (dividendTracker, marketingWallet, devWallet) via low-level calls without following checks-effects-interactions pattern. Create a malicious contract that triggers a reentrant call back to the EthBurn contract's transfer function during the dividend distribution. The attack flow: 1) Ensure contract has accumulated fees (buyAmount/sellAmount > 0), 2) Trigger a transfer that will cause swapAndSendDividends to execute, 3) During the external call to dividendTracker or marketing/dev wallets, re-enter the contract through a fallback function that calls transfer again, 4) Exploit the state variables (buyAmount, sellAmount) not being updated before external calls to drain funds multiple times."
+}

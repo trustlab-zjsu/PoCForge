@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an Owner Privilege Abuse in the target contract. The `setMaxWalletTokens` function, which controls a critical token holding limit, lacks any protection beyond a simple `onlyOwner` check. This allows any actor who can impersonate the owner's address to manipulate this core contract parameter.",
+  "interface_arsenal": "interface IGOLDENREGENTINVESTMENT {\n    function owner() external view returns (address);\n    function setMaxWalletTokens(uint256 _maxToken) external;\n    function maxWalletToken() external view returns (uint256);\n}",
+  "attack_sequence": "vm.startPrank(target.owner());\ntarget.setMaxWalletTokens(0);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was that the protected function `setMaxWalletTokens` could be called by simulating the owner's context. The successful strategy involved first identifying the owner via the public `owner()` function and then using Foundry's `vm.prank` cheatcode to execute the state-changing call from that specific address's context, thereby bypassing the `onlyOwner` modifier."
+}

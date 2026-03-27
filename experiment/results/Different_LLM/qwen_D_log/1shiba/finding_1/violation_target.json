@@ -1,0 +1,35 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Owner Privilege Abuse - Liquidity Drain",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access privileged functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens in its balance (>= numTokensSellToAddToLiquidity = 250000 * 10^15 tokens)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner: 1) Ensure swapAndLiquifyEnabled is true using setSwapAndLiquifyEnabled(true). 2) Set high liquidity and tax fees using setLiquidityFeePercent() and setTaxFeePercent() to maximize token accumulation. 3) Exclude the marketing address (0x1E0A894269812ae0CeAb7f10e25b885d3beBA110) from fees using excludeFromFee(). 4) Trigger multiple large transfers to/from the Uniswap pair to accumulate tokens in the contract balance. 5) Once contract balance exceeds numTokensSellToAddToLiquidity, the swapAndLiquify function will automatically execute, swapping tokens for BNB and transferring 2/3 of the swapped BNB to the marketing wallet. 6) Repeat transfers to drain liquidity pool funds to the team/marketing wallet controlled by the owner."
+}

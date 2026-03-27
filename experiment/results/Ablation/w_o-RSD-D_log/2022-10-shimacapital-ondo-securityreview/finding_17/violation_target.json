@@ -1,0 +1,35 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC20 Non-conformity",
+  "violation_category": "ECONOMIC",
+  "finding_id": 17,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the target token to initiate transfer",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused == false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted (isBlackListed[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract's transfer function has a fee calculation bug where it subtracts the full _value from sender's balance but only adds (value - fee) to recipient. However, the owner receives the fee separately. This creates a discrepancy but doesn't directly increase attacker balance. The real exploit is that the contract doesn't properly handle ERC20 return values - it doesn't check return value of transferFrom in the upgraded contract. If deprecated=true and upgradedAddress points to a malicious contract that doesn't transfer tokens but returns success, attackers can drain funds. First, become owner (or wait for owner to deprecate to a malicious contract), then call transfer/transferFrom to move tokens without actual transfer."
+}

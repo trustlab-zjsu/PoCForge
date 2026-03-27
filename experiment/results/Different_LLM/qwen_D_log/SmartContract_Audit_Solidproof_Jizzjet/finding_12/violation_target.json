@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Integer Overflow and Underflow",
+  "violation_category": "LOGIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to access fee manipulation functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have excluded addresses from rewards to manipulate reflection rate calculation",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_getRate()",
+      "operator": ">",
+      "expected_value": "abnormally_high_rate_value"
+    }
+  },
+  "exploit_hint": "1. Attacker gains owner access to the contract. 2. Call excludeFromReward() on multiple addresses to manipulate the _excluded array. 3. This affects _getCurrentSupply() calculation which divides rSupply by tSupply. 4. When many addresses are excluded or their balances are manipulated, the reflection rate can become abnormally high or cause division edge cases. 5. Call setTaxFeePercent() and setLiquidityFeePercent() to maximize fee extraction. 6. Transfer tokens while fees are maximized to extract value through the reflection mechanism. 7. The vulnerability lies in the reflection calculation logic where _rTotal and _tTotal can become misaligned through the exclusion mechanism, potentially causing incorrect balance calculations for all token holders."
+}

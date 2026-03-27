@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The CoinToken contract at 0xCA54954bb4E1b35AeE6eB04130CD406340EBA9B4 has a privileged function `EnemyAddress` that can be called by the owner to blacklist any address. The vulnerability is the centralized power of the owner to block addresses at will.",
+  "interface_arsenal": "interface ICoinToken {\n    function owner() external view returns (address);\n    function EnemyAddress(address account, bool value) external;\n    function _isEnemy(address account) external view returns (bool);\n}",
+  "attack_sequence": "vm.startPrank(target.owner());\ntarget.EnemyAddress(victim, true);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was recognizing that the contract's blacklist functionality was an unprotected, owner-privileged action. By impersonating the contract's owner, it was possible to directly invoke the `EnemyAddress` function to add an arbitrary address to the internal `_isEnemy` blacklist."
+}

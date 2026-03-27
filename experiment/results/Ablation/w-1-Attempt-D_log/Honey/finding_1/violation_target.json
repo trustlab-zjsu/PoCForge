@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Fee Calculation Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the honeyToken",
+      "token_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have non-zero CHARITY_FEE set (default is set in constructor)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _reflectFee function where charity fee is subtracted from _rTotal but not from _tTotal (unlike burn fee). This creates an inconsistency between reflection and token totals. Exploit by: 1. Ensure you have some tokens, 2. Perform a transfer to trigger fee calculation, 3. The charity fee amount will be deducted from _rTotal but not from _tTotal, causing the rate calculation (_getRate) to become distorted, potentially allowing attackers to extract more tokens than they should during transfers."
+}

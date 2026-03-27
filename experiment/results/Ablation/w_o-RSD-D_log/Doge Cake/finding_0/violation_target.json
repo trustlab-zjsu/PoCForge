@@ -1,0 +1,29 @@
+{
+  "target_address": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+  "vulnerability_type": "Unauthorized Dividend Distribution",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some DCAKE tokens to be eligible for dividend distribution",
+      "token_address": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+      "min_amount": "1"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some CAKE tokens to transfer to the dividend tracker contract",
+      "token_address": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+      "victim_contract": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit leverages the public `distributeDividends(uint256 amount)` function in the DividendPayingToken contract. First, approve the CAKE dividend tracker to spend your CAKE tokens. Then call `distributeDividends(amount)` on the CAKE dividend tracker contract with a fabricated amount, which will increase the `magnifiedDividendPerShare` and `totalDividendsDistributed`. Finally, call the `claim()` function on the main DogeCake contract to withdraw the illegitimate dividends. Repeat the same process for the DOGE dividend tracker if desired."
+}

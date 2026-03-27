@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdfFF8a26e4112945D9a850d63F1a864595fCbFE6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the CMOVE contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "A victim address must exist that is not currently on the blacklist and holds a balance of CMOVE tokens.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "blackListedList[VICTIM_ADDRESS]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the `addBlackList` function with a victim's address as the argument. This will add the victim to the `blackListedList` mapping, effectively freezing their tokens as any subsequent transfer attempt will be blocked by the `_beforeTokenTransfer` hook."
+}

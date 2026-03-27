@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "vulnerability_type": "Reordering Attack",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient balance of the input token for the swap",
+      "token_address": "<input_token_address>",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "A pending transaction must exist in the mempool that will affect the pool reserves (e.g., a large swap or liquidity addition)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "<output_token_address>",
+      "victim_contract": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Monitor the mempool for pending transactions that will move the price in a Uniswap pair. Front-run the victim's swap transaction by submitting your own swap with higher gas price to execute first, then back-run with another swap after the victim's transaction executes. Use swapExactTokensForTokens or swapExactETHForTokens functions to profit from the price movement."
+}

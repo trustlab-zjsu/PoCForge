@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be an authorized address, such as the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract's `launchMode` variable must be true.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim address must hold a non-zero balance of the contract's token.",
+      "token_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "victim_contract": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The attacker, holding owner or authorized privileges, must call the `multiTransfer` function. The `from` parameter should be set to the victim's address, the `addresses` array should contain the attacker's address, and the `tokens` array should specify the amount to be stolen (e.g., the victim's entire balance). This is possible because the function only requires `launchMode` to be true to bypass the `msg.sender == from` check, allowing an authorized user to specify any address to transfer tokens from."
+}

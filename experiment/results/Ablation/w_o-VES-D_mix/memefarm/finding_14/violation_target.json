@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 14,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs some MemeFarm tokens to trigger swapAndLiquify",
+      "token_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "min_amount": "1000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, set marketing/team wallet addresses to attacker-controlled addresses, then manipulate fees and swap settings to drain contract BNB. Steps: 1) Call setMarketinWalleAddress and setTeamWalletAddress with attacker address. 2) Optionally set high sell taxes via setAllTaxes. 3) Ensure swapAndLiquifyEnabled is true. 4) Transfer tokens to contract to trigger swapAndLiquify, which will send BNB to attacker-controlled addresses. Alternatively, use changeRouterVeslon to mint massive tokens if you control the ________ address."
+}

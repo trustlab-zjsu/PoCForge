@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `setVault` function in the Soken-Sapphire_Dao contract is protected by an `onlyOwner` modifier but lacks a zero-address validation for its input parameter. This allows the owner to set the critical `vault` address to `address(0)`, potentially disrupting contract operations or leading to a permanent lock of functionality.",
+  "interface_arsenal": "interface ISokenSapphireDao {\n    function owner() external view returns (address);\n    function setVault(address vault_) external returns (bool);\n    function vault() external view returns (address);\n}",
+  "attack_sequence": "vm.startPrank(soken.owner());\nISokenSapphireDao(TARGET).setVault(address(0));\nvm.stopPrank();",
+  "winning_reflection": "The exploit's success hinged on recognizing that the owner-controlled `setVault` function failed to implement a crucial zero-address check. By impersonating the contract owner, it was possible to directly call this function with `address(0)` as the argument, thereby breaking the contract's logic by setting a critical state variable to a null value."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Low-Level Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership through some means)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have a non-zero ETH balance (from accumulated fees or direct transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call withdrawStuckETH() when the contract has ETH balance. The function uses a low-level call without checking the return value, so even if the transfer fails (e.g., recipient is a contract that reverts), the ETH will remain locked in the contract. However, if the transfer succeeds, the attacker gains the ETH. Alternatively, set operationsAddress to a malicious contract that reverts on receive, causing ETH to accumulate in the contract, then later change operationsAddress to attacker's address and trigger swapBack() to capture accumulated funds."
+}

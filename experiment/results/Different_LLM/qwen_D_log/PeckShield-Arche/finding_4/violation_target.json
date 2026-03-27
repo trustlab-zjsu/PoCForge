@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+  "vulnerability_type": "Re-entrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient tokens or ETH to interact with the Impl_Delivery function in D_Swap contract",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "The D_Swap contract must have funds available to be withdrawn via Impl_Delivery",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Deploy a malicious contract with a fallback/receive function. 2. Call Impl_Delivery() function on D_Swap contract which performs an external call before updating internal state. 3. When the external call triggers your malicious contract's fallback, re-enter Impl_Delivery() recursively. 4. Repeat until contract funds are drained, as the balance/state is not updated until after the external call returns. 5. Withdraw all accumulated funds."
+}

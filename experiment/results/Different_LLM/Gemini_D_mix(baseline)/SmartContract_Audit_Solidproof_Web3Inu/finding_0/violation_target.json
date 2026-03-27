@@ -1,0 +1,23 @@
+{
+  "target_address": "0xd0c4BC1B89BbD105EeCb7EBa3f13E7648c0De38F",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The contract owner can call the `setMaxTxPercent` function with `maxTxPercent` set to 0. This action calculates `_maxTxAmount` as 0. Consequently, the `_transfer` function, which requires the transfer amount to be less than or equal to `_maxTxAmount`, will fail for any transfer amount greater than zero, effectively freezing the funds of all non-owner users."
+}

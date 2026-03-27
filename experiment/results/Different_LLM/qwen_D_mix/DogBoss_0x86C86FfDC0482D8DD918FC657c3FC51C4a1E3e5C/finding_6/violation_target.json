@@ -1,0 +1,23 @@
+{
+  "target_address": "0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have owner role to exercise privileged functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "owner",
+      "operator": "==",
+      "expected_value": "attacker_address"
+    }
+  },
+  "exploit_hint": "As contract owner, exploit privileged functions: 1) Call mint() to create unlimited tokens for any account, 2) Call blackListAddress() to prevent specific addresses from transferring tokens, 3) Call pause() to halt all token transfers, 4) Call updateFee() to modify txFee, burnFee, and FeeAddress parameters. These functions are protected by onlyOwner modifier and demonstrate centralized control risk."
+}

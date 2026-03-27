@@ -1,0 +1,23 @@
+{
+  "target_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+  "vulnerability_type": "Wrong Burning Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some Gator tokens to demonstrate the issue",
+      "token_address": "0x55Da3b152F48378A42D091be1eef2af37964BE45",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "GatorToken.totalSupply()",
+      "operator": "==",
+      "expected_value": "initial_total_supply"
+    }
+  },
+  "exploit_hint": "The vulnerability is that tokens sent to the burn address (0x000...dEaD) are not actually burned (total supply not reduced). Instead, they're just transferred to a dead address. To demonstrate, transfer tokens to the BURN_ADDRESS (0x000...dEaD) and observe that totalSupply() remains unchanged, proving tokens aren't burned. The contract's _transfer function calls super._transfer(sender, BURN_ADDRESS, burnAmount) which doesn't invoke _burn, so total supply isn't reduced."
+}

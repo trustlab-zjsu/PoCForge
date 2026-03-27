@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 token of the PocongNFT contract to initiate transfers",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The functions setMaxTxPercent() and setMaxWalletPercent() are missing the onlyOwner modifier, allowing any caller to set transaction limits to 0, effectively freezing all transfers. First, call setMaxTxPercent(0) to set max transaction amount to 0, then call setMaxWalletPercent(0) to set max wallet token amount to 0. This will cause all transfer attempts to revert due to the require(amount <= _maxTxAmount) and require(contractBalanceRecepient + amount <= _maxWalletToken) checks in _tokenTransfer()."
+}

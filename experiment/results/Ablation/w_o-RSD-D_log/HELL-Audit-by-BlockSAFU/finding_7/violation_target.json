@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the StandardToken to initiate transfer",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Victim contract must have implemented a callback mechanism (e.g., ERC777 tokensReceived, or fallback function that calls back into the token contract)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a fallback/receive function that reenters the StandardToken's transfer or approve function. First, approve the malicious contract to spend tokens. Then call transfer or transferFrom to the malicious contract, which during the token transfer callback, reenters the contract to manipulate balances or allowances before state updates are completed, potentially allowing double-spending or allowance manipulation."
+}

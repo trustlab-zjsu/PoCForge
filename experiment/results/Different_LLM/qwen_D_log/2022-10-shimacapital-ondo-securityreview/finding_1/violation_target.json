@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Accounting Error in Investment Function",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold sufficient collateral tokens to invest in the strategy",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "role",
+      "description": "Attacker must have access to call invest function on Treasury contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Exploit the missing validation checks in the invest function by investing different collateral tokens sequentially. The accounting error allows the attacker to receive incorrect share calculations, enabling withdrawal of more funds than originally invested. Call invest function multiple times with varying token types to trigger the accounting discrepancy, then withdraw to realize profit from the balance mismatch."
+}

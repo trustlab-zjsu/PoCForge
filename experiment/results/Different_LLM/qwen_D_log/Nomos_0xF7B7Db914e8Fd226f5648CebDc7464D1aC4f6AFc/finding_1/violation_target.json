@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy via Payable Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have ETH balance accumulated from token swaps",
+      "token_address": null,
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to call withdraw() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient NOMOS tokens to trigger swapAndLiquify",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "20000000000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Acquire owner access to the contract. 2. Trigger token transfers to Uniswap pair to accumulate ETH in contract via swapTokens() and swapAndLiquify() functions. 3. Call withdraw() function to extract ETH balance. 4. If reentrancy is possible through receive() function during ETH transfers, attempt to call withdraw() recursively before balance is updated. Note: Contract uses transfer() with 2300 gas limit and lockTheSwap modifier which may mitigate reentrancy."
+}

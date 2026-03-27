@@ -1,0 +1,29 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call withdrawStuckETH() or setOperationsAddress()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have a positive ETH balance (from accumulated fees or previous transfers)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call withdrawStuckETH() to transfer all ETH from the contract to your address. The function uses a low-level call without checking the return value, so even if the transfer fails (e.g., due to gas limits or recipient rejection), the transaction won't revert, allowing you to potentially drain funds without proper validation. Alternatively, set operationsAddress to your address and trigger swapBack() to accumulate ETH there."
+}

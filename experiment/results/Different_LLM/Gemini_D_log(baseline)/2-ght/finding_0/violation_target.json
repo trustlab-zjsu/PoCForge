@@ -1,0 +1,29 @@
+{
+  "target_address": "0x6D3dd96f97b10fc86A7F8607704BBe9936083b89",
+  "vulnerability_type": "Transaction Halting via Rebase",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have the 'owner' role to call the setRewardsPool and rebase functions.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The 'rewardsPool' state variable must be set to a non-zero address.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "rebaseMultiple",
+      "operator": ">",
+      "expected_value": "1"
+    }
+  },
+  "exploit_hint": "As the contract owner, first call `setRewardsPool` with any non-zero address. Then, call the `rebase` function with a large `multiple` argument (e.g., 10e30). This will cause the `rebaseMultiple` state variable to become excessively large. As a result, any subsequent user attempts to call functions like `transfer` or `approve` will revert due to an arithmetic overflow in the `amount * rebaseMultiple` calculation, effectively halting all primary token functions."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+  "vulnerability_type": "State Corruption via Uninitialized Address",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "newun variable must be set to address(0) (uninitialized)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some token balance or be approved to spend tokens from another account",
+      "token_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "==",
+      "expected_value": "<attacker_controlled_address>"
+    }
+  },
+  "exploit_hint": "When newun is address(0), call transferFrom() with any non-zero 'from' address and set 'to' as your desired address. This will permanently set newun to that 'to' address, blocking all future transfers to that address until owner calls transfernewun(). The exploit demonstrates state corruption by manipulating a critical contract variable through unintended logic flow."
+}

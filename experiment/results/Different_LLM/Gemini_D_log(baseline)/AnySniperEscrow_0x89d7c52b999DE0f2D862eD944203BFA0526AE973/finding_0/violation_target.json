@@ -1,0 +1,23 @@
+{
+  "target_address": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+  "vulnerability_type": "Re-entrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The target contract must have a pre-existing balance of native currency (ETH) that can be stolen. The attack will drain this balance.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The `multiSendETH` function follows the vulnerable 'interactions-before-effects' pattern. It sends ETH to recipients before checking if the total amount sent exceeds the `msg.value`. An attacker can exploit this by deploying a malicious contract with a `receive()` function. The attack involves: 1. Ensuring the target contract has a balance of ETH to be stolen. 2. Calling `multiSendETH` from the attacker's contract, specifying an amount to send that is greater than the `msg.value` but less than the contract's total balance. 3. The `receive()` hook on the attacker's contract is triggered by the ETH transfer, which then re-enters the `multiSendETH` function to recursively drain the contract's funds before the initial call's final `require` check can cause a revert."
+}

@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The target contract possesses an `owner`-privileged `mint` function. The vulnerability lies in the abuse of this centralized power, where an entity capable of impersonating the owner can mint an arbitrary quantity of tokens, thereby inflating the total supply and devaluing the token for other holders.",
+  "interface_arsenal": "interface CoinToken {\n    function owner() external view returns (address);\n    function mint(address account, uint256 amount) external;\n    function decimals() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = target.owner();\nvm.startPrank(owner);\ntarget.mint(attacker, amountToMint);\nvm.stopPrank();",
+  "winning_reflection": "The key insight was to leverage a testing framework's (Foundry's) capability to arbitrarily set the message sender (`msg.sender`). By using the `vm.startPrank` cheatcode with the legitimate owner's address, the exploit contract could successfully impersonate the owner and bypass the access control on the vulnerable `mint` function, allowing for unauthorized token creation."
+}

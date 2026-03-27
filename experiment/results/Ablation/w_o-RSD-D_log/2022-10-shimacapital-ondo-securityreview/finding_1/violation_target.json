@@ -1,0 +1,35 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Accounting Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the TetherToken (USDT) to exploit the accounting error",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused = false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted (isBlackListed[attacker] = false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability description mentions 'investing different collateral tokens in a single strategy contract could result in incorrect accounting'. While the provided code shows TetherToken (USDT) implementation, the actual exploit likely involves interacting with a separate Treasury contract that uses this token. The attack would involve depositing multiple token types into a strategy that doesn't properly segregate accounting, allowing cross-token balance manipulation. To exploit: 1) Deposit token A to strategy, 2) Deposit token B to same strategy, 3) Withdraw more of token A than deposited due to accounting confusion between token types."
+}

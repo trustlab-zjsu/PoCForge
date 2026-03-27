@@ -1,0 +1,23 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Missing Allowance Check",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "A victim account must hold a non-zero balance of the token at 0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20. The contract owner is a likely victim as they receive the initial total supply.",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit involves calling the public `transferFrom` function. This function critically lacks the standard ERC20 allowance check, which is meant to verify that the caller (`msg.sender`) has been approved to spend tokens on behalf of the `sender`. An attacker can exploit this by first identifying a victim holding the token (the contract's `owner()` is a prime target since they are minted the total supply). The attacker then calls `transferFrom(victim_address, attacker_address, amount)` to drain the victim's token balance directly into their own account without any prior approval."
+}

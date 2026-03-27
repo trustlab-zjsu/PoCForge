@@ -1,0 +1,29 @@
+{
+  "target_address": "0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the Catboy contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must have a BNB balance greater than zero, which typically accumulates from the swapBack function.",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract owner can exploit the `clearStuckBalance` function to withdraw all native currency (BNB) held by the contract. The attack involves calling `clearStuckBalance(100)` to transfer 100% of the contract's BNB balance to the owner's address."
+}

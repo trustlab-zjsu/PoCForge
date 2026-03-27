@@ -1,0 +1,29 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The attacker contract must possess some amount of LiquidityGeneratorToken to initiate the transfer.",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The LiquidityGeneratorToken contract must hold a balance of its own tokens greater than or equal to `numTokensSellToAddToLiquidity` to trigger the vulnerable swapAndLiquify function. This can be achieved by transferring tokens to the target contract.",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The exploit involves a reentrancy attack leveraging the `swapAndLiquify` function call within the `_transfer` function. The attacker, an external contract, must first ensure the conditions are met to trigger `swapAndLiquify` (i.e., the token contract holds enough of its own tokens). Then, the attacker initiates a `transfer`. This calls `swapAndLiquify` which involves external calls to Uniswap before the attacker's token balance is debited. The attacker's contract must implement a fallback/receive function that re-enters the `LiquidityGeneratorToken`'s `transfer` function during the Uniswap interaction. This second `transfer` will succeed based on the original token balance, allowing the attacker to effectively double-spend their tokens before the first transfer's balance deduction can occur."
+}

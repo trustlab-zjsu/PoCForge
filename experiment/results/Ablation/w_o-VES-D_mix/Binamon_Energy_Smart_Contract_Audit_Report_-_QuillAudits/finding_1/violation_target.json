@@ -1,0 +1,29 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "Approve Race",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The victim (token owner) must have a sufficient balance of BNRG tokens to approve and transfer",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract state must be Unlocked or Restricted (not Locked) to allow transfers from non-owner addresses",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The approve function is vulnerable to a race condition where an attacker can front-run a victim's approval transaction. 1) Monitor for a victim's approve transaction with amount X. 2) Front-run it with a transferFrom call using an existing allowance Y (where Y < X). 3) The victim's approve transaction then sets allowance to X, overwriting the reduced allowance. 4) Attacker can now transfer both Y and X amounts, effectively getting Y+X tokens instead of just X."
+}

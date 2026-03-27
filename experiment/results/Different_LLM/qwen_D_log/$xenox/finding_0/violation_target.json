@@ -1,0 +1,29 @@
+{
+  "target_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+  "vulnerability_type": "Unlimited Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access fee-setting functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Victim users must hold tokens and attempt to sell/buy on PancakeSwap",
+      "token_address": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker (as owner) calls setSellTaxFeePercent, setSellLiquidityFeePercent, and setSelldevFeePercent to set fees to maximum values (e.g., 100 or higher). 2. Victim users attempt to sell tokens on PancakeSwap. 3. Due to excessive fees, most or all of the victim's tokens are captured as fees instead of being received by the victim. 4. Fees accumulate in the contract and can be extracted by the owner through swapAndLiquify mechanism or direct transfer. 5. Attacker's BNB/token balance increases from the captured fees while victims lose value on their transactions."
+}

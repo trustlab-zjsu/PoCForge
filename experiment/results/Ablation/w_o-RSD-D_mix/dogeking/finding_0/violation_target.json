@@ -1,0 +1,23 @@
+{
+  "target_address": "0xCA54954bb4E1b35AeE6eB04130CD406340EBA9B4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CoinToken._isEnemy[<victim_address>]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call EnemyAddress(victim_address, true) to blacklist any target address. This will prevent the victim from making any transfers (buying or selling) since _transfer() checks _isEnemy mapping and reverts if either sender or receiver is blacklisted. The attack demonstrates improper access control where owner can arbitrarily block any address from transacting."
+}

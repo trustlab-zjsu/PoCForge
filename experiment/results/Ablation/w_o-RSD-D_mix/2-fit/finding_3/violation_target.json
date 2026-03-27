@@ -1,0 +1,29 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have BURNER_ROLE to call burn() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim address must hold some amount of the token",
+      "token_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "victim_contract": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an account with BURNER_ROLE, call the burn() function targeting a victim address that holds tokens. This will directly burn tokens from the victim's balance, reducing their holdings while potentially increasing the attacker's relative value in the token ecosystem. The burn function is in the SecondToken contract at line 1511 (as referenced in the vulnerability location)."
+}

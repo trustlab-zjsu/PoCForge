@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Unprotected Admin Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have accumulated tokens for swapBack (swapTokensAtAmount threshold)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be active (swapEnabled = true) for swapBack to execute",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call admin functions without owner restrictions: 1) Call updateDevWallet(attacker_address) or updateMarketingWallet(attacker_address) to redirect fund recipients to attacker's address. 2) Wait for or trigger trading activity to accumulate tokens in contract. 3) When swapBack executes automatically during transfers, ETH fees will be sent to attacker's wallet instead of legitimate dev/marketing wallets. Alternatively, call removeLimits() to disable transaction restrictions, then manipulate fees via updateBuyFees/updateSellFees to maximize fund extraction."
+}

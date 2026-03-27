@@ -1,0 +1,29 @@
+{
+  "target_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim user must hold a balance of the MetaPets token to execute a transfer.",
+      "token_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+      "victim_contract": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, first call `setMarketingWallet` to change the marketing address to an attacker-controlled address. Then, call `setMarketingFeePercent` to set a high marketing fee (e.g., 50). Finally, have a third-party account (the victim) execute a `transfer` of the contract's tokens. A large portion of this transfer will be diverted to the attacker's new marketing wallet, increasing their token balance."
+}

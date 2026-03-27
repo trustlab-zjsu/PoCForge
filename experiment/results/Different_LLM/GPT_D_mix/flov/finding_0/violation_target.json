@@ -1,0 +1,35 @@
+{
+  "target_address": "0xCA1E6F584E0d7EEc74F553E9a7B64a4DeD8A4b61",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The _maxTxAmount state variable must be greater than 0 to allow normal transfers.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_maxTxAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, acting as the contract owner, should call the `setMaxTxPercent` function with the `maxTxAmount` parameter set to 0. This action updates the `_maxTxAmount` state variable to zero. Consequently, any subsequent transfer attempts by non-owner accounts will fail due to the `require(amount <= _maxTxAmount)` check in the `_transfer` function, effectively halting all non-owner token transfers.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Unchecked Call Return Value",
+  "violation_category": "LOGIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract token balance must exceed numTokensSellToAddToLiquidity threshold (100000000 * 10**10 wei)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled flag must be true",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "inSwapAndLiquify must be false to allow swap execution",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "address(this).balance",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Trigger the swapAndLiquify mechanism by transferring sufficient JizzJet tokens to the contract until balance exceeds numTokensSellToAddToLiquidity. When swapAndLiquify executes, it calls sendBNBToAdmin which uses .transfer() to send BNB to _adminWalletAddress instead of Address.sendValue() which properly validates call success. If the admin wallet is a contract with a rejecting fallback function or insufficient gas, the BNB transfer may fail but execution continues. Verify exploitation by checking if BNB remains stuck in the contract (address(this).balance > 0) after swapAndLiquify completes, indicating the transfer failed silently."
+}

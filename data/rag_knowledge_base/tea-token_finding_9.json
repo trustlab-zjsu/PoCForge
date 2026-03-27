@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability lies in an owner privilege abuse flaw within the TeaToken contract. An attacker can impersonate the contract's owner to call privileged functions. The exploit demonstrates this by calling `setMaxTxPercent(0)` to manipulate the `_maxTxAmount` state variable to zero.",
+  "interface_arsenal": "interface ITeaToken {\n    function owner() external view returns (address);\n    function setMaxTxPercent(uint256 maxTxPercent) external;\n    function _maxTxAmount() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = ITeaToken(TARGET).owner();\nvm.prank(owner);\nITeaToken(TARGET).setMaxTxPercent(0);",
+  "winning_reflection": "The key insight was that the environment allowed for arbitrary address impersonation. By identifying the contract's owner, the attacker could use a `prank` cheat code to execute the owner-restricted `setMaxTxPercent` function and modify critical contract parameters."
+}

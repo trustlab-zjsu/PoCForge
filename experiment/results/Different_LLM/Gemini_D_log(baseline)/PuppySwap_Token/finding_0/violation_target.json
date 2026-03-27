@@ -1,0 +1,35 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Wrong Liquidity Adding",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The swapAndLiquifyEnabled flag must be set to true in the target contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must have a token balance greater than or equal to the minTokenNumberToSell threshold (1e19 wei). This can be achieved by transferring tokens to the contract.",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "10000000000000000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "The attacker must possess some BNB to execute the arbitrage swap after the vulnerability is triggered.",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The `swapAndLiquify` function incorrectly calculates the amount of BNB to add as liquidity, creating an arbitrage opportunity. To exploit this, first, transfer enough PUPPY tokens to the contract to meet the `minTokenNumberToSell` threshold. Then, execute another small transfer of PUPPY tokens. This second transfer will trigger the `swapAndLiquify` function, which swaps a portion of the contract's tokens for BNB but adds liquidity with only one-third of the received BNB, causing the token's price in the pool to drop. Immediately perform a swap on PancakeSwap, buying the now undervalued PUPPY tokens with BNB to secure a profit."
+}

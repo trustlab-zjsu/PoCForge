@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "A division by zero vulnerability exists in the ppig contract at 0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd. The owner-restricted `setShares` function lacks input validation, allowing the owner to set both share parameters to 0. This results in the `totalDistributionShares` state variable becoming 0, creating a division-by-zero condition for other functions that use it as a divisor.",
+  "interface_arsenal": "interface Ippig {\n    function owner() external view returns (address);\n    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;\n    function totalDistributionShares() external view returns (uint256);\n}",
+  "attack_sequence": "address contractOwner = victim.owner();\nvm.startPrank(contractOwner);\nvictim.setShares(0, 0);\nvm.stopPrank();",
+  "winning_reflection": "The crucial insight was that the `setShares` function, accessible only by the owner, failed to prevent the sum of its inputs from being zero. By impersonating the contract owner and calling `setShares(0, 0)`, the `totalDistributionShares` state variable could be directly manipulated to 0, successfully triggering the vulnerable state."
+}

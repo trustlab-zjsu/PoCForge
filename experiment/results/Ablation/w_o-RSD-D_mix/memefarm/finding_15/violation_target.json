@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 15,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have control of the ________ address (0x3aB960dCf9359083DC126222c03bfB0d2A3C9b6b)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MemeFarm tokens to sell",
+      "token_address": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x8fAc119886DD328a84Cd545881C7A484017E7Ce6",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner or ________ address controller: 1) First call qwidji() to blacklist the attacker's address (set _________[attacker] = true). 2) Then sell tokens through the DEX pair. The _transfer function will check if _________[sender] is true and revert with require(false), preventing the sale. 3) Meanwhile, other users can still buy tokens, creating a honeypot where only the owner can sell. This allows the owner to drain liquidity by selling their tokens while preventing others from selling."
+}

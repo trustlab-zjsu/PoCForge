@@ -1,0 +1,29 @@
+{
+  "target_address": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+  "vulnerability_type": "Re-entrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "The contract must have a positive ETH balance (or the attacker must be able to deposit ETH to create a balance)",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The attacker must be able to call multiSendETH with a malicious contract as one of the recipients",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a fallback/receive function that re-enters the multiSendETH function. Call multiSendETH with the malicious contract as a recipient and a small amount. In the fallback, re-enter multiSendETH before the totalAmount check, causing the contract to send more ETH than the msg.value. The attack drains ETH from the contract balance."
+}

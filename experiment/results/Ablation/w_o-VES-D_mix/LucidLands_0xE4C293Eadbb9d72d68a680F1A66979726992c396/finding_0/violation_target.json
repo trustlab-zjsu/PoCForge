@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE4C293Eadbb9d72d68a680F1A66979726992c396",
+  "vulnerability_type": "Access Control Bypass",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LLG tokens to be eligible for rewards (balance >= minRewardBalance)",
+      "token_address": "0xE4C293Eadbb9d72d68a680F1A66979726992c396",
+      "min_amount": "50000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must be activated (trading open, fees enabled, reward system active)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "RewardAsTokensEnabled must be true (default after activation)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xE4C293Eadbb9d72d68a680F1A66979726992c396",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call setClaimRewardAsTokensPercentage(100) to set your percentage to 100%, then claim rewards. This will cause all your reward BNB to be swapped for LLG tokens and sent to you. Since you control the swap destination, you can potentially manipulate the swap to extract more value. Alternatively, set percentage to 0 to claim pure BNB rewards. The function has no access control, so anyone can set their own percentage."
+}

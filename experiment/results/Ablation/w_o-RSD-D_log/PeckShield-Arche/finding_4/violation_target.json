@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the Arche token (FFI_ERC20) to participate in swaps",
+      "token_address": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The D_Swap contract must have sufficient liquidity for the token being swapped",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The Impl_Delivery() function violates checks-effects-interactions pattern by making external calls before updating state. Create a malicious contract that calls back into the vulnerable function during the token transfer. Use a reentrancy attack to drain ETH from the contract by repeatedly calling Impl_Delivery() before the contract's balance is updated."
+}

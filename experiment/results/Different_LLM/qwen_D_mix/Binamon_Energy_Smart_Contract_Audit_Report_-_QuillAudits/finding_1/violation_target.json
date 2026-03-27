@@ -1,0 +1,35 @@
+{
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "vulnerability_type": "ERC20 Approve Race Condition",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be an approved spender of victim's tokens",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim must have sufficient token balance to be exploited",
+      "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Victim must call approve() to change existing approval while attacker monitors",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "victim_contract": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Attacker obtains initial approval from victim for X tokens. 2. Monitor victim's approve() transactions via mempool. 3. When victim attempts to change approval from X to Y, immediately call transferFrom() with the old approval amount X before the new approval transaction is confirmed. 4. After victim's new approval is confirmed, call transferFrom() again with the new approval Y. 5. This allows attacker to spend X+Y tokens instead of just Y, exploiting the race condition in the approve function that doesn't check previous allowance."
+}

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+  "vulnerability_type": "Unchecked Low-Level Call Return Value",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setOperationsAddress or withdrawStuckETH",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated ETH balance from token swap operations",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled and swapEnabled must be true for swapBack to execute",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x9c771503a42f9b6e498d89c43e99F2e58CB8B384",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setOperationsAddress() to set operationsAddress to a contract that rejects ETH transfers (fallback function reverts). Then trigger swapBack() via token transfers or forceSwapBack() to accumulate ETH in the contract. The low-level call at line 557 will fail silently without checking the return value, causing ETH to remain locked. Alternatively, call withdrawStuckETH() which also doesn't check the call return value at line 563, potentially locking ETH if the transfer fails."
+}

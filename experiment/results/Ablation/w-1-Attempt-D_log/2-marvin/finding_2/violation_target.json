@@ -1,0 +1,29 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Unprotected Admin Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fees in the contract balance (tokensForMarketing, tokensForLiquidity, tokensForDev > 0)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapEnabled must be true (default is false until enableTrading is called by owner)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has multiple admin functions without proper access control. As any user, call updateMarketingWallet() or updateDevWallet() to set the fee recipient addresses to your own address. Then trigger swapBack() by making a transfer that accumulates enough fees in the contract (swapTokensAtAmount threshold). The contract will send accumulated ETH fees to your address. Alternatively, call excludeFromFees() on your address to avoid paying fees, or setAutomatedMarketMakerPair() to manipulate trading pairs."
+}

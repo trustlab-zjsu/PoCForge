@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have been authorized by owner)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold some BNB balance or other token balances",
+      "token_address": "NATIVE",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call clearStuckBalance(100) to drain 100% of the contract's BNB balance to your address. Alternatively, use clearStuckToken to drain any ERC20 tokens held by the contract. The owner can also use lunaburn() to extract tokens from the liquidity pool."
+}

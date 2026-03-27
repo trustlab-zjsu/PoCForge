@@ -1,0 +1,23 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Owner Privilege Abuse - Trading Control",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call enableTrading()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "tradingEnabled",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "The contract owner can control when trading is enabled for all users. Call enableTrading() function to set tradingEnabled from false to true. Before this call, all non-excluded users cannot transfer tokens (require(tradingEnabled, 'Trading is not enabled yet') in _transfer function). This gives the owner complete control over when the token becomes tradeable, potentially allowing them to manipulate market timing or prevent trading indefinitely."
+}

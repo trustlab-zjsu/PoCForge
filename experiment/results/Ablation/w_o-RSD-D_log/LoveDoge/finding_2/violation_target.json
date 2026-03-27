@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised owner account)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Bouns distribution must be active (bounsTime must be reached)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "dayPoolBounsPiece[yesToday]",
+      "operator": ">",
+      "expected_value": "dayPoolBouns[yesToday]"
+    }
+  },
+  "exploit_hint": "As owner, call sumBounsPiece() with an extremely large number (e.g., type(uint256).max) for the current day's date string. This will set dayPoolBounsPiece[yesToday] to a value greater than dayPoolBouns[yesToday]. Then when any user calls receiveBounsToken(), the _sumCanGetToken() function will attempt to subtract dayPoolBounsPiece[yesToday].mul(balancePiece) from dayPoolBouns[yesToday], causing a subtraction overflow revert due to SafeMath's require(b <= a) check. This permanently disables the bonus distribution mechanism."
+}

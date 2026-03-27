@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker needs to have deployed a malicious router contract that steals tokens instead of swapping them.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract must hold a token balance sufficient to trigger the swapAndLiquify function.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The owner can set a custom router address via the `setRouterAddress` function. An attacker who is the owner can deploy a malicious router contract. This malicious router should implement the 'swapExactTokensForETHSupportingFeeOnTransferTokens' function to transfer the received tokens to the attacker instead of swapping them. The owner then calls 'setRouterAddress' to point to this malicious router. Finally, any transfer that brings the contract's token balance over the `numTokensSellToAddToLiquidity` threshold will trigger `swapAndLiquify`, which calls the malicious router and results in the theft of the contract's token balance intended for liquidity and fees."
+}

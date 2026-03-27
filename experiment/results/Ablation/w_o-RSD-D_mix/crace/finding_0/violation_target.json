@@ -1,0 +1,29 @@
+{
+  "target_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or an authorized address (via the Auth contract's authorized modifier)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some CRACE tokens to trigger fee collection",
+      "token_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "min_amount": "1000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner/authorized, call setFees() with extremely high fee percentages (e.g., 5000 for each fee component) and a low feeDenominator (e.g., 100). Then perform a token transfer to trigger fee collection. The high fees will cause most of the transferred tokens to be collected as fees, which are then converted to BNB and sent to marketingFeeReceiver (which can be set to attacker's address via setFeeReceivers())."
+}

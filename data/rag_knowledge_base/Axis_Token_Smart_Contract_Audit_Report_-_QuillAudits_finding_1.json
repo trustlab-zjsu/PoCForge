@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The vulnerability is an owner privilege abuse in the Axis Token smart contract at 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28. The `mint` function is restricted to the owner, creating a centralization risk. An attacker can exploit this by impersonating the owner to mint an arbitrary amount of tokens to any address.",
+  "interface_arsenal": "interface ILineAxis {\n    function mint(address to, uint value) external;\n    function balanceOf(address account) external view returns (uint256);\n    function owner() external view returns (address);\n}",
+  "attack_sequence": "address owner = token.owner();\nvm.startPrank(owner);\ntoken.mint(attacker, amountToMint);\nvm.stopPrank();",
+  "winning_reflection": "The core insight was recognizing that the contract's minting capability was exclusively controlled by a single owner address. The PoC's success hinged on using a test environment feature (Foundry's `vm.startPrank`) to impersonate this owner, thereby bypassing the access control and allowing the attacker to call the privileged `mint` function to create tokens for themselves."
+}

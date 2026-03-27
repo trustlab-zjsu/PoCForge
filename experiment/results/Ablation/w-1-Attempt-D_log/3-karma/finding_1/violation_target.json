@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Total Supply Diversion",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some KARMA tokens to initiate transfers",
+      "token_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "victim_contract": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _takeLiquidity function where burnAmount is subtracted from _tTotalSupply but not from _tTotal. As owner, set burn fees to a high percentage, then perform transfers to trigger fee collection. The total supply (_tTotalSupply) will decrease while _tTotal remains unchanged, creating an inconsistency. This allows the owner to mint new tokens by manipulating the reflection mechanism since the ratio between rTotal and tTotal becomes distorted. Call transfer() with burn fees enabled to reduce totalSupply while keeping the same reflection reserves, then exploit the imbalance to extract value."
+}

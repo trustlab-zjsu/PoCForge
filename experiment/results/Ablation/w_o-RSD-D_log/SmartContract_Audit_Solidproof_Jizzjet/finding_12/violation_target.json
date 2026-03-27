@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Integer Overflow and Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 JizzJet token to initiate the exploit",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The contract must have accumulated some token balance from fees (in address(this)) to trigger swapAndLiquify",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability exists in the _getCurrentSupply() function where integer overflow can occur when subtracting excluded balances from rSupply and tSupply. By manipulating the excluded list and balances, cause an overflow that makes rSupply extremely small, then call deliver() with a small tAmount to drain reflections. Steps: 1) Become owner or have owner exclude your address from rewards. 2) Transfer tokens to make _rOwned[excluded] > rSupply. 3) Call deliver() with a small amount to trigger overflow in _getCurrentSupply() calculations, making tokenFromReflection() return inflated amounts. 4) Transfer tokens to profit from the inflated balance."
+}

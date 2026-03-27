@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The target contract's ownership transfer is unsafe. The `transferOwnership` function, while protected by an `onlyOwner` modifier, completes the transfer in a single transaction. This lacks a two-step (propose/accept) confirmation, creating a high-risk scenario where an owner's key compromise or a mistake in the destination address leads to an immediate and irreversible loss of control.",
+  "interface_arsenal": "interface Nugentoken {\n    function getOwner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n}",
+  "attack_sequence": "// 1. Assume the context of the current owner.\n// In the PoC, this is achieved with `vm.startPrank(originalOwner)`.\n\n// 2. The owner (or an impersonator) calls transferOwnership to an attacker-controlled address.\nNugentoken(TARGET).transferOwnership(ATTACKER_CONTROLLED_ADDRESS);",
+  "winning_reflection": "The key insight was recognizing the fragility of a single-step ownership transfer. While the function is owner-protected, control is absolute and immediate upon the successful execution of just one transaction. By simulating the owner's signature, the PoC demonstrated that a single call to `transferOwnership` is all that's needed to hijack the contract, bypassing any potential for recovery or confirmation."
+}

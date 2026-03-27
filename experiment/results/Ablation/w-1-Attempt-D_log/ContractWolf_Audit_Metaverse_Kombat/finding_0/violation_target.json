@@ -1,0 +1,35 @@
+{
+  "target_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MVK tokens to initiate the transfer",
+      "token_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true and contract must have accumulated enough tokens (exceeding minTokensBeforeSwap) to trigger swapAndLiquify",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blocked (checkUserBlocked[attacker] = false) and must satisfy sell eligibility requirements if selling to pancakePair",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a fallback/receive function that re-enters the _transfer function while swapAndLiquify is executing. First, ensure the contract has accumulated tax fees (contractTokenBalance > minTokensBeforeSwap). Then trigger a transfer that causes swapAndLiquify to execute. During the external call to marketingwallet.transfer() or pancakeRouter.addLiquidityETH(), re-enter the _transfer function to manipulate state before balances are updated. This can potentially allow double-spending or bypass fee deductions."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some PocongNFT tokens to perform transfers",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call the vulnerable functions excludeFromFee() and includeInFee() as a non-owner to manipulate fee exemptions. First, call excludeFromFee() with your address to become exempt from all transaction fees (tax, liquidity, burn, dev). Then perform token transfers to avoid paying fees, effectively stealing value from the contract's fee mechanisms. Finally, you can call includeInFee() to remove the exemption if needed."
+}

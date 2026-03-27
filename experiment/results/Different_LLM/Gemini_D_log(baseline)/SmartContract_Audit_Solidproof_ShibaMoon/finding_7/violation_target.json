@@ -1,0 +1,29 @@
+{
+  "target_address": "0xf7958ffcce46de09e0ab69b7da360c38b16266b",
+  "vulnerability_type": "Price Oracle Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The target contract's balance of its own token must be just below the numTokensSellToAddToLiquidity threshold (500,000 * 10^14).",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must possess a substantial amount of both ShibaMoon tokens and WBNB to manipulate the liquidity pool's price.",
+      "token_address": "0xf7958ffcce46de09e0ab69b7da360c38b16266b",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xf7958ffcce46de09e0ab69b7da360c38b16266b",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies within the `swapAndLiquify` mechanism, which can be exploited through price manipulation. The `addLiquidity` function call ignores the return values from the Uniswap router and sets minimum output amounts to zero, making it blind to slippage and economic consequences.\n\n1. First, manipulate the price by swapping a large volume of ShibaMoon tokens for WBNB on the corresponding PancakeSwap pair, causing the token's price to crash.\n2. Next, trigger the `swapAndLiquify` function on the target contract. This is done by sending a small number of ShibaMoon tokens to the contract, pushing its balance over the `numTokensSellToAddToLiquidity` threshold.\n3. The target contract will execute `swapAndLiquify`: it will swap half its tokens for a disproportionately small amount of WBNB (due to the manipulated price) and then add the other half of its tokens and the small WBNB amount to liquidity. The contract suffers a significant loss of value because it adds liquidity at an unfavorable price, a loss it fails to detect due to the unchecked return value in the `addLiquidity` function.\n4. Finally, the attacker can swap the WBNB back to ShibaMoon tokens at the artificially low price, profiting from the value drained from the contract's automated liquidity operation."
+}

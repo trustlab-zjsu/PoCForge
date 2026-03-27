@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Public Function Should Be External",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call mint(), freezeTransfers(), or unfreezeTransfers() functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be frozen (frozen = false) to call transfer() or transferFrom() functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "For transfer() and transferFrom(), attacker must have sufficient token balance",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LineAxis.frozen",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "This is a code quality issue where public functions that are never called internally should be declared external. No direct exploit exists, but the vulnerability indicates potential gas inefficiency. To demonstrate the issue, call freezeTransfers() as the owner to change the frozen state from false to true, showing the function is callable (as expected). The real issue is that these functions could be optimized by declaring them external since they're never called internally by the contract itself."
+}

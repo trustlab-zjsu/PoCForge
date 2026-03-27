@@ -1,0 +1,23 @@
+{
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or an authorized address to call setFees_base1000",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalFee",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setFees_base1000(0, 0, 0, 0) to set all fee components (liquidityFee, marketingFee, teamFee, devFee) to zero, which makes totalFee = 0. Then trigger a token transfer that would normally invoke swapBack(). The swapBack() function contains multiple division operations using totalFee as denominator (e.g., amountBNBMarketing = amountBNB * marketingFee / totalETHFee), which will cause division by zero errors and revert transactions, effectively bricking the contract's automatic swap and fee distribution mechanism."
+}

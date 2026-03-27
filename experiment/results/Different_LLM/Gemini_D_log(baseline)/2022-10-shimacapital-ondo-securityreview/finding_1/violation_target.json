@@ -1,0 +1,35 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Incorrect Accounting",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must possess a non-zero balance of the primary collateral token (USDT).",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must possess a non-zero balance of a second, different collateral token.",
+      "token_address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "min_amount": "1"
+    },
+    {
+      "type": "approval",
+      "description": "Attacker must grant approval to the vulnerable Treasury contract to spend both collateral tokens.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies within a separate Treasury contract that uses USDT as collateral, not the USDT token contract itself. The exploit involves calling the 'invest' function of the Treasury contract with one type of collateral (e.g., Token A), and then calling 'invest' again with a different collateral (Token B) within the same transaction or in quick succession. The contract fails to properly segregate or account for the different collateral types, leading to an inflated internal share balance for the attacker. The attacker can then withdraw their funds, receiving more than their initial deposit due to the accounting error."
+}

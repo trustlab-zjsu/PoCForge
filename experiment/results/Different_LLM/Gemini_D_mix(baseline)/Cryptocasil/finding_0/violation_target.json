@@ -1,0 +1,29 @@
+{
+  "target_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+  "vulnerability_type": "Denial of Service by Address Blocking",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The 'newun' state variable must be the zero address (0x0000000000000000000000000000000000000000).",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The attacker requires an allowance of at least 1 wei from any third-party address that holds tokens.",
+      "token_address": "0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D",
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "newun",
+      "operator": "==",
+      "expected_value": "<VICTIM_ADDRESS>"
+    }
+  },
+  "exploit_hint": "The goal is to trap a victim's address in the 'newun' variable, preventing them from receiving tokens. First, ensure a third-party account ('tokenHolder') approves the attacker to spend at least 1 wei. Then, the attacker calls `transferFrom`, using 'tokenHolder' as the `from` address and the victim's address as the `to` address. Because the 'newun' variable is initially the zero address, this first call will set it to the victim's address, permanently blocking them from receiving future transfers."
+}

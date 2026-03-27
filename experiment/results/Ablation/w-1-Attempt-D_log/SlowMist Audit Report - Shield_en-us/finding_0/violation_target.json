@@ -1,0 +1,35 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "Price Oracle Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient WBTC and DAI tokens to manipulate the Uniswap WBTC/DAI pool",
+      "token_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "min_amount": "100000000"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs DAI tokens to manipulate the pool price",
+      "token_address": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+      "min_amount": "100000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "The contract must be using the vulnerable getPriceByWBTCDAI function that queries Uniswap's getAmountsIn",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Manipulate the Uniswap WBTC/DAI pool price by performing large swaps to artificially inflate or deflate the price, then exploit contracts that use this manipulated price for critical operations like minting, burning, or collateral valuation. Execute flash loan attacks to temporarily drain the pool and create extreme price deviations."
+}

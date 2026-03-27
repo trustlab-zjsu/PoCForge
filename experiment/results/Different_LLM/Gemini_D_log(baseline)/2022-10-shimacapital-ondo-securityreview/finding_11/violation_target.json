@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Integer Overflow",
+  "violation_category": "LOGIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The _totalSupply variable is at a very high value, close to the uint256 maximum. For the exploit, assume the current _totalSupply is 115792089237316195423570985008687907853269984665640564039457584007913129639934 (i.e., 2**256 - 2).",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_totalSupply",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, who is the contract owner, calls the `issue(amount)` function. The additions in this function (`_totalSupply += amount` and `balances[owner] += amount`) are not protected by SafeMath. By calling `issue(2)` when the total supply is already at `2**256 - 2`, the `_totalSupply` and the owner's balance will overflow and wrap around to 0, corrupting a critical state variable of the contract."
+}

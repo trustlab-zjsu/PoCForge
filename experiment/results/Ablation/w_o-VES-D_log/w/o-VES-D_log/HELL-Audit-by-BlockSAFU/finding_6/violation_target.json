@@ -1,0 +1,23 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Lack of Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the token to transfer or must have an allowance from another account",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract inherits from Ownable but doesn't use onlyOwner modifier on critical functions like mint, burn, or transfer. However, the vulnerability description mentions lack of access control on functions like transfer and approve. Since this is a standard ERC20 token, the exploit likely involves unauthorized token transfers. If the attacker can obtain tokens (through legitimate transfer or other means), they can freely transfer them without restrictions. The key is that there are no additional access controls beyond standard ERC20 checks. The attacker should first obtain some tokens (e.g., by having them transferred from another account or through initial distribution), then demonstrate unauthorized transfer capability by moving tokens to another address they control."
+}

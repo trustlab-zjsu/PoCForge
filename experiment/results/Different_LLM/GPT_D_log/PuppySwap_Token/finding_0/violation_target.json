@@ -1,0 +1,29 @@
+{
+  "target_address": "0xc845341377C68b8003485036c3163b8DBcf8acb2",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call _setTaxFee and _setBurnFee functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xc845341377C68b8003485036c3163b8DBcf8acb2",
+      "victim_contract": "0xc845341377C68b8003485036c3163b8DBcf8acb2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call _setTaxFee(100) and/or _setBurnFee(100) to set fees to 100%. This will cause all token transfers to have 100% of the amount taken as fees. The fees are reflected through the reflection mechanism, which benefits the owner who holds tokens. Alternatively, set fees high before other users transfer, then collect the accumulated fees through the reflection system. The owner can also exclude themselves from fees using excludeAccount() before setting high fees, then transfer tokens without paying fees while others lose 100% of their transfer amounts.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

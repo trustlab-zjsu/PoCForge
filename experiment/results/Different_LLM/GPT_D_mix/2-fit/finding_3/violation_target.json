@@ -1,0 +1,35 @@
+{
+  "target_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must have the BURNER_ROLE. The BURNER_ROLE is defined as keccak256(\"BURNER_ROLE\"). [1, 2, 3, 4, 5]",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "A victim must hold a non-zero balance of the contract's token.",
+      "token_address": "0xfd77214b4a1aA6f962972Cbe65FB179c501D9094",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(VICTIM_ADDRESS)",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The attacker, who possesses the BURNER_ROLE, can arbitrarily burn tokens from any address. To execute the exploit, the attacker identifies a victim holding a balance of the token. The attacker then calls the `burn(address account, uint256 amount)` function, providing the victim's address as the `account` and the victim's entire token balance as the `amount`.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "gemini"
+}

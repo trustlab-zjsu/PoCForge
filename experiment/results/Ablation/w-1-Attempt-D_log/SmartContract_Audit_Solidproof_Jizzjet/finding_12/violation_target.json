@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Integer Overflow and Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 JizzJet token to initiate transfer",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have swapAndLiquifyEnabled = true (default)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _getCurrentSupply() function where integer overflow can occur when subtracting excluded account balances. Attack by: 1) Get excluded from fees via owner (or exploit if owner is compromised), 2) Transfer tokens to create large rOwned values for excluded accounts, 3) Trigger swapAndLiquify via transfer when contract balance exceeds threshold, 4) The overflow in _getCurrentSupply() will cause incorrect rate calculation, allowing attacker to receive excessive BNB from swap. Key functions: transfer() to trigger swapAndLiquify, _getCurrentSupply() has the overflow."
+}

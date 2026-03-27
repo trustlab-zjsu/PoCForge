@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Privileged Fund Theft",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract to call the `_setReceiverWallet` function.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The target contract must have a non-zero BNB balance, sent from an external source.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "The target contract's balance of its own token must be greater than or equal to `numTokensSellToAddToLiquidity` (1e18) to trigger the `swapAndLiquify` function.",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the owner, call `_setReceiverWallet` to set the `_adminWalletAddress` to an address controlled by the attacker. Next, send BNB to the contract to create a balance to steal. Then, transfer enough JizzJet tokens to the contract to ensure its balance is above the `numTokensSellToAddToLiquidity` threshold. Finally, execute any token transfer (e.g., `transfer(attacker, 1)`). This will trigger the `swapAndLiquify` function, which calls `sendBNBToAdmin`, ultimately draining the contract's entire BNB balance to the attacker's wallet via `_adminWalletAddress.transfer(address(this).balance)`."
+}

@@ -1,0 +1,2676 @@
+2026-03-12 02:14:01,679 [INFO] Quimera: Main task status: Starting Quimera... 🔱
+2026-03-12 02:14:01,680 [INFO] Quimera: Blocker: Waiting for network
+2026-03-12 02:14:01,680 [INFO] Quimera: Using block number 24635942 from command line argument.
+2026-03-12 02:14:01,680 [INFO] Quimera: Main task status: Fetching contract information 📡
+2026-03-12 02:14:05,174 [INFO] Quimera: <slither.slither.Slither object at 0x10cb26a50>
+2026-03-12 02:14:05,174 [INFO] Quimera: Contracts found: ['SafeMath', 'IERC20', 'IERC721', 'Address', 'SafeERC20', 'Context', 'Ownable', 'Pausable', 'Blacklistable', 'Withdrawable', 'CUSD'], selected CUSD
+2026-03-12 02:14:05,208 [INFO] Quimera: {'CUSD'}
+2026-03-12 02:14:05,208 [INFO] Quimera: {'_decimals', '_totalSupply', '_minter'}
+2026-03-12 02:14:05,742 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️
+2026-03-12 02:14:05,743 [INFO] Quimera: Installing Forge...
+2026-03-12 02:14:08,673 [INFO] Quimera: Running Forge test...
+2026-03-12 02:14:21,088 [INFO] Quimera: Blocker: Not enough valuableToken balance to produce profit
+2026-03-12 02:14:21,331 [INFO] Quimera: Prompt: # Instructions
+
+We are going to reproduce a Solidity smart contract issue step by step related with 0xC285B7E09A4584D027E5BC36571785B515898246 and/or one of the "linked" contracts (e.g tokens, staking, etc) in the mainnet chain which contains a deployment of the CUSD contract.
+Before starting, please read the provided code, fetch related contracts using addresses (use the Foundry traces to get the values) and request their source code to understand how they work and where the issue is.
+The goal is to incrementally modifying a Foundry test according to the information produced during its execution (e.g. a trace) until we can reproduce the issue.
+This issue allows a user to start with a certain amount of WETH, perform some operations using the contract (or other related ones), and then obtain more WETH than the initial one.
+
+
+# Constraints
+
+* VERY IMPORTANT: If you do not have the source code already available, start fetching the source code of the contracts involved, using their addresses. You should do this at any time when you discover a new address or token that you need to interact to.
+* VERY IMPORTANT: Only use addresses fetched from the target contracts state, new deployment or `address(this)`. Never use hardcoded addresses or invent new ones.
+* VERY IMPORTANT: do NOT use any cheat code (e.g prank). You will disqualified if you do so.
+* Do NOT guess the internal behavior of the contract, instead use the information provided by the trace, which is always accurate.
+* Do NOT predict the trace output, you need to run the test and check the output.
+* Do NOT use SafeMath
+* Do NOT try a reentrancy attack if a function is using `nonReentrant` modifier, it will not work. You can still call other functions without this modifier or any other functions from any related contracts.
+* Do NOT use low-level calls
+* Do NOT define additional contracts to deploy but you can use imported ones (e.g. ERC20Mock)
+* Do NOT use third-parties during exploit (e.g. the owner doing something for you). You can still pass other contracts or EOA addresses as parameters to the exploit if needed.
+* Do NOT use any private key operations (e.g. signing messages, etc.)
+* Do NOT try to re-initialize the contract, it will not work.
+* Do NOT try to exploit underflows or overflow conditions unless the contract is using Solidity < 0.8.0 or unchecked block. It will not work. However, unsafe casting is an issue for all versions.
+* You SHOULD use at least 10 ether of liquidity. If the pair to swap tokens have low liquidity, you SHOULD find a alternative way to obtain tokens (e.g. look how they are minted).
+* If you want to simulate a EOA, use `vm.startPrank(address(this), address(this));` and `vm.stopPrank();` functions. These are the ONLY allowed cheatcodes.
+
+# Output Format
+
+You should output different sections using the following tags:
+- `<executeExploitCode>`: the code of the `executeExploit` function, which is the main function to exploit the flaw as well as any additional function needed (e.g. for callbacks or reentrancy).
+- `<additionalInterfaces>`: any additional interface you need to use, if not provided.
+- `<additionalContracts>`: any additional contract you need to use, if not provided.
+
+* These tags should be used, at most, a single time. The `executeExploitCode` section is mandatory, while the others are optional.
+* Do NOT forget to close the tags with `</executeExploitCode>`, `</additionalInterfaces>` and `</additionalContracts>`.
+* Only use `additionalInterfaces` and `additionalContracts` if you absolutely need to define new interfaces or contracts, otherwise do not use them.
+* Do NOT output the rest of the code, only answer with the format requested.
+
+# Recommendations
+
+* Carefully review how tokens flows from this contract, to the Uniswap pair (and maybe passing through others), and back to this contract to repay the flash loan.
+* You have initially a large amount of WETH available, but you don't have to use it all if you need it (depends on the liquidity available). Do not change this value, only use the part of the flashloan that you need.
+* You start with no tokens, except WETH, so you must find a way to obtain the right tokens in order to trigger the flaw.
+* Near the end, you need to swap all your tokens to WETH. Be careful with transfer fees and other constraints. The exploit should be "capital efficient", in order to be detectable when repaying the flashloan.
+* Use `console.log` to query the state of the contracts, if needed.
+* Keep the control flow of the exploit simple: do not use if conditions, only sequences of calls.
+* Try using different functions of the target contracts and evaluate the effects to see if they are useful for the exploit.
+* If the uniswap pair is not initially available and you need it, try to find a suitable token and query the Uniswap factory to get the pair address. Do NOT forget to call approve on the token for the router before using it.
+* If `transferFrom` reverts, try to use the `approve` function first.
+* If the target contract requires to use an address as paramter, try to see if you can use the address of the contract itself (e.g. address(this)), or the address of the test contract you deploy. If it is not validated, you can probably exploit it.
+
+
+# Code to review
+```
+// SPDX-License-Identifier: MIT
+pragma solidity ^ 0.8 .0;
+/**
+ * @dev Wrappers over Solidity's arithmetic operations with added overflow
+ * checks.
+ *
+ * Arithmetic operations in Solidity wrap on overflow. This can easily result
+ * in bugs, because programmers usually assume that an overflow raises an
+ * error, which is the standard behavior in high level programming languages.
+ * `SafeMath` restores this intuition by reverting the transaction when an
+ * operation overflows.
+ *
+ * Using this library instead of the unchecked operations eliminates an entire
+ * class of bugs, so it's recommended to use it always.
+ */
+// CAUTION
+// This version of SafeMath should only be used with Solidity 0.8 or later,
+// because it relies on the compiler's built in overflow checks.
+/**
+ * @dev Wrappers over Solidity's arithmetic operations.
+ *
+ * NOTE: `SafeMath` is generally not needed starting with Solidity 0.8, since the compiler
+ * now has built in overflow checking.
+ */
+library SafeMath {
+  /**
+   * @dev Returns the addition of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryAdd(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    unchecked {
+      uint256 c = a + b;
+      if (c < a) return (false, 0);
+      return (true, c);
+    }
+  }
+  /**
+   * @dev Returns the substraction of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function trySub(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    unchecked {
+      if (b > a) return (false, 0);
+      return (true, a - b);
+    }
+  }
+  /**
+   * @dev Returns the multiplication of two unsigned integers, with an overflow flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryMul(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    unchecked {
+      // Gas optimization: this is cheaper than requiring 'a' not being zero, but the
+      // benefit is lost if 'b' is also tested.
+      // See: https://github.com/OpenZeppelin/openzeppelin-contracts/pull/522
+      if (a == 0) return (true, 0);
+      uint256 c = a * b;
+      if (c / a != b) return (false, 0);
+      return (true, c);
+    }
+  }
+  /**
+   * @dev Returns the division of two unsigned integers, with a division by zero flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryDiv(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    unchecked {
+      if (b == 0) return (false, 0);
+      return (true, a / b);
+    }
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers, with a division by zero flag.
+   *
+   * _Available since v3.4._
+   */
+  function tryMod(uint256 a, uint256 b) internal pure returns(bool, uint256) {
+    unchecked {
+      if (b == 0) return (false, 0);
+      return (true, a % b);
+    }
+  }
+  /**
+   * @dev Returns the addition of two unsigned integers, reverting on
+   * overflow.
+   *
+   * Counterpart to Solidity's `+` operator.
+   *
+   * Requirements:
+   *
+   * - Addition cannot overflow.
+   */
+  function add(uint256 a, uint256 b) internal pure returns(uint256) {
+    return a + b;
+  }
+  /**
+   * @dev Returns the subtraction of two unsigned integers, reverting on
+   * overflow (when the result is negative).
+   *
+   * Counterpart to Solidity's `-` operator.
+   *
+   * Requirements:
+   *
+   * - Subtraction cannot overflow.
+   */
+  function sub(uint256 a, uint256 b) internal pure returns(uint256) {
+    return a - b;
+  }
+  /**
+   * @dev Returns the multiplication of two unsigned integers, reverting on
+   * overflow.
+   *
+   * Counterpart to Solidity's `*` operator.
+   *
+   * Requirements:
+   *
+   * - Multiplication cannot overflow.
+   */
+  function mul(uint256 a, uint256 b) internal pure returns(uint256) {
+    return a * b;
+  }
+  /**
+   * @dev Returns the integer division of two unsigned integers, reverting on
+   * division by zero. The result is rounded towards zero.
+   *
+   * Counterpart to Solidity's `/` operator.
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function div(uint256 a, uint256 b) internal pure returns(uint256) {
+    return a / b;
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+   * reverting when dividing by zero.
+   *
+   * Counterpart to Solidity's `%` operator. This function uses a `revert`
+   * opcode (which leaves remaining gas untouched) while Solidity uses an
+   * invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function mod(uint256 a, uint256 b) internal pure returns(uint256) {
+    return a % b;
+  }
+  /**
+   * @dev Returns the subtraction of two unsigned integers, reverting with custom message on
+   * overflow (when the result is negative).
+   *
+   * CAUTION: This function is deprecated because it requires allocating memory for the error
+   * message unnecessarily. For custom revert reasons use {trySub}.
+   *
+   * Counterpart to Solidity's `-` operator.
+   *
+   * Requirements:
+   *
+   * - Subtraction cannot overflow.
+   */
+  function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    unchecked {
+      require(b <= a, errorMessage);
+      return a - b;
+    }
+  }
+  /**
+   * @dev Returns the integer division of two unsigned integers, reverting with custom message on
+   * division by zero. The result is rounded towards zero.
+   *
+   * Counterpart to Solidity's `/` operator. Note: this function uses a
+   * `revert` opcode (which leaves remaining gas untouched) while Solidity
+   * uses an invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    unchecked {
+      require(b > 0, errorMessage);
+      return a / b;
+    }
+  }
+  /**
+   * @dev Returns the remainder of dividing two unsigned integers. (unsigned integer modulo),
+   * reverting with custom message when dividing by zero.
+   *
+   * CAUTION: This function is deprecated because it requires allocating memory for the error
+   * message unnecessarily. For custom revert reasons use {tryMod}.
+   *
+   * Counterpart to Solidity's `%` operator. This function uses a `revert`
+   * opcode (which leaves remaining gas untouched) while Solidity uses an
+   * invalid opcode to revert (consuming all remaining gas).
+   *
+   * Requirements:
+   *
+   * - The divisor cannot be zero.
+   */
+  function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns(uint256) {
+    unchecked {
+      require(b > 0, errorMessage);
+      return a % b;
+    }
+  }
+}
+/**
+ * @dev Interface of the ERC20 standard as defined in the EIP.
+ */
+interface IERC20 {
+  /**
+   * @dev Returns the amount of tokens in existence.
+   */
+  function totalSupply() external view returns(uint256);
+  /**
+   * @dev Returns the amount of tokens owned by `account`.
+   */
+  function balanceOf(address account) external view returns(uint256);
+  /**
+   * @dev Moves `amount` tokens from the caller's account to `recipient`.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transfer(address recipient, uint256 amount) external returns(bool);
+  /**
+   * @dev Returns the remaining number of tokens that `spender` will be
+   * allowed to spend on behalf of `owner` through {transferFrom}. This is
+   * zero by default.
+   *
+   * This value changes when {approve} or {transferFrom} are called.
+   */
+  function allowance(address owner, address spender) external view returns(uint256);
+  /**
+   * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * IMPORTANT: Beware that changing an allowance with this method brings the risk
+   * that someone may use both the old and the new allowance by unfortunate
+   * transaction ordering. One possible solution to mitigate this race
+   * condition is to first reduce the spender's allowance to 0 and set the
+   * desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+   *
+   * Emits an {Approval} event.
+   */
+  function approve(address spender, uint256 amount) external returns(bool);
+  /**
+   * @dev Moves `amount` tokens from `sender` to `recipient` using the
+   * allowance mechanism. `amount` is then deducted from the caller's
+   * allowance.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transferFrom(address sender, address recipient, uint256 amount) external returns(bool);
+  /**
+   * @dev Emitted when `value` tokens are moved from one account (`from`) to
+   * another (`to`).
+   *
+   * Note that `value` may be zero.
+   */
+  event Transfer(address indexed from, address indexed to, uint256 value);
+  /**
+   * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+   * a call to {approve}. `value` is the new allowance.
+   */
+  event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+/**
+ * @dev Required interface of an ERC721 compliant contract.
+ */
+interface IERC721 {
+  /**
+   * @dev Transfers `tokenId` token from `from` to `to`.
+   *
+   * WARNING: Usage of this method is discouraged, use {safeTransferFrom} whenever possible.
+   *
+   * Requirements:
+   *
+   * - `from` cannot be the zero address.
+   * - `to` cannot be the zero address.
+   * - `tokenId` token must be owned by `from`.
+   * - If the caller is not `from`, it must be approved to move this token by either {approve} or {setApprovalForAll}.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transferFrom(address from, address to, uint256 tokenId) external;
+}
+/**
+ * @dev Collection of functions related to the address type
+ */
+library Address {
+  /**
+   * @dev Returns true if `account` is a contract.
+   *
+   * [IMPORTANT]
+   * ====
+   * It is unsafe to assume that an address for which this function returns
+   * false is an externally-owned account (EOA) and not a contract.
+   *
+   * Among others, `isContract` will return false for the following
+   * types of addresses:
+   *
+   * - an externally-owned account
+   * - a contract in construction
+   * - an address where a contract will be created
+   * - an address where a contract lived, but was destroyed
+   * ====
+   *
+   * [IMPORTANT]
+   * ====
+   * You shouldn't rely on `isContract` to protect against flash loan attacks!
+   *
+   * Preventing calls from contracts is highly discouraged. It breaks composability, breaks support for smart wallets
+   * like Gnosis Safe, and does not provide security since it can be circumvented by calling from a contract
+   * constructor.
+   * ====
+   */
+  function isContract(address account) internal view returns(bool) {
+    // This method relies on extcodesize/address.code.length, which returns 0
+    // for contracts in construction, since the code is only stored at the end
+    // of the constructor execution.
+    return account.code.length > 0;
+  }
+  /**
+   * @dev Replacement for Solidity's `transfer`: sends `amount` wei to
+   * `recipient`, forwarding all available gas and reverting on errors.
+   *
+   * https://eips.ethereum.org/EIPS/eip-1884[EIP1884] increases the gas cost
+   * of certain opcodes, possibly making contracts go over the 2300 gas limit
+   * imposed by `transfer`, making them unable to receive funds via
+   * `transfer`. {sendValue} removes this limitation.
+   *
+   * https://diligence.consensys.net/posts/2019/09/stop-using-soliditys-transfer-now/[Learn more].
+   *
+   * IMPORTANT: because control is transferred to `recipient`, care must be
+   * taken to not create reentrancy vulnerabilities. Consider using
+   * {ReentrancyGuard} or the
+   * https://solidity.readthedocs.io/en/v0.5.11/security-considerations.html#use-the-checks-effects-interactions-pattern[checks-effects-interactions pattern].
+   */
+  function sendValue(address payable recipient, uint256 amount) internal {
+    require(address(this).balance >= amount, "Address: insufficient balance");
+    (bool success, ) = recipient.call {
+      value: amount
+    }("");
+    require(success, "Address: unable to send value, recipient may have reverted");
+  }
+  /**
+   * @dev Performs a Solidity function call using a low level `call`. A
+   * plain `call` is an unsafe replacement for a function call: use this
+   * function instead.
+   *
+   * If `target` reverts with a revert reason, it is bubbled up by this
+   * function (like regular Solidity function calls).
+   *
+   * Returns the raw returned data. To convert to the expected return value,
+   * use https://solidity.readthedocs.io/en/latest/units-and-global-variables.html?highlight=abi.decode#abi-encoding-and-decoding-functions[`abi.decode`].
+   *
+   * Requirements:
+   *
+   * - `target` must be a contract.
+   * - calling `target` with `data` must not revert.
+   *
+   * _Available since v3.1._
+   */
+  function functionCall(address target, bytes memory data) internal returns(bytes memory) {
+    return functionCall(target, data, "Address: low-level call failed");
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`], but with
+   * `errorMessage` as a fallback revert reason when `target` reverts.
+   *
+   * _Available since v3.1._
+   */
+  function functionCall(address target, bytes memory data, string memory errorMessage) internal returns(bytes memory) {
+    return functionCallWithValue(target, data, 0, errorMessage);
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+   * but also transferring `value` wei to `target`.
+   *
+   * Requirements:
+   *
+   * - the calling contract must have an ETH balance of at least `value`.
+   * - the called Solidity function must be `payable`.
+   *
+   * _Available since v3.1._
+   */
+  function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns(bytes memory) {
+    return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
+  }
+  /**
+   * @dev Same as {xref-Address-functionCallWithValue-address-bytes-uint256-}[`functionCallWithValue`], but
+   * with `errorMessage` as a fallback revert reason when `target` reverts.
+   *
+   * _Available since v3.1._
+   */
+  function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns(bytes memory) {
+    require(address(this).balance >= value, "Address: insufficient balance for call");
+    require(isContract(target), "Address: call to non-contract");
+    (bool success, bytes memory returndata) = target.call {
+      value: value
+    }(data);
+    return verifyCallResult(success, returndata, errorMessage);
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+   * but performing a static call.
+   *
+   * _Available since v3.3._
+   */
+  function functionStaticCall(address target, bytes memory data) internal view returns(bytes memory) {
+    return functionStaticCall(target, data, "Address: low-level static call failed");
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+   * but performing a static call.
+   *
+   * _Available since v3.3._
+   */
+  function functionStaticCall(address target, bytes memory data, string memory errorMessage) internal view returns(bytes memory) {
+    require(isContract(target), "Address: static call to non-contract");
+    (bool success, bytes memory returndata) = target.staticcall(data);
+    return verifyCallResult(success, returndata, errorMessage);
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-}[`functionCall`],
+   * but performing a delegate call.
+   *
+   * _Available since v3.4._
+   */
+  function functionDelegateCall(address target, bytes memory data) internal returns(bytes memory) {
+    return functionDelegateCall(target, data, "Address: low-level delegate call failed");
+  }
+  /**
+   * @dev Same as {xref-Address-functionCall-address-bytes-string-}[`functionCall`],
+   * but performing a delegate call.
+   *
+   * _Available since v3.4._
+   */
+  function functionDelegateCall(address target, bytes memory data, string memory errorMessage) internal returns(bytes memory) {
+    require(isContract(target), "Address: delegate call to non-contract");
+    (bool success, bytes memory returndata) = target.delegatecall(data);
+    return verifyCallResult(success, returndata, errorMessage);
+  }
+  /**
+   * @dev Tool to verifies that a low level call was successful, and revert if it wasn't, either by bubbling the
+   * revert reason using the provided one.
+   *
+   * _Available since v4.3._
+   */
+  function verifyCallResult(bool success, bytes memory returndata, string memory errorMessage) internal pure returns(bytes memory) {
+    if (success) {
+      return returndata;
+    } else {
+      // Look for revert reason and bubble it up if present
+      if (returndata.length > 0) {
+        // The easiest way to bubble the revert reason is using memory via assembly
+        assembly {
+          let returndata_size: = mload(returndata)
+          revert(add(32, returndata), returndata_size)
+        }
+      } else {
+        revert(errorMessage);
+      }
+    }
+  }
+}
+/**
+ * @title SafeERC20
+ * @dev Wrappers around ERC20 operations that throw on failure (when the token
+ * contract returns false). Tokens that return no value (and instead revert or
+ * throw on failure) are also supported, non-reverting calls are assumed to be
+ * successful.
+ * To use this library you can add a `using SafeERC20 for IERC20;` statement to your contract,
+ * which allows you to call the safe operations as `token.safeTransfer(...)`, etc.
+ */
+library SafeERC20 {
+  using Address
+  for address;
+
+  function safeTransfer(IERC20 token, address to, uint256 value) internal {
+    _callOptionalReturn(token, abi.encodeWithSelector(token.transfer.selector, to, value));
+  }
+  /**
+   * @dev Imitates a Solidity high-level call (i.e. a regular function call to a contract), relaxing the requirement
+   * on the return value: the return value is optional (but if data is returned, it must not be false).
+   * @param token The token targeted by the call.
+   * @param data The call data (encoded using abi.encode or one of its variants).
+   */
+  function _callOptionalReturn(IERC20 token, bytes memory data) private {
+    // We need to perform a low level call here, to bypass Solidity's return data size checking mechanism, since
+    // we're implementing it ourselves. We use {Address.functionCall} to perform this call, which verifies that
+    // the target address contains contract code and also asserts for success in the low-level call.
+    bytes memory returndata = address(token).functionCall(data, "SafeERC20: low-level call failed");
+    if (returndata.length > 0) {
+      // Return data is optional
+      require(abi.decode(returndata, (bool)), "SafeERC20: ERC20 operation did not succeed");
+    }
+  }
+}
+/*
+ * @dev Provides information about the current execution context, including the
+ * sender of the transaction and its data. While these are generally available
+ * via msg.sender and msg.data, they should not be accessed in such a direct
+ * manner, since when dealing with GSN meta-transactions the account sending and
+ * paying for execution may not be the actual sender (as far as an application
+ * is concerned).
+ *
+ * This contract is only required for intermediate, library-like contracts.
+ */
+abstract contract Context {
+  function _msgSender() internal view returns(address payable) {
+    return payable(msg.sender);
+  }
+
+  function _msgData() internal view returns(bytes memory) {
+    this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
+    return msg.data;
+  }
+}
+/**
+ * @dev Contract module which provides a basic access control mechanism, where
+ * there is an account (an owner) that can be granted exclusive access to
+ * specific functions.
+ *
+ * By default, the owner account will be the one that deploys the contract. This
+ * can later be changed with {transferOwnership}.
+ *
+ * This module is used through inheritance. It will make available the modifier
+ * `onlyOwner`, which can be applied to your functions to restrict their use to
+ * the owner.
+ */
+abstract contract Ownable is Context {
+  address private _owner;
+  address private _newOwner;
+  event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+  /**
+   * @dev Initializes the contract setting the deployer as the initial owner.
+   */
+  constructor() {
+    address msgSender = _msgSender();
+    _owner = msgSender;
+    emit OwnershipTransferred(address(0), msgSender);
+  }
+  /**
+   * @dev Returns the address of the current owner.
+   */
+  function owner() public view returns(address) {
+    return _owner;
+  }
+  /**
+   * @dev Throws if called by any account other than the owner.
+   */
+  modifier onlyOwner() {
+    require(owner() == _msgSender(), "Ownable: caller is not the owner");
+    _;
+  }
+  /**
+   * @dev Accept the ownership transfer. This is to make sure that the contract is
+   * transferred to a working address
+   *
+   * Can only be called by the newly transfered owner.
+   */
+  function acceptOwnership() public {
+    require(_msgSender() == _newOwner, "Ownable: only new owner can accept ownership");
+    address oldOwner = _owner;
+    _owner = _newOwner;
+    _newOwner = address(0);
+    emit OwnershipTransferred(oldOwner, _owner);
+  }
+  /**
+   * @dev Transfers ownership of the contract to a new account (`newOwner`).
+   *
+   * Can only be called by the current owner.
+   */
+  function transferOwnership(address newOwner) public onlyOwner {
+    require(newOwner != address(0), "Ownable: new owner is the zero address");
+    _newOwner = newOwner;
+  }
+}
+/**
+ * @dev Contract module which allows children to implement an emergency stop
+ * mechanism that can be triggered by an authorized account.
+ *
+ * This module is used through inheritance. It will make available the
+ * modifiers `whenNotFrozen` and `whenFrozen`, which can be applied to
+ * the functions of your contract. Note that they will not be pausable by
+ * simply including this module, only once the modifiers are put in place.
+ */
+abstract contract Pausable is Context, Ownable {
+  /**
+   * @dev Emitted when the freeze is triggered by `account`.
+   */
+  event Frozen(address account);
+  /**
+   * @dev Emitted when the freeze is lifted by `account`.
+   */
+  event Unfrozen(address account);
+  bool private _frozen;
+  /**
+   * @dev Initializes the contract in unfrozen state.
+   */
+  constructor() {
+    _frozen = false;
+  }
+  /**
+   * @dev Returns true if the contract is frozen, and false otherwise.
+   */
+  function frozen() public view returns(bool) {
+    return _frozen;
+  }
+  /**
+   * @dev Modifier to make a function callable only when the contract is not frozen.
+   *
+   * Requirements:
+   *
+   * - The contract must not be frozen.
+   */
+  modifier whenNotFrozen() {
+    require(!frozen(), "Freezable: frozen");
+    _;
+  }
+  /**
+   * @dev Modifier to make a function callable only when the contract is frozen.
+   *
+   * Requirements:
+   *
+   * - The contract must be frozen.
+   */
+  modifier whenFrozen() {
+    require(frozen(), "Freezable: frozen");
+    _;
+  }
+  /**
+   * @dev Triggers stopped state.
+   *
+   * Requirements:
+   *
+   * - The contract must not be frozen.
+   */
+  function _freeze() internal whenNotFrozen {
+    _frozen = true;
+    emit Frozen(_msgSender());
+  }
+  /**
+   * @dev Returns to normal state.
+   *
+   * Requirements:
+   *
+   * - Can only be called by the current owner.
+   * - The contract must be frozen.
+   */
+  function _unfreeze() internal whenFrozen {
+    _frozen = false;
+    emit Unfrozen(_msgSender());
+  }
+}
+/**
+ * @title Blacklistable Token
+ * @dev Allows accounts to be blacklisted by a "blacklister" role
+ */
+contract Blacklistable is Context, Ownable {
+  mapping(address => bool) internal _blacklisted;
+  event Blacklisted(address indexed account_);
+  event UnBlacklisted(address indexed account_);
+  event BlacklisterChanged(address indexed newBlacklister_);
+  /**
+   * @dev Throws if argument account is blacklisted
+   * @param account_ The address to check
+   */
+  modifier notBlacklisted(address account_) {
+    require(!_blacklisted[account_], "Blacklistable: account is blacklisted");
+    _;
+  }
+  /**
+   * @dev Checks if account is blacklisted
+   * @param account_ The address to check
+   */
+  function isBlacklisted(address account_) external view returns(bool) {
+    return _blacklisted[account_];
+  }
+  /**
+   * @dev Adds account to blacklist
+   * @param account_ The address to blacklist
+   */
+  function blacklist(address account_) external onlyOwner {
+    _blacklisted[account_] = true;
+    emit Blacklisted(account_);
+  }
+  /**
+   * @dev Removes account from blacklist
+   * @param account_ The address to remove from the blacklist
+   */
+  function unBlacklist(address account_) external onlyOwner {
+    _blacklisted[account_] = false;
+    emit UnBlacklisted(account_);
+  }
+}
+/**
+ * @dev Enable owner to withdraw tokens that wrongly sent to the contract
+ */
+contract Withdrawable is Ownable {
+  using SafeERC20
+  for IERC20;
+  /// @dev Emit `Withdrawn` when owner withdraw fund from the contract
+  event Withdrawn(address indexed owner, address indexed recipient, address indexed token, uint256 value);
+  /// @dev withdraw token from contract
+  /// @param token_ address of the token, use address(0) to withdraw gas token
+  /// @param destination_ recipient address to receive the fund
+  /// @param amount_ amount of fund to withdaw
+  function withdraw(address token_, address destination_, uint256 amount_) external onlyOwner {
+    require(destination_ != address(0), "Withdrawable: Destination is zero address");
+    uint256 availableAmount;
+    if (token_ == address(0)) {
+      availableAmount = address(this).balance;
+    } else {
+      availableAmount = IERC20(token_).balanceOf(address(this));
+    }
+    require(amount_ <= availableAmount, "Withdrawable: Not enough balance");
+    if (token_ == address(0)) {
+      destination_.call {
+        value: amount_
+      }("");
+    } else {
+      IERC20(token_).safeTransfer(destination_, amount_);
+    }
+    emit Withdrawn(_msgSender(), destination_, token_, amount_);
+  }
+  /// @dev withdraw NFT from contract
+  /// @param token_ address of the token, use address(0) to withdraw gas token
+  /// @param destination_ recipient address to receive the fund
+  /// @param tokenId_ ID of NFT to withdraw
+  function withdrawNft(address token_, address destination_, uint256 tokenId_) external onlyOwner {
+    require(destination_ != address(0), "Withdrawable: destination is zero address");
+    IERC721(token_).transferFrom(address(this), destination_, tokenId_);
+    emit Withdrawn(_msgSender(), destination_, token_, 1);
+  }
+}
+/**
+ * @dev Implementation of the {IERC20} interface.
+ *
+ * This implementation is agnostic to the way tokens are created. This means
+ * that a supply mechanism has to be added in a derived contract using {_mint}.
+ * For a generic mechanism see {ERC20PresetMinterPauser}.
+ *
+ * TIP: For a detailed writeup see our guide
+ * https://forum.zeppelin.solutions/t/how-to-implement-erc20-supply-mechanisms/226[How
+ * to implement supply mechanisms].
+ *
+ * We have followed general OpenZeppelin guidelines: functions revert instead
+ * of returning `false` on failure. This behavior is nonetheless conventional
+ * and does not conflict with the expectations of ERC20 applications.
+ *
+ * Additionally, an {Approval} event is emitted on calls to {transferFrom}.
+ * This allows applications to reconstruct the allowance for all accounts just
+ * by listening to said events. Other implementations of the EIP may not emit
+ * these events, as it isn't required by the specification.
+ *
+ * Finally, the non-standard {decreaseAllowance} and {increaseAllowance}
+ * functions have been added to mitigate the well-known issues around setting
+ * allowances. See {IERC20-approve}.
+ */
+contract CUSD is Context, Ownable, Pausable, Blacklistable, Withdrawable, IERC20 {
+  using SafeMath
+  for uint256;
+  uint256 private _totalSupply;
+  string private constant _name = "Coin98 Dollar";
+  string private constant _symbol = "CUSD";
+  uint8 private constant _decimals = 18;
+  mapping(address => uint256) private _balances;
+  mapping(address => mapping(address => uint256)) private _allowances;
+  address private _minter;
+  /**
+   * @dev Sets the values for {name} and {symbol}, initializes {decimals} with
+   * a default value of 18.
+   *
+   * To select a different value for {decimals}, use {_setupDecimals}.
+   *
+   * All three of these values are immutable: they can only be set once during
+   * construction.
+   */
+  constructor() {
+    _minter = _msgSender();
+  }
+  /**
+    @dev Emit when new minter is assigned
+   */
+  event MinterUpdated(address indexed previousMinter, address indexed newMinter);
+  /**
+   * @dev Returns the name of the token.
+   */
+  function name() public view returns(string memory) {
+    return _name;
+  }
+  /**
+   * @dev Returns the symbol of the token, usually a shorter version of the
+   * name.
+   */
+  function symbol() public view returns(string memory) {
+    return _symbol;
+  }
+  /**
+   * @dev Returns the number of decimals used to get its user representation.
+   * For example, if `decimals` equals `2`, a balance of `505` tokens should
+   * be displayed to a user as `5,05` (`505 / 10 ** 2`).
+   *
+   * Tokens usually opt for a value of 18, imitating the relationship between
+   * Ether and Wei. This is the value {ERC20} uses, unless {_setupDecimals} is
+   * called.
+   *
+   * NOTE: This information is only used for _display_ purposes: it in
+   * no way affects any of the arithmetic of the contract, including
+   * {IERC20-balanceOf} and {IERC20-transfer}.
+   */
+  function decimals() public view returns(uint8) {
+    return _decimals;
+  }
+  /**
+   * @dev See {IERC20-totalSupply}.
+   */
+  function totalSupply() public view override returns(uint256) {
+    return _totalSupply;
+  }
+  /**
+   * @dev See {IERC20-balanceOf}.
+   */
+  function balanceOf(address account) public view override returns(uint256) {
+    return _balances[account];
+  }
+  /**
+    @dev Extra address which has priviledge to mint more token
+   */
+  function minter() public view returns(address) {
+    return _minter;
+  }
+  /**
+   * @dev Throws if called by any account other than the owner or minter.
+   */
+  modifier onlyMinter() {
+    require(owner() == _msgSender() || _minter == _msgSender(), "ERC20: caller is not minter");
+    _;
+  }
+  /**
+   * @dev See {IERC20-transfer}.
+   *
+   * Requirements:
+   *
+   * - `recipient` cannot be the zero address.
+   * - the caller must have a balance of at least `amount`.
+   */
+  function transfer(address recipient, uint256 amount) public override
+  notBlacklisted(_msgSender())
+  notBlacklisted(recipient)
+  returns(bool) {
+    _transfer(_msgSender(), recipient, amount);
+    return true;
+  }
+  /**
+   * @dev See {IERC20-allowance}.
+   */
+  function allowance(address owner, address spender) public view override returns(uint256) {
+    return _allowances[owner][spender];
+  }
+  /**
+   * @dev See {IERC20-approve}.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   */
+  function approve(address spender, uint256 amount) public override
+  notBlacklisted(_msgSender())
+  notBlacklisted(spender)
+  returns(bool) {
+    _approve(_msgSender(), spender, amount);
+    return true;
+  }
+  /**
+   * @dev See {IERC20-transferFrom}.
+   *
+   * Emits an {Approval} event indicating the updated allowance. This is not
+   * required by the EIP. See the note at the beginning of {ERC20}.
+   *
+   * Requirements:
+   *
+   * - `sender` and `recipient` cannot be the zero address.
+   * - `sender` must have a balance of at least `amount`.
+   * - the caller must have allowance for ``sender``'s tokens of at least
+   * `amount`.
+   */
+  function transferFrom(address sender, address recipient, uint256 amount) public override
+  notBlacklisted(_msgSender())
+  notBlacklisted(sender)
+  notBlacklisted(recipient)
+  returns(bool) {
+    _transfer(sender, recipient, amount);
+    _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
+    return true;
+  }
+  /**
+   * @dev Atomically increases the allowance granted to `spender` by the caller.
+   *
+   * This is an alternative to {approve} that can be used as a mitigation for
+   * problems described in {IERC20-approve}.
+   *
+   * Emits an {Approval} event indicating the updated allowance.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   */
+  function increaseAllowance(address spender, uint256 addedValue) public
+  notBlacklisted(_msgSender())
+  notBlacklisted(spender)
+  returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
+    return true;
+  }
+  /**
+   * @dev Atomically decreases the allowance granted to `spender` by the caller.
+   *
+   * This is an alternative to {approve} that can be used as a mitigation for
+   * problems described in {IERC20-approve}.
+   *
+   * Emits an {Approval} event indicating the updated allowance.
+   *
+   * Requirements:
+   *
+   * - `spender` cannot be the zero address.
+   * - `spender` must have allowance for the caller of at least
+   * `subtractedValue`.
+   */
+  function decreaseAllowance(address spender, uint256 subtractedValue) public
+  notBlacklisted(_msgSender())
+  notBlacklisted(spender)
+  returns(bool) {
+    _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
+    return true;
+  }
+  /**
+   * @dev Issues `amount` tokens to the designated `address`.
+   *
+   * Can only be called by the current owner.
+   * See {ERC20-_mint}.
+   */
+  function mint(address account, uint256 amount) public
+  onlyMinter
+  notBlacklisted(_msgSender())
+  notBlacklisted(account) {
+    _mint(account, amount);
+  }
+  /**
+   * @dev Destroys `amount` tokens from the caller.
+   *
+   * See {ERC20-_burn}.
+   */
+  function burn(uint256 amount) public
+  notBlacklisted(_msgSender()) {
+    _burn(_msgSender(), amount);
+  }
+  /**
+   * @dev Disable the {transfer}, {mint} and {burn} functions of contract.
+   *
+   * Can only be called by the current owner.
+   * The contract must not be frozen.
+   */
+  function freeze() public onlyOwner {
+    _freeze();
+  }
+  /**
+   * @dev Enable the {transfer}, {mint} and {burn} functions of contract.
+   *
+   * Can only be called by the current owner.
+   * The contract must be frozen.
+   */
+  function unfreeze() public onlyOwner {
+    _unfreeze();
+  }
+  /**
+   * @dev Set new minter
+   */
+  function setMinter(address newMinter) public onlyOwner {
+    address oldMinter = _minter;
+    _minter = newMinter;
+    emit MinterUpdated(oldMinter, newMinter);
+  }
+  /**
+   * @dev Moves tokens `amount` from `sender` to `recipient`.
+   *
+   * This is internal function is equivalent to {transfer}, and can be used to
+   * e.g. implement automatic token fees, slashing mechanisms, etc.
+   *
+   * Emits a {Transfer} event.
+   *
+   * Requirements:
+   *
+   * - `sender` cannot be the zero address.
+   * - `recipient` cannot be the zero address.
+   * - `sender` must have a balance of at least `amount`.
+   */
+  function _transfer(address sender, address recipient, uint256 amount) internal {
+    require(sender != address(0), "ERC20: transfer from the zero address");
+    require(recipient != address(0), "ERC20: transfer to the zero address");
+    _beforeTokenTransfer(sender, recipient, amount);
+    _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
+    _balances[recipient] = _balances[recipient].add(amount);
+    emit Transfer(sender, recipient, amount);
+  }
+  /** @dev Creates `amount` tokens and assigns them to `account`, increasing
+   * the total supply.
+   *
+   * Emits a {Transfer} event with `from` set to the zero address.
+   *
+   * Requirements:
+   *
+   * - `to` cannot be the zero address.
+   */
+  function _mint(address account, uint256 amount) internal {
+    require(account != address(0), "ERC20: mint to the zero address");
+    _beforeTokenTransfer(address(0), account, amount);
+    _totalSupply = _totalSupply.add(amount);
+    _balances[account] = _balances[account].add(amount);
+    emit Transfer(address(0), account, amount);
+  }
+  /**
+   * @dev Destroys `amount` tokens from `account`, reducing the
+   * total supply.
+   *
+   * Emits a {Transfer} event with `to` set to the zero address.
+   *
+   * Requirements:
+   *
+   * - `account` cannot be the zero address.
+   * - `account` must have at least `amount` tokens.
+   */
+  function _burn(address account, uint256 amount) internal {
+    require(account != address(0), "ERC20: burn from the zero address");
+    _beforeTokenTransfer(account, address(0), amount);
+    _balances[account] = _balances[account].sub(amount, "ERC20: burn amount exceeds balance");
+    _totalSupply = _totalSupply.sub(amount);
+    emit Transfer(account, address(0), amount);
+  }
+  /**
+   * @dev Sets `amount` as the allowance of `spender` over the `owner` s tokens.
+   *
+   * This internal function is equivalent to `approve`, and can be used to
+   * e.g. set automatic allowances for certain subsystems, etc.
+   *
+   * Emits an {Approval} event.
+   *
+   * Requirements:
+   *
+   * - `owner` cannot be the zero address.
+   * - `spender` cannot be the zero address.
+   */
+  function _approve(address owner, address spender, uint256 amount) internal {
+    require(owner != address(0), "ERC20: approve from the zero address");
+    require(spender != address(0), "ERC20: approve to the zero address");
+    _allowances[owner][spender] = amount;
+    emit Approval(owner, spender, amount);
+  }
+  /**
+   * @dev Hook that is called before any transfer of tokens. This includes
+   * minting and burning.
+   *
+   * Calling conditions:
+   *
+   * - when `from` and `to` are both non-zero, `amount` of ``from``'s tokens
+   * will be to transferred to `to`.
+   * - when `from` is zero, `amount` tokens will be minted for `to`.
+   * - when `to` is zero, `amount` of ``from``'s tokens will be burned.
+   * - `from` and `to` are never both zero.
+   *
+   * To learn more about hooks, head to xref:ROOT:extending-contracts.adoc#using-hooks[Using Hooks].
+   */
+  function _beforeTokenTransfer(address from, address to, uint256 amount) internal {
+    require(!frozen(), "ERC20: token transfer while frozen");
+  }
+
+  function _afterTokenTransfer(address from, address to, uint256 amount) internal {}
+}
+```
+
+The contract has a number of public/private variables, these are their current values:
+_totalSupply = 3454283328000009166286
+_minter = 0x3611DA41DDF52D9e2529b88385d6Cb02a6964d33
+
+
+If these addresses above are relevant for the exploit, you must ask for their source code and understand how they work.
+
+# Test code to execute the exploit
+
+```
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IWETH {
+    function deposit() external payable;
+    function transfer(address to, uint256 value) external returns (bool);
+    function approve(address guy, uint256 wad) external returns (bool);
+    function withdraw(uint256 wad) external;
+    function balanceOf(address) external view returns (uint256);
+}
+
+interface IERC20 {
+    function approve(address guy, uint256 wad) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+  function decimals() external pure returns (uint8);
+  function totalSupply() external view returns (uint);
+  function balanceOf(address owner) external view returns (uint);
+  function allowance(address owner, address spender) external view returns (uint);
+
+  function approve(address spender, uint value) external returns (bool);
+  function transfer(address to, uint value) external returns (bool);
+  function transferFrom(address from, address to, uint value) external returns (bool);
+
+  function MINIMUM_LIQUIDITY() external pure returns (uint);
+  function factory() external view returns (address);
+  function token0() external view returns (address);
+  function token1() external view returns (address);
+  function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+  function price0CumulativeLast() external view returns (uint);
+  function price1CumulativeLast() external view returns (uint);
+  function kLast() external view returns (uint);
+
+  function mint(address to) external returns (uint liquidity);
+  function burn(address to) external returns (uint amount0, uint amount1);
+  function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+  function skim(address to) external;
+  function sync() external;
+}
+
+interface IUniswapV2Router {
+    function factory() external view returns (address);
+    function WETH() external pure returns (address);
+
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+
+    function addLiquidity(
+        address tokenA,
+        address tokenB,
+        uint amountADesired,
+        uint amountBDesired,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB, uint liquidity);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function removeLiquidityETH(
+        address token,
+        uint liquidity,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountToken, uint amountETH);
+}
+
+interface IBalancerVault {
+    function flashLoan(
+        address recipient,
+        address[] memory tokens,
+        uint256[] memory amounts,
+        bytes memory userData
+    ) external;
+}
+
+interface IDODO {
+    function flashLoan(
+        uint256 loanAmount,
+        uint256 feeAmount,
+        address receiver,
+        bytes calldata data
+    ) external;
+}
+
+interface ICUSD {
+    function withdraw(address,address,uint256) external;
+    function withdrawNft(address,address,uint256) external;
+    function owner() external view returns (address);
+    function acceptOwnership() external;
+    function transferOwnership(address) external;
+    function isBlacklisted(address) external view returns (bool);
+    function blacklist(address) external;
+    function unBlacklist(address) external;
+    function frozen() external view returns (bool);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function minter() external view returns (address);
+    function transfer(address,uint256) external returns (bool);
+    function allowance(address,address) external view returns (uint256);
+    function approve(address,uint256) external returns (bool);
+    function transferFrom(address,address,uint256) external returns (bool);
+    function increaseAllowance(address,uint256) external returns (bool);
+    function decreaseAllowance(address,uint256) external returns (bool);
+    function mint(address,uint256) external;
+    function burn(uint256) external;
+    function freeze() external;
+    function unfreeze() external;
+    function setMinter(address) external;
+}
+
+
+
+
+
+contract TestFlaw is Test {
+    address internal target;
+    address internal token0;
+    address internal token1;
+    address internal token;
+    IUniswapV2Router internal uniswapRouter;
+    IUniswapV2Pair internal uniswapPair;
+    IERC20 private valuableToken;
+    address private flashloanProvider;
+
+    function setUniswapPair(address addr) public {
+        IUniswapV2Factory uniswapFactory = IUniswapV2Factory(uniswapRouter.factory());
+        uniswapPair = IUniswapV2Pair(uniswapFactory.getPair(address(valuableToken), addr));
+
+        if (address(uniswapPair) == address(0)) {
+            console.log("Uniswap pair not found.");
+            return;
+        }
+
+        token0 = uniswapPair.token0();
+        token1 = uniswapPair.token1();
+
+        valuableToken.approve(address(uniswapRouter), type(uint256).max);
+        IERC20(addr).approve(address(uniswapRouter), type(uint256).max);
+
+        uint112 reserve0;
+        uint112 reserve1;
+        (reserve0, reserve1, ) = uniswapPair.getReserves();
+        console.log("Uniswap reserves for %s:", addr);
+        console.log("%d for %s", reserve0, token0);
+        console.log("%d for %s", reserve1, token1);
+    }
+
+    function setUp() public {
+
+        target = 0xC285B7E09A4584D027E5BC36571785B515898246;
+        uniswapRouter = IUniswapV2Router(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+        valuableToken = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+        flashloanProvider = 0xBA12222222228d8Ba445958a75a0704d566BF2C8;
+        token = 0xC285B7E09A4584D027E5BC36571785B515898246;
+
+        // Remove any previous valuableToken/ETH from the balance
+        valuableToken.transfer(address(0xdead), valuableToken.balanceOf(address(this)));
+        IERC20(uniswapRouter.WETH()).transfer(address(0xdead), IERC20(uniswapRouter.WETH()).balanceOf(address(this)));
+        payable(address(0xdead)).transfer(address(this).balance);
+
+        // Handle approvals
+        valuableToken.approve(target, type(uint256).max);
+        //if (token != address(0))
+        //    IERC20(token).approve(target, type(uint256).max);
+        setUniswapPair(token);
+    }
+
+    function testFlaw() external {
+         // flashloan valuableToken from Balancer
+        address[] memory tokens = new address[](1);
+        tokens[0] = address(valuableToken);
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = valuableToken.balanceOf(flashloanProvider) * 95 / 100;
+
+        console.log("%s available for the flashloan of valuableToken", amounts[0]);
+
+        uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+        console.log("Initial balance %s", finalValuableBalance);
+        IBalancerVault(flashloanProvider).flashLoan(address(this), tokens, amounts, "");
+        console.log("Final balance %s", valuableToken.balanceOf(address(this)));
+    }
+
+    // Used by Balancer
+    function receiveFlashLoan(
+        IERC20[] memory,
+        uint256[] memory amounts,
+        uint256[] memory,
+        bytes memory
+    ) external {
+        flashLoanInternal(amounts[0]);
+    }
+
+    // Used by DODO
+    function DPPFlashLoanCall(address, uint256 amount, uint256, bytes memory) external {
+        flashLoanInternal(amount);
+    }
+
+    function flashLoanInternal(uint256 amount) internal {
+        executeExploit(amount);
+
+        uint256 currentValuableBalance = valuableToken.balanceOf(address(this));
+        if (amount >= currentValuableBalance) {
+            console.log("Current valuable balance: %s", valuableToken.balanceOf(address(this)));
+            console.log("Current profit: %s", int256(currentValuableBalance) - int256(amount));
+            revert("Not enough valuableToken balance to produce profit");
+        }
+        valuableToken.transfer(flashloanProvider, amount);
+        uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+        console.log("Surplus: %s", surplusInValuable);
+        assert(surplusInValuable > 0);
+    }
+
+    function executeExploit(uint256 amount) internal {}
+}
+```
+
+And the first Foundry trace is this one:
+```
+
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 2.08s
+Compiler run successful!
+2026-03-11T18:14:13.951252Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/24635942"
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 69660)
+Logs:
+  Uniswap pair not found.
+  1559129231547435696492 available for the flashloan of valuableToken
+  Initial balance 0
+  Current valuable balance: 1559129231547435696492
+  Current profit: 0
+
+2026-03-11T18:14:21.081180Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:14:21.082516Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T18:14:21.083054Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:14:21.083068Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:14:21.084245Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:14:21.084260Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [69660] TestFlaw::testFlaw()
+    ├─ [2534] WETH9::balanceOf(Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8]) [staticcall]
+    │   └─ ← [Return] 1641188664786774417360 [1.641e21]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 1559129231547435696492 [1.559e21]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WETH9::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [49140] Vault::flashLoan(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2], [1559129231547435696492 [1.559e21]], 0x)
+    │   ├─ [534] WETH9::balanceOf(Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8]) [staticcall]
+    │   │   └─ ← [Return] 1641188664786774417360 [1.641e21]
+    │   ├─ [2350] ProtocolFeesCollector::getFlashLoanFeePercentage() [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [25962] WETH9::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1559129231547435696492 [1.559e21])
+    │   │   ├─ emit Transfer(src: Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8], dst: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], wad: 1559129231547435696492 [1.559e21])
+    │   │   └─ ← [Return] true
+    │   ├─ [5706] TestFlaw::receiveFlashLoan([0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2], [1559129231547435696492 [1.559e21]], [0], 0x)
+    │   │   ├─ [534] WETH9::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   └─ ← [Return] 1559129231547435696492 [1.559e21]
+    │   │   ├─ [534] WETH9::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   │   └─ ← [Return] 1559129231547435696492 [1.559e21]
+    │   │   ├─ [0] console::log("Current valuable balance: %s", 1559129231547435696492 [1.559e21]) [staticcall]
+    │   │   │   └─ ← [Stop]
+    │   │   ├─ [0] console::log("Current profit: %s", 0) [staticcall]
+    │   │   │   └─ ← [Stop]
+    │   │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    │   └─ ← [Revert] Not enough valuableToken balance to produce profit
+    └─ ← [Revert] Not enough valuableToken balance to produce profit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.13s (1.60s CPU time)
+
+Ran 1 test suite in 8.05s (7.13s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: Not enough valuableToken balance to produce profit] testFlaw() (gas: 69660)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+```
+2026-03-12 02:14:21,331 [INFO] Quimera: Main task status: Waiting response from LLM 🧠 (1/1)
+2026-03-12 02:14:30,676 [INFO] Quimera: Tool requests: [ToolCall(name='fetch_contract_source_code', arguments={'address': '0x3611DA41DDF52D9e2529b88385d6Cb02a6964d33'}, tool_call_id='call_Web9wVl1Q1FI9Av4kaEI9H8j'), ToolCall(name='fetch_contract_source_code', arguments={'address': '0xBA12222222228d8Ba445958a75a0704d566BF2C8'}, tool_call_id='call_iGCdR9UPEs27dfBHmoBH2bwb')]
+2026-03-12 02:14:30,676 [INFO] Quimera: Executing get_contract_info_as_text for address 0x3611DA41DDF52D9e2529b88385d6Cb02a6964d33
+2026-03-12 02:14:35,808 [INFO] Quimera: <slither.slither.Slither object at 0x114612850>
+2026-03-12 02:14:35,809 [INFO] Quimera: Contracts found: ['Context', 'Ownable', 'SafeMath', 'Address', 'IERC20', 'SafeERC20', 'AggregatorV3Interface', 'Coin98DollarMintBurn'], selected Coin98DollarMintBurn
+2026-03-12 02:14:35,830 [INFO] Quimera: {'Coin98DollarMintBurn'}
+2026-03-12 02:14:35,830 [INFO] Quimera: {'BASE_DECIMALS', 'LIMIT_TIME', 'CUSD_TOKEN', 'Percent'}
+2026-03-12 02:14:36,890 [INFO] Quimera: Contract info text generated successfully.
+2026-03-12 02:14:36,890 [INFO] Quimera: Executing get_contract_info_as_text for address 0xBA12222222228d8Ba445958a75a0704d566BF2C8
+2026-03-12 02:14:46,288 [INFO] Quimera: <slither.slither.Slither object at 0x1154f4050>
+2026-03-12 02:14:46,288 [INFO] Quimera: Contracts found: ['AssetHelpers', 'Authentication', 'Errors', 'IAuthentication', 'ISignaturesValidator', 'ITemporarilyPausable', 'InputHelpers', 'SignaturesValidator', 'TemporarilyPausable', 'FixedPoint', 'LogExpMath', 'Math', 'Address', 'EIP712', 'EnumerableMap', 'EnumerableSet', 'IERC20', 'ReentrancyGuard', 'SafeCast', 'SafeERC20', 'AssetManagers', 'AssetTransfersHandler', 'Fees', 'FlashLoans', 'PoolBalances', 'PoolRegistry', 'PoolTokens', 'ProtocolFeesCollector', 'Swaps', 'UserBalance', 'Vault', 'VaultAuthorization', 'BalanceAllocation', 'GeneralPoolsBalance', 'MinimalSwapInfoPoolsBalance', 'TwoTokenPoolsBalance', 'IAsset', 'IAuthorizer', 'IBasePool', 'IFlashLoanRecipient', 'IGeneralPool', 'IMinimalSwapInfoPool', 'IPoolSwapStructs', 'IVault', 'IWETH'], selected Vault
+2026-03-12 02:14:46,288 [INFO] Quimera: Processing contract: Vault
+2026-03-12 02:14:46,289 [INFO] Quimera: Processing base contract: Swaps
+2026-03-12 02:14:46,289 [INFO] Quimera: Processing contract: Swaps
+2026-03-12 02:14:46,302 [INFO] Quimera: Processing base contract: PoolBalances
+2026-03-12 02:14:46,302 [INFO] Quimera: Processing contract: PoolBalances
+2026-03-12 02:14:46,309 [INFO] Quimera: Processing base contract: UserBalance
+2026-03-12 02:14:46,309 [INFO] Quimera: Processing contract: UserBalance
+2026-03-12 02:14:46,314 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,314 [INFO] Quimera: Processing contract: VaultAuthorization
+2026-03-12 02:14:46,318 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,318 [INFO] Quimera: Processing contract: TemporarilyPausable
+2026-03-12 02:14:46,320 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,320 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,320 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,320 [INFO] Quimera: Processing contract: SignaturesValidator
+2026-03-12 02:14:46,323 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,323 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,323 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,323 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,323 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,323 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,323 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,323 [INFO] Quimera: Processing contract: Authentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing base contract: AssetTransfersHandler
+2026-03-12 02:14:46,325 [INFO] Quimera: Processing contract: AssetTransfersHandler
+2026-03-12 02:14:46,328 [INFO] Quimera: Processing base contract: AssetHelpers
+2026-03-12 02:14:46,328 [INFO] Quimera: Processing contract: AssetHelpers
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping library: SafeERC20
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping library: Address
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,330 [INFO] Quimera: Processing base contract: AssetHelpers
+2026-03-12 02:14:46,330 [INFO] Quimera: Skipping already visited base contract: AssetHelpers
+2026-03-12 02:14:46,331 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,331 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,331 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,331 [INFO] Quimera: Processing contract: Math
+2026-03-12 02:14:46,333 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,333 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,333 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,333 [INFO] Quimera: Processing contract: SafeCast
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,334 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing base contract: PoolTokens
+2026-03-12 02:14:46,334 [INFO] Quimera: Processing contract: PoolTokens
+2026-03-12 02:14:46,338 [INFO] Quimera: Processing base contract: AssetManagers
+2026-03-12 02:14:46,338 [INFO] Quimera: Processing contract: AssetManagers
+2026-03-12 02:14:46,342 [INFO] Quimera: Processing base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,342 [INFO] Quimera: Processing contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,349 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,349 [INFO] Quimera: Processing contract: PoolRegistry
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,352 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,352 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,353 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,353 [INFO] Quimera: Processing contract: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,360 [INFO] Quimera: Processing contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,364 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,364 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,365 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,365 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,365 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,365 [INFO] Quimera: Processing contract: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,367 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,367 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,368 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,368 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,368 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,368 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,368 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,368 [INFO] Quimera: Processing contract: GeneralPoolsBalance
+2026-03-12 02:14:46,372 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,372 [INFO] Quimera: Processing contract: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,376 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,376 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,377 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,377 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping already visited base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,378 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,378 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,379 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,379 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,379 [INFO] Quimera: Processing contract: InputHelpers
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing base contract: AssetManagers
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited base contract: AssetManagers
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,381 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,381 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: AssetTransfersHandler
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: AssetTransfersHandler
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping already visited base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,382 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing base contract: Fees
+2026-03-12 02:14:46,382 [INFO] Quimera: Processing contract: Fees
+2026-03-12 02:14:46,383 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,383 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,383 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,383 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,383 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,383 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,383 [INFO] Quimera: Processing library: FixedPoint
+2026-03-12 02:14:46,383 [INFO] Quimera: Processing contract: FixedPoint
+2026-03-12 02:14:46,387 [INFO] Quimera: Processing library: LogExpMath
+2026-03-12 02:14:46,387 [INFO] Quimera: Processing contract: LogExpMath
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing library: LogExpMath
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping already visited library: LogExpMath
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,397 [INFO] Quimera: Processing base contract: AssetHelpers
+2026-03-12 02:14:46,397 [INFO] Quimera: Skipping already visited base contract: AssetHelpers
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,399 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: FixedPoint
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: FixedPoint
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,400 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: UserBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: UserBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: PoolTokens
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: PoolTokens
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: AssetManagers
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: AssetManagers
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: AssetTransfersHandler
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: AssetTransfersHandler
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: Fees
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: Fees
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,401 [INFO] Quimera: Processing base contract: AssetHelpers
+2026-03-12 02:14:46,401 [INFO] Quimera: Skipping already visited base contract: AssetHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: FixedPoint
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: FixedPoint
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,404 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,404 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,405 [INFO] Quimera: Processing base contract: PoolBalances
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: PoolBalances
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: UserBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: UserBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: PoolTokens
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: PoolTokens
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: AssetManagers
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: AssetManagers
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: TwoTokenPoolsBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: MinimalSwapInfoPoolsBalance
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: PoolRegistry
+2026-03-12 02:14:46,406 [INFO] Quimera: Skipping already visited base contract: PoolRegistry
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing base contract: FlashLoans
+2026-03-12 02:14:46,406 [INFO] Quimera: Processing contract: FlashLoans
+2026-03-12 02:14:46,408 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,413 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,413 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,413 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,413 [INFO] Quimera: Processing base contract: Fees
+2026-03-12 02:14:46,413 [INFO] Quimera: Skipping already visited base contract: Fees
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing library: FixedPoint
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited library: FixedPoint
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: VaultAuthorization
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: VaultAuthorization
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: TemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: TemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: SignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: SignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: EIP712
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping EIP712 base contract.
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: Authentication
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: Authentication
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: IAuthentication
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: IAuthentication
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: AssetTransfersHandler
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: AssetTransfersHandler
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: GeneralPoolsBalance
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: ReentrancyGuard
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping ReentrancyGuard base contract.
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: Fees
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: Fees
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: IVault
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: IVault
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: ITemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: ITemporarilyPausable
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: ISignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping interface base contract: ISignaturesValidator
+2026-03-12 02:14:46,414 [INFO] Quimera: Processing base contract: AssetHelpers
+2026-03-12 02:14:46,414 [INFO] Quimera: Skipping already visited base contract: AssetHelpers
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,417 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableSet
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableSet
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeCast
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeCast
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Address
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Address
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: FixedPoint
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: FixedPoint
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: Math
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: SafeERC20
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: EnumerableMap
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,418 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,418 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: InputHelpers
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: InputHelpers
+2026-03-12 02:14:46,419 [INFO] Quimera: Processing library: BalanceAllocation
+2026-03-12 02:14:46,419 [INFO] Quimera: Skipping already visited library: BalanceAllocation
+2026-03-12 02:14:46,420 [INFO] Quimera: {'MinimalSwapInfoPoolsBalance', 'Authentication', 'AssetManagers', 'EnumerableMap', 'InputHelpers', 'Swaps', 'LogExpMath', 'PoolBalances', 'BalanceAllocation', 'SafeERC20', 'TemporarilyPausable', 'AssetHelpers', 'VaultAuthorization', 'UserBalance', 'SafeCast', 'AssetTransfersHandler', 'ReentrancyGuard', 'FlashLoans', 'PoolRegistry', 'FixedPoint', 'SignaturesValidator', 'PoolTokens', 'TwoTokenPoolsBalance', 'Vault', 'EIP712', 'EnumerableSet', 'GeneralPoolsBalance', 'Address', 'Math', 'Fees'}
+2026-03-12 02:14:46,420 [INFO] Quimera: {'_paused', '_MAX_BUFFER_PERIOD_DURATION', '_status', '_EXTRA_CALLDATA_LENGTH', '_ETH', '_MAX_PAUSE_WINDOW_DURATION', '_bufferPeriodEndTime', '_nextPoolNonce', 'ONE', 'MIN_POW_BASE_FREE_EXPONENT', 'MILD_EXPONENT_BOUND', 'MAX_POW_RELATIVE_ERROR', '_pauseWindowEndTime', '_ENTERED', '_authorizer', '_protocolFeesCollector', '_weth', '_NOT_ENTERED'}
+2026-03-12 02:14:47,801 [INFO] Quimera: Contract info text generated successfully.
+2026-03-12 02:15:07,968 [INFO] Quimera: Tool requests: []
+2026-03-12 02:15:09,979 [INFO] Quimera: Main task status: Installing and running Foundry 🛠️ (1/1)
+2026-03-12 02:15:09,979 [INFO] Quimera: Installing Forge...
+2026-03-12 02:15:12,668 [INFO] Quimera: Running Forge test...
+2026-03-12 02:15:19,752 [INFO] Quimera: Blocker: ERC20: caller is not minter
+2026-03-12 02:15:19,754 [INFO] Quimera: Trace/output: 
+Compiling 20 files with Solc 0.8.20
+Solc 0.8.20 finished in 2.35s
+Compiler run successful with warnings:
+Warning (2072): Unused local variable.
+   --> test/Test.t.sol:274:5:
+    |
+274 |     uint256 totalSupply = cusdContract.totalSupply(); // Get the total supply to ensure we are within limits
+    |     ^^^^^^^^^^^^^^^^^^^
+
+Warning (2072): Unused local variable.
+   --> test/Test.t.sol:297:5:
+    |
+297 |     uint256 currentValuableTokenBalance = valuableToken.balanceOf(address(this));
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
+Ran 1 test for test/Test.t.sol:TestFlaw
+[FAIL: ERC20: caller is not minter] testFlaw() (gas: 77497)
+Logs:
+  Uniswap pair not found.
+  1559129231547435696492 available for the flashloan of valuableToken
+  Initial balance 0
+
+2026-03-11T18:15:19.735155Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:15:19.738378Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000000000000000000000dead)
+2026-03-11T18:15:19.742961Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-03-11T18:15:19.743040Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [77497] TestFlaw::testFlaw()
+    ├─ [2534] WETH9::balanceOf(Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8]) [staticcall]
+    │   └─ ← [Return] 1641188664786774417360 [1.641e21]
+    ├─ [0] console::log("%s available for the flashloan of valuableToken", 1559129231547435696492 [1.559e21]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [2534] WETH9::balanceOf(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] console::log("Initial balance %s", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [56881] Vault::flashLoan(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2], [1559129231547435696492 [1.559e21]], 0x)
+    │   ├─ [534] WETH9::balanceOf(Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8]) [staticcall]
+    │   │   └─ ← [Return] 1641188664786774417360 [1.641e21]
+    │   ├─ [2350] ProtocolFeesCollector::getFlashLoanFeePercentage() [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [25962] WETH9::transfer(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1559129231547435696492 [1.559e21])
+    │   │   ├─ emit Transfer(src: Vault: [0xBA12222222228d8Ba445958a75a0704d566BF2C8], dst: TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], wad: 1559129231547435696492 [1.559e21])
+    │   │   └─ ← [Return] true
+    │   ├─ [13450] TestFlaw::receiveFlashLoan([0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2], [1559129231547435696492 [1.559e21]], [0], 0x)
+    │   │   ├─ [2549] CUSD::totalSupply() [staticcall]
+    │   │   │   └─ ← [Return] 3454283328000009166286 [3.454e21]
+    │   │   ├─ [5408] CUSD::mint(TestFlaw: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1559129231547435696492 [1.559e21])
+    │   │   │   └─ ← [Revert] ERC20: caller is not minter
+    │   │   └─ ← [Revert] ERC20: caller is not minter
+    │   └─ ← [Revert] ERC20: caller is not minter
+    └─ ← [Revert] ERC20: caller is not minter
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 1.56s (1.56s CPU time)
+
+Ran 1 test suite in 2.49s (1.56s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Test.t.sol:TestFlaw
+[FAIL: ERC20: caller is not minter] testFlaw() (gas: 77497)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+2026-03-12 02:15:19,754 [INFO] Quimera: Test failed, continuing to next iteration...

@@ -1,0 +1,23 @@
+{
+  "target_address": "0x35240D91223186133fCb0EC1565c353eb2A546A8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the contract or an address authorized by the owner.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalFee",
+      "operator": "==",
+      "expected_value": "9900"
+    }
+  },
+  "exploit_hint": "The contract owner can call the `setFees` function with arbitrary values. To exploit this, the owner can set an extremely high total fee, for example 99%, by calling `setFees(9900, 0, 0, 0, 10000)`. Since the function lacks a check to ensure the `totalFee` does not exceed a reasonable limit (like 25%), the new malicious fee will be set, harming users on subsequent transfers."
+}

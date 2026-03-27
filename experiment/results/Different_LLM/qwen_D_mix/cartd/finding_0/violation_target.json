@@ -1,0 +1,23 @@
+{
+  "target_address": "0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF",
+  "vulnerability_type": "Owner Privilege Abuse - Excessive Fee Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner, MarketingWallet, or Developer (authorized addresses)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure attacker controls an authorized address (owner, MarketingWallet, or Developer). 2. Call UpdateTaxes() function to increase devTax and/or marketingTax percentages beyond reasonable limits (the contract allows up to 100% total distribution tax). 3. Set MarketingWallet or Developer to attacker-controlled address if not already. 4. Wait for transactions to occur that generate tax fees. 5. Call WithdrawDev() or WithdrawMarketing() to extract accumulated BNB fees to attacker's wallet. The vulnerability allows the owner to manipulate fee distribution to extract excessive funds from user transactions."
+}

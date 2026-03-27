@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Incorrect ERC20 Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must be deployed and initialized with frozen=false or owner must call unfreezeTransfers()",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the LineAxis token to test transfers",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LineAxis(0xf0c5831ec3da15f3696b4dad8b21c7ce2f007f28).allowance(attacker, spender)",
+      "operator": "==",
+      "expected_value": "115792089237316195423570985008687907853269984665640564039457584007913129639935"
+    }
+  },
+  "exploit_hint": "The ERC20 approve() function incorrectly validates against the caller's balance instead of checking for overflow. Call approve() with a very large value (type(uint256).max) to set unlimited allowance for a spender. This violates ERC20 standard which should return true/false and properly handle overflow conditions. The exploit demonstrates the logic flaw by setting max allowance without proper validation."
+}

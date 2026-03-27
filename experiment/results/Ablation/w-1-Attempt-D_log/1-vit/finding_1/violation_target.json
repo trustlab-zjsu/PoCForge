@@ -1,0 +1,29 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain control of owner account)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token to perform a sell transaction",
+      "token_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setBuyTaxes() or setSelTaxes() to set extremely high fees (e.g., 99% each). Then perform a sell transaction through the Uniswap pair. The high fees will cause most of the token sale proceeds to be distributed to marketing and team wallets (which the attacker controls), while the attacker receives minimal tokens. The contract will swap tokens for ETH and transfer ETH to the attacker-controlled wallets, resulting in financial gain."
+}

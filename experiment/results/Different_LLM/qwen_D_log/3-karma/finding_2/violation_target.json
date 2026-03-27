@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be contract owner to modify fee parameters via setBuyFeePercentages/setSellFeePercentages",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Fee parameters (liquidityFeeonBuy, liquidityFeeonSell, burnFeeOnBuy, burnFeeOnSell) must be set to 0",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "liquidityFeeonBuy + liquidityFeeonSell + burnFeeOnBuy + burnFeeOnSell",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "1. Owner calls setBuyFeePercentages(0, 0, 0, 0) and setSellFeePercentages(0, 0, 0, 0) to set all fee parameters to zero. 2. Trigger a token transfer that involves fee collection (transfer to/from uniswapV2Pair). 3. The _takeLiquidity() function will attempt division by zero in the calculation: tLiquidity * (liquidityFeeonBuy + liquidityFeeonSell) / (liquidityFeeonBuy + liquidityFeeonSell + burnFeeOnBuy + burnFeeOnSell), causing transaction revert and DOSing contract functionality. 4. Additionally, _getRate() may divide by zero if tSupply becomes 0 through token burns."
+}

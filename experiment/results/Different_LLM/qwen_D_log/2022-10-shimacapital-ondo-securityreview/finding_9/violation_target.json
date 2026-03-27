@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Unreviewed Contract Upgrade",
+  "violation_category": "LOGIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call deprecate()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "deprecated",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the owner, call deprecate(address _upgradedAddress) to set deprecated=true and point upgradedAddress to an unreviewed or malicious contract. After deprecation, all transfer/transferFrom/approve calls will delegate to the unreviewed upgraded contract through legacy functions, potentially introducing vulnerabilities or backdoors that affect all token holders."
+}

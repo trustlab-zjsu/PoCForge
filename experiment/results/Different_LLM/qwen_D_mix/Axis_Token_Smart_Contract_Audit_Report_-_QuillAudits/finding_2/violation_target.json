@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Incorrect ERC20 Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LineAxis tokens to attempt transfer operations",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "balanceOf(attacker_address)",
+      "operator": "!=",
+      "expected_value": "original_balance_after_transfer"
+    }
+  },
+  "exploit_hint": "Call transfer(), transferFrom(), or approve() functions on the LineAxis contract. These functions do not return boolean values as required by the ERC20 standard (EIP-20). This can cause integration failures with contracts, wallets, or DeFi protocols that expect boolean return values to confirm transaction success. Test by calling these functions through a contract that checks return values - the transaction may succeed but the calling contract won't receive the expected boolean confirmation."
+}

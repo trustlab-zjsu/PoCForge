@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call changeFees() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true) for normal transfers to non-exempt addresses",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalFeeBuy == 0 || totalFeeSell == 0",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call changeFees() to set reflectionFeeBuy, marketingFeeBuy, and teamFeeBuy such that their sum (totalFeeBuy) equals 0. Alternatively, set reflectionFeeSell, marketingFeeSell, and teamFeeSell such that totalFeeSell equals 0. This will cause division by zero in takeFeeInProportions() when calculating proportionReflected, as it divides by totalFeeBuy or totalFeeSell. The exploit will revert transactions, potentially freezing the contract or causing denial of service."
+}

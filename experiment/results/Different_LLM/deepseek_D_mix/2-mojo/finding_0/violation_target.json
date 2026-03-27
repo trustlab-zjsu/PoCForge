@@ -1,0 +1,29 @@
+{
+  "target_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+  "vulnerability_type": "Missing Address Validation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the CoinToken to perform swaps",
+      "token_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the updateUniswapV2Router function which lacks validation of the pair address parameter. As owner, call updateUniswapV2Router with a malicious router address that returns a fake WETH address. Then call setAutomatedMarketMakerPair with a fake pair address controlled by the attacker. This allows bypassing fee mechanisms when transferring to/from the fake pair, enabling the attacker to buy tokens without paying fees and sell them with fees, draining contract ETH from swapAndLiquify and swapAndSendDividends functions."
+}

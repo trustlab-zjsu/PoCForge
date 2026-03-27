@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Dividend Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The contract must have enough tokens collected from fees to trigger a swap. The attacker can facilitate this by executing a large trade.",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "0"
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient BNB to perform large swaps.",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the order of operations within the _transfer function. An attacker can manipulate their dividend share by executing a series of swaps within a single transaction.\n1. First, perform a large swap from BNB to the target token. This action updates the attacker's token balance and, consequently, their balance in the dividend tracker.\n2. Immediately after, execute a second large swap from the target token back to BNB. This transfer will increase the contract's token balance from fees, triggering the `canSwap` condition.\n3. This triggers `swapAndSendDividends`, which distributes dividends while the attacker holds a temporarily inflated token balance.\n4. The subsequent `dividendTracker.process()` call within the same `_transfer` function processes the claim, allowing the attacker to receive a disproportionately large share of the dividends.\n5. The attacker profits from the claimed dividends, even after accounting for swap fees and slippage."
+}

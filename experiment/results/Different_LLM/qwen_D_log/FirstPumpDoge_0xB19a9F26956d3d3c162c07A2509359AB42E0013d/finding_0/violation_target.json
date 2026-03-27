@@ -1,0 +1,23 @@
+{
+  "target_address": "0xB19a9F26956d3d3c162c07A2509359AB42E0013d",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have authorized privileges",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xB19a9F26956d3d3c162c07A2509359AB42E0013d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, exploit the excessive privileges to extract funds: 1) Call clearStuckBalance_sender(amountPercentage) to transfer contract BNB balance to yourself (up to 100%), 2) Call rescueToken(tokenAddress, amount) to withdraw any ERC20/BEP20 tokens held by the contract, 3) Optionally manipulate sellMultiplier via set_sell_multiplier() to extract fees from other users' transactions. The owner has 37 write privileges that can be abused for direct financial gain."
+}

@@ -1,0 +1,41 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Integer Overflow/Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some token balance to trigger overflow/underflow",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be deprecated (deprecated == false) to use vulnerable functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused == false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted (isBlackListed[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Exploit integer overflow/underflow in arithmetic operations without SafeMath. For transfer/transferFrom, use values that cause overflow in fee calculation or balance updates. For issue/redeem functions (if attacker becomes owner), use values that overflow totalSupply or owner balance. The contract uses SafeMath in BasicToken but has unprotected arithmetic in TetherToken's issue() and redeem() functions (using += and -= without SafeMath)."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "Integer Overflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the moderator (owner) of the contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (unrestricted = true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the maximumTokenIssue calculation: 1000000000 * 10**18. In Solidity 0.4.x, this calculation overflows because 1000000000 * 10**18 exceeds 2^256. The overflow results in a much smaller value (approximately 1000000000 * 10**18 % 2^256 = 1000000000000000000000000000). As moderator, call generateTokens with a large amount that when added to totalSupply_ causes overflow back to a smaller total supply, then transfer tokens to drain other users' balances. Alternatively, use the overflow to mint excessive tokens beyond the intended maximum supply."
+}

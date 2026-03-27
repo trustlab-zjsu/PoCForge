@@ -1,0 +1,23 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access fee update functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call updateBuyFees() or updateSellFees() to set total fees to the maximum allowed 50% (e.g., 25% marketing + 20% liquidity + 5% dev). Once high fees are set, regular users trading through the Uniswap pair will have 50% of their transaction amounts collected as fees. These fees accumulate in the contract and are later distributed to marketingWallet and devWallet (both controlled by owner) via the swapBack() function when tokens are swapped for ETH. Monitor attacker's ETH balance increase as fees are collected from user transactions."
+}

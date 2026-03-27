@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "Insufficient State Update",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must have riskControl role or equivalent permission to close positions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must hold WBTC tokens that can be transferred as insurance funds",
+      "token_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Exploit the insufficient state update when riskControl closes a position. After insurance funds are transferred, the user's available funds are not properly reset to zero. This allows the user to withdraw the same funds again. Call the position closing function (likely through riskControl), then immediately call a withdrawal function to extract the same funds that should have been cleared."
+}

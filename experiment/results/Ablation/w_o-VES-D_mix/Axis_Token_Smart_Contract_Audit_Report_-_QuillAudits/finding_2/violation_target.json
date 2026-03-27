@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Incorrect ERC20 Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Contract must be in unfrozen state (frozen = false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the LineAxis token",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Attacker must have approved a spender to transfer tokens on their behalf",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LineAxis(0xf0c5831ec3da15f3696b4dad8b21c7ce2f007f28).allowance(attacker_address, spender_address)",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The ERC20 implementation incorrectly requires that the approval amount must be less than or equal to the approver's balance. This violates the ERC20 standard which allows unlimited approvals. To exploit, first approve a spender with an amount greater than your balance (which should fail but doesn't due to the bug), then call transferFrom to transfer tokens. The exploit demonstrates the logic flaw by showing that approvals can be set incorrectly, potentially allowing unauthorized transfers if combined with other vulnerabilities."
+}

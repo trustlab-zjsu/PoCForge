@@ -1,0 +1,29 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Cross-Chain Replay Attack",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have a valid permit signature from a token holder on another chain (e.g., Ethereum) for SAP tokens",
+      "token_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The DOMAIN_SEPARATOR must be identical across chains due to improper chainId handling in constructor",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "victim_contract": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The DOMAIN_SEPARATOR is calculated using chainid() in the constructor, but if the contract is deployed on multiple chains with the same address and same constructor parameters, the DOMAIN_SEPARATOR will be identical across chains. Obtain a valid permit signature (v, r, s) for SAP token transfer from a victim on another chain (e.g., Ethereum mainnet). Replay the same signature on BSC by calling permit() function with the same parameters. This will grant approval to attacker's address. Then use transferFrom() to transfer tokens from victim to attacker."
+}

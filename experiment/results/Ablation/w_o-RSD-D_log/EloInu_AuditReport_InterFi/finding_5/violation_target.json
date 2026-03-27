@@ -1,0 +1,23 @@
+{
+  "target_address": "0x35207068e057a01861A654463c01B04cc111E760",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferOwnership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x35207068e057a01861A654463c01B04cc111E760",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call setMarketingWallet() to set the marketing wallet to attacker's address. Then trigger the swapAndLiquify mechanism by transferring tokens to create contract balance, which will send ETH marketing fees to the attacker-controlled wallet. Alternatively, exclude attacker from fees and transfer tokens without paying taxes, or manipulate maxTxAmount to enable large transfers."
+}

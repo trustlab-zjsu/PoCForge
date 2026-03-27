@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The contract exhibits Owner Privilege Abuse. The `enableBlacklist` function is restricted to the owner, but this grants the owner unilateral power to blacklist any address without any checks or balances. A compromised or malicious owner can disrupt the system by arbitrarily blocking users.",
+  "interface_arsenal": "interface IGlra {\n    function owner() external view returns (address);\n    function enableBlacklist(address account) external;\n    function isBlacklisted(address account) external view returns (bool);\n}",
+  "attack_sequence": "address owner = target.owner();\nvm.prank(owner);\ntarget.enableBlacklist(VICTIM_ADDRESS);",
+  "winning_reflection": "The key insight was to recognize that the `enableBlacklist` function, while correctly restricted by an `onlyOwner` modifier, represents a significant centralization risk. The exploit's success hinges on first identifying the owner via the public `owner()` function and then impersonating that owner to execute the privileged blacklisting action, proving the potential for abuse."
+}

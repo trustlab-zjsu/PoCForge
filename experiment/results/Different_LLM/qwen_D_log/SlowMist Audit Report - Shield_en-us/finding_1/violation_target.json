@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+  "vulnerability_type": "Price Oracle Manipulation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs WBTC tokens to open positions in the derivatives contract",
+      "token_address": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "min_amount": "100000000"
+    },
+    {
+      "type": "state",
+      "description": "The DDSContracts derivative position system must be deployed and active",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "victim_contract": "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Open a position by calling the position opening function in DDSContracts with an artificially low price parameter. 2. Close the position by calling the position closing function with an artificially high price parameter. 3. The price discrepancy allows the attacker to extract value from the contract as the system accepts user-controlled prices instead of querying a trusted oracle. This enables profit extraction through manipulated entry and exit prices."
+}

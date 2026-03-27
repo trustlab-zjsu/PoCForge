@@ -1,0 +1,23 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have compromised the owner's private key)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_isBlacklisted[attacker_controlled_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the multipleBotlistAddress() function with an array containing addresses of regular users (excluding the owner). Set the excluded parameter to true to blacklist those addresses. This will prevent them from making transfers while the owner remains unaffected. The vulnerability allows the owner to selectively stop transactions for any user."
+}

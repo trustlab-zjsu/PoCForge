@@ -1,0 +1,29 @@
+{
+  "target_address": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+  "vulnerability_type": "Re-entrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Attacker must deploy a malicious contract with receive/fallback function capable of re-entering multiSendETH",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient ETH to call multiSendETH with msg.value",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x89d7c52b999DE0f2D862eD944203BFA0526AE973",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Deploy a malicious contract with a receive() function that re-enters multiSendETH when receiving ETH. 2. Call multiSendETH with the malicious contract as one of the recipients in the _recipients array. 3. During the ETH transfer loop, the malicious contract's receive() function triggers and re-enters multiSendETH before the totalAmount validation completes. 4. This allows the attacker to potentially drain more ETH than the original msg.value by exploiting the lack of re-entrancy guard and state updates before external calls."
+}

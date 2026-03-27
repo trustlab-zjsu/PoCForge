@@ -1,0 +1,35 @@
+{
+  "target_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "Attacker must be a contract to perform a reentrant call.",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker contract must hold a non-zero balance of the MVK token to be eligible for rewards.",
+      "token_address": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The contract's reward pool (_rewardPool) must have accumulated rewards since the attacker's last claim. This requires other users' transactions to have paid taxes.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The 'claimReward' function is vulnerable to a classic reentrancy attack. It transfers BNB to the caller before updating the 'UserrewardPoolOnLastClaim' mapping. An attacker contract can call 'claimReward', and upon receiving the BNB in its fallback/receive function, it can call 'claimReward' again. This loop can be repeated to drain all available BNB from the contract's reward pool within a single transaction, as the check for eligibility does not account for the funds already sent in the same call."
+}

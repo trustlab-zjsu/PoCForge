@@ -1,0 +1,6 @@
+{
+  "vulnerability_context": "The `TeaToken` contract at 0x5e18Be2A7cE626B33C539919EAca06303f1Db568 has a critical flaw where the `setMaxTxPercent` function is only protected by an `onlyOwner` modifier. This allows an attacker who can impersonate the owner to arbitrarily change the maximum transaction amount (`_maxTxAmount`), effectively disrupting token transfers.",
+  "interface_arsenal": "interface ITeaToken {\n    function owner() external view returns (address);\n    function setMaxTxPercent(uint256 maxTxPercent) external;\n    function _maxTxAmount() external view returns (uint256);\n}",
+  "attack_sequence": "address owner = ITeaToken(TARGET).owner();\nvm.prank(owner);\nITeaToken(TARGET).setMaxTxPercent(0);",
+  "winning_reflection": "The key insight was recognizing that the contract's ownership is publicly exposed via the `owner()` function. This allowed for direct impersonation of the owner to call the privileged `setMaxTxPercent` function, a common pattern of owner privilege abuse where critical parameters can be manipulated without further safeguards."
+}

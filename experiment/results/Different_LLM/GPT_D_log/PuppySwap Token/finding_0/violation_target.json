@@ -1,0 +1,41 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Wrong Liquidity Proportion",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs sufficient PUPPY tokens to trigger swapAndLiquify through transfers",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "1000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (set via activateContract by owner)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker needs BNB for arbitrage transactions and gas",
+      "token_address": "NATIVE",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "1. Ensure swapAndLiquifyEnabled is true by calling activateContract() as owner or waiting for owner to enable it. 2. Transfer sufficient PUPPY tokens to the contract to accumulate balance above minTokenNumberToSell threshold. 3. Trigger swapAndLiquify() by making a transfer from/to non-pair addresses. 4. The function will add liquidity with wrong token/BNB proportions (otherPiece tokens with only deltaBalance/3 BNB), creating price imbalance in the PancakeSwap pair. 5. Execute arbitrage trades on PancakeSwap to profit from the price discrepancy caused by the imbalanced liquidity addition. 6. The attacker's BNB balance should increase from the arbitrage profits.",
+  "ensemble_source_models": [
+    "gemini",
+    "qwen",
+    "deepseek"
+  ],
+  "selected_source_model": "qwen"
+}

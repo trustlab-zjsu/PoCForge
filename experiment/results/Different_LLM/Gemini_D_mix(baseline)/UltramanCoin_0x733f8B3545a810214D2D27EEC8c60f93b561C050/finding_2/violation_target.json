@@ -1,0 +1,23 @@
+{
+  "target_address": "0x733f8B3545a810214D2D27EEC8c60f93b561C050",
+  "vulnerability_type": "Owner-controlled Wallet Limit",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "The attacker must be the owner of the contract.",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "maxWalletAmount",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The contract owner can call the `setMaxWalletAmount` function with a `_maxWalletAmountPct` parameter larger than the token's total supply (`_tTotal`). Due to integer division, this will set the `maxWalletAmount` state variable to 0. Consequently, any subsequent token transfer to an address not explicitly excluded from the max wallet limit will fail, as their balance will exceed the new limit of 0, leading to a denial-of-service condition for regular users."
+}

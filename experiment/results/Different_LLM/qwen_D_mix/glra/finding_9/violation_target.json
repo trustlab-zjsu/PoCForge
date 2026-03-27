@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 9,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner of the CoinToken contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "victim_contract": "0xF9881a0Bf01b1ec048506A188B06d48808087657",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setTaxWallets() to set all tax wallet addresses (dev, marketing, charity) to attacker's address. Then call setBuyTax() and setSellTax() to set all tax rates to maximum values (e.g., 90-100%). When other users buy or sell tokens through the Uniswap pair, the handleTax() function will transfer taxed tokens to the contract, which are then swapped to ETH and sent to the attacker-controlled tax wallets. Alternatively, call pause() to freeze all user transactions while maintaining owner control."
+}

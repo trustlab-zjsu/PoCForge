@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Non-Standard Approve Function",
+  "violation_category": "LOGIC",
+  "finding_id": 18,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have a non-zero balance of USDT to set an initial allowance.",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "allowance(msg.sender, <ATTACKER_CONTROLLED_ADDRESS>)",
+      "operator": "==",
+      "expected_value": "100000000"
+    }
+  },
+  "exploit_hint": "The Tether contract's `approve` function is non-standard and was implemented to mitigate a common ERC20 race condition. It reverts if a user tries to change a non-zero allowance to another non-zero value. [3, 4, 7] To demonstrate this vulnerability, which can cause integration issues with other protocols, first call `approve(<SPENDER_ADDRESS>, 100000000)`. This initial approval will succeed. Then, call `approve(<SPENDER_ADDRESS>, 200000000)` with a different non-zero value. This second transaction is expected to revert. The oracle will then verify that the allowance was not updated by the second, failed call and remains at the initial value of 100000000."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Total Supply Diversion",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership) to call setBuyFeePercentages or setSellFeePercentages",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some KARMA tokens to perform transfers that trigger the burn mechanism",
+      "token_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "victim_contract": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, set burnFeeOnBuy and/or burnFeeOnSell to a high percentage (e.g., 100). Then perform a transfer (buy or sell) to trigger the burn mechanism. The _takeLiquidity function incorrectly calculates burnAmount as tLiquidity - liquidityAmount, but when burnFee is 100%, liquidityAmount becomes 0, causing the entire tLiquidity to be burned. However, the burn reduces _tTotalSupply but not _tTotal, creating an inconsistency where totalSupply() returns less than the actual token balance sum. This allows the owner to mint new tokens by exploiting the discrepancy between _tTotal and _tTotalSupply."
+}

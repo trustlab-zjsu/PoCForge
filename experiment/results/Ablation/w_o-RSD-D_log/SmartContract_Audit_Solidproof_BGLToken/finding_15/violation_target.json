@@ -1,0 +1,23 @@
+{
+  "target_address": "0x225d0236Ce8C9d753dFAe9CD0265dA2d2699Ba4F",
+  "vulnerability_type": "Unused Variables",
+  "violation_category": "LOGIC",
+  "finding_id": 15,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call privileged functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "BGLToken._default.liquidityFeeOnBuy",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The vulnerability is about unused variables that create confusion and potential state inconsistencies. The '_default' CustomTaxPeriod struct is defined but never used - all fee modifications happen to '_base' instead. As owner, call setAllFeesToZero() to set all base fees to zero, then verify that the unused '_default' struct remains unchanged (still has its initial values). This demonstrates the state inconsistency caused by the unused variable pattern."
+}

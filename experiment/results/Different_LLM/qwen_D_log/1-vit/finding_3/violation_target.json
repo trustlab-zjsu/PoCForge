@@ -1,0 +1,23 @@
+{
+  "target_address": "0x3c6C6d32609d253d54951dB187DAEc272b1d848a",
+  "vulnerability_type": "Owner Privilege Abuse - Blacklist Control",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to access onlyOwner functions",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "_isBlacklisted[victim_address]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call multipleBotlistAddress() function with target victim addresses and set excluded=true to blacklist them. This will prevent any transfers to or from blacklisted addresses via the _transfer() function's require(!_isBlacklisted[sender] && !_isBlacklisted[recipient]) check. The owner can arbitrarily freeze any user's tokens by blacklisting their address, effectively locking their funds."
+}

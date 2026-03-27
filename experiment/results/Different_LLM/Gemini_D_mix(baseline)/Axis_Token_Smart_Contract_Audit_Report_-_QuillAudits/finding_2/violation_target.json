@@ -1,0 +1,23 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Incorrect ERC20 Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker needs a balance of the target token to attempt transfer operations.",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "allowance(USER_ADDRESS, SPENDER_CONTRACT_ADDRESS)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "The exploit demonstrates that the token contract is not compliant with the ERC20 standard, which can cause other smart contracts to fail. First, have a user approve an allowance to a standard-compliant spender contract. Then, have the spender contract attempt to call `transferFrom` on the token contract. The transaction will revert because the spender contract expects a `bool` return value which is not provided by the non-compliant `transferFrom` function. The oracle can verify that the allowance was not spent, demonstrating the failure of the interaction and the potential for locking funds in integrating contracts."
+}
