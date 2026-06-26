@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for Milesinu token
+interface IMilesinu {
+    function owner() external view returns (address);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function _maxTxAmount() external view returns (uint256);
+    function isExcludedFromMaxTx(address account) external view returns (bool);
+    // Optional: transferFrom if needed, but not for this PoC
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x9efeabd1ae9fe1e777ebe4d1e271510622b65711;
+    IMilesinu token;
+    address owner;
+    address user1 = address(0x1111);
+    address user2 = address(0x2222);
+    uint256 constant INITIAL_TOKEN_AMOUNT = 1000 * 1e9; // 1000 tokens with 9 decimals
+
+    function setUp() public {
+        token = IMilesinu(TOKEN);
+        owner = token.owner();
+
+        // Label addresses for readability
+        vm.label(TOKEN, "MilesInu");
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+
+        // Fund user1 with tokens from owner's balance
+        vm.startPrank(owner);
+        require(token.transfer(user1, INITIAL_TOKEN_AMOUNT), "Initial transfer failed");
+        vm.stopPrank();
+    }
+
+    function testOwnerCanStopTransactions() public {
+        // Verify user1 has tokens
+        assertGe(token.balanceOf(user1), INITIAL_TOKEN_AMOUNT, "User1 balance insufficient");
+
+        // Owner sets maxTxPercent to 0 => _maxTxAmount = 0
+        vm.prank(owner);
+        token.setMaxTxPercent(0);
+        assertEq(token._maxTxAmount(), 0, "MaxTxAmount not set to 0");
+
+        // User1 tries to transfer any amount > 0 to user2 – should revert because both are not excluded from maxTx
+        vm.startPrank(user1);
+        vm.expectRevert(abi.encodePacked("Transfer amount exceeds the maxTxAmount."));
+        token.transfer(user2, 1); // even 1 wei of token should fail
+        vm.stopPrank();
+
+        // Owner can still transfer (excluded from maxTx)
+        vm.startPrank(owner);
+        bool success = token.transfer(user2, 1e9); // send 1 token
+        assertTrue(success, "Owner transfer should succeed");
+        vm.stopPrank();
+    }
+}
+```

@@ -1,0 +1,113 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.17;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the target contract
+interface ITwelveDays {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setFeeReceivers(address _marketingFeeReceiver, address _otherFeeReceiver) external;
+    function setSwapBackSettings(bool _enabled, uint256 _amount) external;
+    function isFeeExempt(address account) external view returns (bool);
+    function totalFee() external view returns (uint256);
+    function marketingFee() external view returns (uint256);
+    function otherFee() external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function swapThreshold() external view returns (uint256);
+    function swapEnabled() external view returns (bool);
+    function marketingFeeReceiver() external view returns (address);
+}
+
+// Receiver that reverts on ETH transfers
+contract RevertingReceiver {
+    receive() external payable {
+        revert("I do not accept ETH");
+    }
+}
+
+// Receiver that accepts ETH
+contract AcceptingReceiver {
+    receive() external payable {}
+    fallback() external payable {}
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xb5c50edd218569d7a19fab89ca6b85ec30bd1eb0;
+    ITwelveDays public constant target = ITwelveDays(TARGET);
+
+    RevertingReceiver public revertingReceiver;
+    AcceptingReceiver public acceptingReceiver;
+
+    // Storage slots calculated from Solidity 0.8.17 layout:
+    // balanceOf is at slot 3 (mapping)
+    // marketingFeeReceiver at slot 12 (address)
+    // otherFeeReceiver at slot 13 (address)
+    // swapEnabled at slot 15 (bool)
+    // inSwap at slot 17 (bool)
+
+    function setUp() public {
+        vm.label(TARGET, "TwelveDaysOfXmas");
+
+        revertingReceiver = new RevertingReceiver();
+        vm.label(address(revertingReceiver), "RevertingReceiver");
+
+        acceptingReceiver = new AcceptingReceiver();
+        vm.label(address(acceptingReceiver), "AcceptingReceiver");
+
+        // Fund the test contract with tokens to trigger swapBack
+        uint256 initialBalance = target.totalSupply() / 10; // 10 million tokens
+        deal(TARGET, address(this), initialBalance);
+    }
+
+    function testRevertPropagation() public {
+        // Set marketingFeeReceiver to the reclaiming contract
+        bytes32 marketingFeeSlot = bytes32(uint256(12));
+        vm.store(TARGET, marketingFeeSlot, bytes32(uint256(uint160(address(revertingReceiver)))));
+
+        // Enable swap back by setting swapEnabled = true and balanceOf[TARGET] >= swapThreshold
+        bytes32 swapEnabledSlot = bytes32(uint256(15));
+        vm.store(TARGET, swapEnabledSlot, bytes32(uint256(1)));
+
+        // Set inSwap = false (just in case)
+        bytes32 inSwapSlot = bytes32(uint256(17));
+        vm.store(TARGET, inSwapSlot, bytes32(uint256(0)));
+
+        // Give the contract itself enough balance to trigger swapBack
+        uint256 threshold = target.swapThreshold();
+        bytes32 balanceSlot = keccak256(abi.encode(TARGET, 3)); // mapping at slot 3, key = TARGET
+        vm.store(TARGET, balanceSlot, bytes32(threshold));
+
+        // Also ensure we (the caller) are not fee-exempt
+        assertFalse(target.isFeeExempt(address(this)));
+
+        // This call should revert because the fee receiver reverts on ETH transfer
+        uint256 amount = threshold * 2; // send some tokens
+        vm.expectRevert();
+        target.transfer(address(0x1), amount);
+    }
+
+    function testNormalOperation() public {
+        // Set marketingFeeReceiver to a safe contract
+        bytes32 marketingFeeSlot = bytes32(uint256(12));
+        vm.store(TARGET, marketingFeeSlot, bytes32(uint256(uint160(address(acceptingReceiver)))));
+
+        // Enable swap back
+        bytes32 swapEnabledSlot = bytes32(uint256(15));
+        vm.store(TARGET, swapEnabledSlot, bytes32(uint256(1)));
+
+        bytes32 inSwapSlot = bytes32(uint256(17));
+        vm.store(TARGET, inSwapSlot, bytes32(uint256(0)));
+
+        uint256 threshold = target.swapThreshold();
+        bytes32 balanceSlot = keccak256(abi.encode(TARGET, 3));
+        vm.store(TARGET, balanceSlot, bytes32(threshold));
+
+        // This call should succeed
+        uint256 amount = threshold * 2;
+        bool success = target.transfer(address(0x1), amount);
+        assertTrue(success);
+    }
+}
+```

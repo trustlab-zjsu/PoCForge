@@ -1,0 +1,58 @@
+No files changed, compilation skipped
+2026-06-16T09:29:52.582795Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104542463"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[PASS] testNonOwnerCannotMint() (gas: 14014)
+2026-06-16T09:29:57.008505Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.010040Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.010058Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.010072Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.010084Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [14014] ExploitTest::testNonOwnerCannotMint()
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e]
+    ├─ [0] VM::label(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], "attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e])
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf28dceb3:   Ownable: caller is not the owner)
+    │   └─ ← [Return]
+    ├─ [2641] KLingToken::mint(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], 1000000000000000000 [1e18])
+    │   └─ ← [Revert] Ownable: caller is not the owner
+    └─ ← [Stop]
+
+[FAIL: BEP20: mint to the zero address] testOwnerCanMintTokens() (gas: 19597)
+2026-06-16T09:29:57.749648Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.749780Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:29:57.749796Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [8520] ExploitTest::setUp()
+    ├─ [0] VM::label(KLingToken: [0xcca166E916088cCe10F4fB0fe0c8BB3577bb6e27], "KLingToken")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [19597] ExploitTest::testOwnerCanMintTokens()
+    ├─ [2387] KLingToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x0000000000000000000000000000000000000000]
+    ├─ [0] VM::label(Owner: [0x0000000000000000000000000000000000000000], "Owner")
+    │   └─ ← [Return]
+    ├─ [2371] KLingToken::totalSupply() [staticcall]
+    │   └─ ← [Return] 1000000000000000000000000000000 [1e30]
+    ├─ [2580] KLingToken::balanceOf(Owner: [0x0000000000000000000000000000000000000000]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(Owner: [0x0000000000000000000000000000000000000000])
+    │   └─ ← [Return]
+    ├─ [679] KLingToken::mint(Owner: [0x0000000000000000000000000000000000000000], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] BEP20: mint to the zero address
+    └─ ← [Revert] BEP20: mint to the zero address
+
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 4.42s (1.87s CPU time)
+
+Ran 1 test suite in 6.72s (4.42s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: BEP20: mint to the zero address] testOwnerCanMintTokens() (gas: 19597)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

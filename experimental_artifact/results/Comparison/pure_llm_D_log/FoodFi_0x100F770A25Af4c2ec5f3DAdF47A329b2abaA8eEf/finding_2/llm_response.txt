@@ -1,0 +1,101 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+// ── Interfaces ──
+
+interface IFoodFi {
+    function setBuyFees(uint256 _liquidityFee, uint256 _reflectionFee, uint256 _marketingFee, uint256 _devFee, uint256 _feeDenominator) external;
+    function setSellFees(uint256 _liquidityFee, uint256 _reflectionFee, uint256 _marketingFee, uint256 _devFee, uint256 _feeDenominator) external;
+    function setSwapBackSettings(bool _enabled, uint256 _amount) external;
+    function pair() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function feeDenominator() external view returns (uint256);
+    function totalBuyFee() external view returns (uint256);
+    function totalSellFee() external view returns (uint256);
+    // state variables not required for the test can be omitted
+}
+
+interface IDexRouter {
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable;
+    function WETH() external pure returns (address);
+}
+
+// ── Exploit Test ──
+
+contract ExploitTest is Test {
+    address constant CONTRACT = 0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf;
+    address constant ROUTER    = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB      = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IFoodFi  public food = IFoodFi(CONTRACT);
+    IDexRouter public router = IDexRouter(ROUTER);
+
+    function setUp() public {
+        vm.label(CONTRACT, "Food_Fi_Token");
+        vm.label(ROUTER,    "PancakeRouter");
+        vm.label(WBNB,      "WBNB");
+    }
+
+    function test_OwnerCanSetMaxBuyFee() public {
+        // 1. Read owner from storage slot 0 (address packed in first 20 bytes)
+        bytes32 ownerData = vm.load(CONTRACT, bytes32(uint256(0)));
+        address owner = address(uint160(uint256(ownerData)));
+        vm.label(owner, "Owner");
+
+        // 2. Impersonate owner and set buy fees to exactly 15% of feeDenominator
+        vm.startPrank(owner);
+
+        // Temporarily disable swap-back to avoid interference
+        food.setSwapBackSettings(false, 0);
+
+        // Set totalBuyFee = 1500, feeDenominator = 10000 => 15%
+        // Using: liquidity=500, reflection=500, marketing=500, dev=0 (sum 1500)
+        food.setBuyFees(500, 500, 500, 0, 10000);
+
+        vm.stopPrank();
+
+        // Verify state change
+        assertEq(food.totalBuyFee(), 1500, "totalBuyFee should be 1500");
+        assertEq(food.feeDenominator(), 10000, "feeDenominator should be 10000");
+
+        // 3. Execute a buy (swap BNB for tokens) from a non-exempt address
+        deal(address(this), 0.1 ether); // 0.1 BNB
+
+        address pair = food.pair();
+
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = CONTRACT;
+
+        // Record contract token balance before swap
+        uint256 contractBalanceBefore = food.balanceOf(CONTRACT);
+
+        // Execute swap via router
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: 0.1 ether}(
+            0,           // min output
+            path,
+            address(this),
+            block.timestamp
+        );
+
+        // 4. Assert fee taken is correct (15% of the swapped amount)
+        uint256 buyerBalance   = food.balanceOf(address(this));
+        uint256 contractAfter  = food.balanceOf(CONTRACT);
+        uint256 feeCollected   = contractAfter - contractBalanceBefore;
+
+        // Expected fee = amount received by buyer * 15 / 85
+        uint256 expectedFee = buyerBalance * 15 / 85;
+
+        // Allow small deviation due to price impact, rounding, etc.
+        assertApproxEqRel(feeCollected, expectedFee, 0.01e18, "Fee collected should be ~15% of swap amount");
+    }
+}
+```

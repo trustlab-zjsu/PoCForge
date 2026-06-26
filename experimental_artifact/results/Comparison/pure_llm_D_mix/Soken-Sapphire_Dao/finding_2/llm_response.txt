@@ -1,0 +1,67 @@
+```solidity
+// SPDX-License-Identifier: AGPL-3.0-or-later
+pragma solidity ^0.7.5;
+
+import "forge-std/Test.sol";
+
+interface ISapToken {
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner_) external;
+    function setVault(address vault_) external;
+    function vault() external view returns (address);
+    function mint(address account_, uint256 amount_) external;
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed SapToken on BSC
+    address constant SAP_TOKEN = 0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B;
+    ISapToken sap = ISapToken(SAP_TOKEN);
+
+    // Address that will become the new owner (unresponsive / dead)
+    address constant MALICIOUS_OWNER = address(0xDEAD);
+
+    function setUp() public {
+        // Label for debugging
+        vm.label(SAP_TOKEN, "SapToken");
+        vm.label(MALICIOUS_OWNER, "MaliciousOwner");
+
+        // Ensure the current owner is known
+        address currentOwner = sap.owner();
+        vm.label(currentOwner, "CurrentOwner");
+    }
+
+    function testTransferOwnershipWithoutConfirmation() public {
+        // 1. Get the current owner
+        address currentOwner = sap.owner();
+        assertTrue(currentOwner != address(0), "Initial owner should not be zero");
+
+        // 2. Impersonate the current owner and transfer ownership to an arbitrary address (no confirmation needed)
+        vm.prank(currentOwner);
+        sap.transferOwnership(MALICIOUS_OWNER);
+
+        // 3. Verify ownership changed immediately without any acceptance by the new owner
+        assertEq(sap.owner(), MALICIOUS_OWNER, "Ownership transferred without confirmation");
+
+        // 4. Show that the original owner can no longer execute owner‑only functions
+        vm.prank(currentOwner);
+        vm.expectRevert("Ownable: caller is not the owner");
+        sap.setVault(address(0x1111));
+
+        // 5. Show that the new owner (even though it's an address with no private key) can now call owner‑only functions
+        //    This demonstrates that the transfer happened without any verification that the new owner can actually
+        //    act or is willing to accept ownership.
+        vm.prank(MALICIOUS_OWNER);
+        vm.expectEmit(true, true, false, true);
+        // We just test that the call succeeds – no revert
+        sap.setVault(address(0x2222));
+
+        assertEq(sap.vault(), address(0x2222), "New owner successfully set vault");
+
+        // 6. (Optional) Show that loss of control can lead to permanent damage – e.g., if the new owner is a black hole,
+        //    privileged operations become impossible for the intended party.
+        //    Here we simulate that by showing the original owner can no longer call mint (if vault, but mint is vault-only not owner-only)
+        //    Actually mint is onlyVault, but setVault is owner-only; already demonstrated.
+    }
+}
+```

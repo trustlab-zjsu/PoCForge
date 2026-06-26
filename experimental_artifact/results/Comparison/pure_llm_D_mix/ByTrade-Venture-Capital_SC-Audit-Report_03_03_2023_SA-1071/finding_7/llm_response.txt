@@ -1,0 +1,74 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Interface for the vulnerable contract
+interface IBytrade_Staking {
+    struct userDeposit {
+        uint256 amount;
+        uint256 interestAmount;
+        uint256 endTime;
+        uint256 depositTime;
+    }
+    function getUserDeposits(address userAddress, uint256 start, uint256 limit) external view returns (userDeposit[] memory, uint256 total);
+    function Token() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    // Target contract address on BSC (from report)
+    address constant TARGET = 0x87a39f76d45378bf995aa89048ae015ffeff477f;
+    IBytrade_Staking public target;
+    address public dummyUser;
+
+    function setUp() public {
+        target = IBytrade_Staking(TARGET);
+        dummyUser = address(0xDEAD0000000000000000000000000000000000);
+        vm.label(TARGET, "Bytrade_Staking");
+        vm.label(dummyUser, "DummyUser");
+
+        // 1. Compute storage slot for mapping `userDeposits` (slot 1)
+        uint256 mappingSlot = 1;
+        // Array length slot for dummyUser: keccak256(abi.encode(dummyUser, mappingSlot))
+        uint256 lengthSlot = uint256(keccak256(abi.encode(dummyUser, mappingSlot)));
+
+        // 2. Set array length to 10000 (large number to demonstrate gas cost)
+        vm.store(TARGET, bytes32(lengthSlot), bytes32(uint256(10000)));
+
+        // 3. Populate 10000 deposits with dummy data (each deposit occupies 4 storage slots)
+        for (uint256 i = 0; i < 10000; i++) {
+            uint256 baseSlot = lengthSlot + 1 + i * 4;
+
+            // amount (slot 0 of struct)
+            vm.store(TARGET, bytes32(baseSlot), bytes32(uint256(1 ether)));
+            // interestAmount (slot 1)
+            vm.store(TARGET, bytes32(baseSlot + 1), bytes32(uint256(0.1 ether)));
+            // endTime (slot 2)
+            vm.store(TARGET, bytes32(baseSlot + 2), bytes32(block.timestamp + 365 days));
+            // depositTime (slot 3)
+            vm.store(TARGET, bytes32(baseSlot + 3), bytes32(block.timestamp));
+        }
+    }
+
+    function test_excessiveGasCost() public {
+        // Record gas before call
+        uint256 gasBefore = gasleft();
+
+        // Call the view function with a large limit (equal to array length)
+        (IBytrade_Staking.userDeposit[] memory deposits, uint256 total) = target.getUserDeposits(dummyUser, 0, 10000);
+
+        uint256 gasAfter = gasleft();
+        uint256 gasUsed = gasBefore - gasAfter;
+
+        // Assert that the returned array and total match the injected size
+        assertEq(deposits.length, 10000);
+        assertEq(total, 10000);
+
+        // Assert that the gas cost is excessively high (e.g., > 10 million)
+        // This demonstrates the CWE-400 / CWE-770 vulnerability: the function can consume an unbounded amount of gas.
+        emit log_named_uint("Gas used by getUserDeposits for 10000 deposits", gasUsed);
+        assertGt(gasUsed, 10_000_000, "Gas cost should be > 10 million, indicating excessive gas use");
+    }
+}
+```

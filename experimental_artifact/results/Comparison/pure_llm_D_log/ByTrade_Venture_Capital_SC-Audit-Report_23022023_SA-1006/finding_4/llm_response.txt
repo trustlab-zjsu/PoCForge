@@ -1,0 +1,55 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IByTradeToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function owner() external view returns (address);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+    function blacklist(address account) external view returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xe8bd1ca97f8a0582335407b40b0576df641fa94c;
+    IByTradeToken token;
+
+    function setUp() public {
+        token = IByTradeToken(TARGET);
+        vm.label(TARGET, "ByTradeToken");
+        vm.label(address(this), "Exploiter");
+    }
+
+    function test_RedundantSafeMath() public {
+        // The contract uses SafeMath library, but is compiled with Solidity ^0.8.0
+        // which provides built-in overflow/underflow checking. The SafeMath
+        // implementation is therefore redundant, though not exploitable.
+        // This test confirms that overflow/underflow conditions are correctly
+        // caught, as expected from the redundant SafeMath (but would also
+        // be caught by the native compiler).
+
+        // Since the exploiter has zero balance, a transfer attempt should revert
+        vm.expectRevert(bytes("ERC20: transfer amount exceeds balance"));
+        token.transfer(address(0xdead), 1);
+
+        // Decreasing allowance below zero when allowance is zero should revert
+        vm.expectRevert(bytes("ERC20: decreased allowance below zero"));
+        token.decreaseAllowance(address(0xbeef), 1);
+    }
+}
+```

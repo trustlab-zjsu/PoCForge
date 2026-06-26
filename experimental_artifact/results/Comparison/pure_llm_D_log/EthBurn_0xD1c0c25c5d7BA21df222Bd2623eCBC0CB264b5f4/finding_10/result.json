@@ -1,0 +1,31 @@
+{
+  "project_id": "EthBurn_0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "finding_id": 10,
+  "vulnerability_category": "Unauthorized Transaction Fees Change",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000001234])\n    │   └─ ← [Return]\n    ├─ [103068] EthBurn::transfer(Bob: [0x0000000000000000000000000000000000005678], 100000000000000000000 [1e20])\n    │   ├─ emit Transfer(from: Alice: [0x0000000000000000000000000000000000001234], to: EthBurn: [0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4], value: 5000000000000000000 [5e18])\n    │   ├─ emit Transfer(from: Alice: [0x0000000000000000000000000000000000001234], to: Bob: [0x0000000000000000000000000000000000005678], value: 95000000000000000000 [9.5e19])\n    │   ├─ [5913] EthBurnDividendTracker::setBalance(Alice: [0x0000000000000000000000000000000000001234], 900000000000000000000 [9e20])\n    │   │   ├─ emit Transfer(from: Alice: [0x0000000000000000000000000000000000001234], to: 0x0000000000000000000000000000000000000000, value: 100000000000000000000 [1e20])\n    │   │   └─ ← [Stop]\n    │   ├─ [53489] EthBurnDividendTracker::setBalance(Bob: [0x0000000000000000000000000000000000005678], 95000000000000000000 [9.5e19])\n    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Bob: [0x0000000000000000000000000000000000005678], value: 95000000000000000000 [9.5e19])\n    │   │   └─ ← [Stop]\n    │   └─ ← [Return] true\n    ├─ [724] EthBurn::balanceOf(Bob: [0x0000000000000000000000000000000000005678]) [staticcall]\n    │   └─ ← [Return] 95000000000000000000 [9.5e19]\n    ├─ [724] EthBurn::balanceOf(EthBurn: [0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4]) [staticcall]\n    │   └─ ← [Return] 257861078042612988491 [2.578e20]\n    ├─ [385] EthBurn::transferFee() [staticcall]\n    │   └─ ← [Return] 5\n    └─ ← [Stop]\n[FAIL: assertion failed: 0 != 2] testOwnerCanChangeBuySellFees() (gas: 17286)"
+  },
+  "prompt_tokens": 14254,
+  "completion_tokens": 4132,
+  "total_cost": 0.0,
+  "duration_seconds": 64.77101373672485,
+  "error": {
+    "error_type": "ASSERTION_FAILED",
+    "reason": "Assertion failed (no specific reason extracted)",
+    "location": null,
+    "raw_snippet": "... to read cache file err=Os { code: 2, kind: NotFound, message: \"No such file or directory\" } path=\"/Users/carl/.foundry/cache/rpc/bsc/104566632\"\n\nRan 2 tests for test/Exploit.t.sol:ExploitTest\n[FAIL: assertion failed: 0 != 2] testOwnerCanChangeBuySellFees() (gas: 17286)\n2026-06-16T12:31:26.580289Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626f...",
+    "failure_stage": "oracle",
+    "reached_sink": true,
+    "oracle_outcome": "failed"
+  }
+}

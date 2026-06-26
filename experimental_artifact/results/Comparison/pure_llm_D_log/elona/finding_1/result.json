@@ -1,0 +1,31 @@
+{
+  "project_id": "elona",
+  "finding_id": 1,
+  "vulnerability_category": "Contract Owner can exceed limit fees manipulation",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   └─ ← [Return]\n    ├─ [23024] ElonAllyToken::excludeFromMaxTx(User1: [0x0000000000000000000000000000000000001111])\n    │   └─ ← [Stop]\n    ├─ [2775] ElonAllyToken::balanceOf(User1: [0x0000000000000000000000000000000000001111]) [staticcall]\n    │   └─ ← [Return] 500000000250000 [5e14]\n    ├─ [6775] ElonAllyToken::balanceOf(User2: [0x0000000000000000000000000000000000002222]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(User1: [0x0000000000000000000000000000000000001111])\n    │   └─ ← [Return]\n    ├─ [35598] ElonAllyToken::transfer(User2: [0x0000000000000000000000000000000000002222], 100000000000000 [1e14])\n    │   ├─ emit Transfer(from: User1: [0x0000000000000000000000000000000000001111], to: User2: [0x0000000000000000000000000000000000002222], value: 50000000000000 [5e13])\n    │   └─ ← [Return] true\n    ├─ [2775] ElonAllyToken::balanceOf(User1: [0x0000000000000000000000000000000000001111]) [staticcall]\n    │   └─ ← [Return] 400000000270000 [4e14]\n    ├─ [2775] ElonAllyToken::balanceOf(User2: [0x0000000000000000000000000000000000002222]) [staticcall]\n    │   └─ ← [Return] 50000000002500 [5e13]\n    ├─ [0] VM::assertEq(400000000270000 [4e14], 400000000250000 [4e14], \"Sender balance should decrease by full amount\") [staticcall]\n    │   └─ ← [Revert] Sender balance should decrease by full amount: 400000000270000 != 400000000250000\n    └─ ← [Revert] Sender balance should decrease by full amount: 400000000270000 != 400000000250000\n[FAIL: Sender balance should decrease by full amount: 400000000270000 != 400000000250000] testOwnerCanExceedMaxFeeLimit() (gas: 174294)"
+  },
+  "prompt_tokens": 8004,
+  "completion_tokens": 4311,
+  "total_cost": 0.0,
+  "duration_seconds": 68.86693716049194,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "Sender balance should decrease by full amount: 400000000270000 != 400000000250000",
+    "location": null,
+    "raw_snippet": "    │   ├─ emit Transfer(from: User1: [0x0000000000000000000000000000000000001111], to: User2: [0x0000000000000000000000000000000000002222], value: 50000000000000 [5e13])\n    │   └─ ← [Return] true\n    ├─ [2775] ElonAllyToken::balanceOf(User1: [0x0000000000000000000000000000000000001111]) [staticcall]\n    │   └─ ← [Return] 400000000270000 [4e14]\n    ├─ [2775] ElonAllyToken::balanceOf(User2: [0x0000000000000000000000000000000000002222]) [staticcall]\n    │   └─ ← [Return] 50000000002500 [5e13]\n    ├─ [0] VM::assertEq(400000000270000 [4e14], 400000000250000 [4e14], \"Sender balance should decrease by full amount\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Sender balance should decrease by full amount: 400000000270000 != 400000000250000",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

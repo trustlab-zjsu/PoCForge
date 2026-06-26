@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IQAPToken {
+    function totalSupply() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function uniswapV2Pair() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    IQAPToken public constant QAP =
+        IQAPToken(0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073);
+
+    // Constants from contract source: _tTotal and numTokensSellToAddToLiquidity
+    uint256 constant _tTotal = 150 * 10**6 * 10**9; // 150 million tokens with 9 decimals
+    uint256 constant numTokensSellToAddToLiquidity = 300000 * 10**6 * 10**9; // 300 thousand times 10^15
+
+    function setUp() public {
+        vm.label(address(QAP), "QAPToken");
+    }
+
+    /// @notice Demonstrates that _maxTxAmount is larger than total supply, making the transfer cap check useless.
+    function testMaxTxIsUseless() public {
+        uint256 supply = QAP.totalSupply();
+        uint256 maxTx = QAP._maxTxAmount();
+        console.log("Total supply :", supply);
+        console.log("Max tx amount:", maxTx);
+        assertTrue(maxTx >= supply, "maxTx should be >= totalSupply");
+    }
+
+    /// @notice Demonstrates that numTokensSellToAddToLiquidity is larger than total supply,
+    ///         so the automatic swap‑and‑liquify mechanism can never be triggered.
+    function testLiquidityAddImpossible() public {
+        uint256 supply = QAP.totalSupply();
+        assertTrue(
+            supply < numTokensSellToAddToLiquidity,
+            "Total supply should be less than swap threshold"
+        );
+        // Even if the entire token supply is moved to the contract, its balance
+        // stays below the required threshold.
+        uint256 threshold = numTokensSellToAddToLiquidity;
+        assertLt(supply, threshold, "Supply must be less than threshold");
+    }
+
+    /// @notice Verifies that a transfer between two non‑owner accounts that would
+    ///         exceed a sensible cap (e.g. 50% of supply) succeeds because _maxTxAmount
+    ///         is ineffectively large.
+    function testTransferNotRestrictedForNonOwner() public {
+        address owner = QAP.owner();
+        address user1 = makeAddr("user1");
+        address user2 = makeAddr("user2");
+
+        // Prepare tokens for user1 by taking them from the owner.
+        uint256 transferFromOwner = QAP.balanceOf(owner) / 2;
+        vm.prank(owner);
+        QAP.transfer(user1, transferFromOwner);
+
+        // user1 now sends a large chunk of his balance to user2 (both non‑owner).
+        uint256 bigTransfer = transferFromOwner / 2; // 25% of total supply
+        vm.prank(user1);
+        QAP.transfer(user2, bigTransfer);
+
+        assertEq(QAP.balanceOf(user2), bigTransfer, "user2 should receive the big transfer");
+        // The check would have reverted if _maxTxAmount were smaller than bigTransfer,
+        // but it did not – confirming the cap is ineffective.
+    }
+
+    /// @notice Concludes that the auto‑liquidity mechanism is permanently disabled.
+    ///         Even after accumulating all possible fees the contract's token balance
+    ///         can never reach the required threshold.
+    function testAutoLiquidityNeverActivates() public {
+        // The threshold is fixed at construction and cannot be lowered.
+        // The maximum possible token balance of the contract is the total supply.
+        // Since total supply < threshold, the condition
+        //   contractTokenBalance >= numTokensSellToAddToLiquidity
+        // will never be met.
+        uint256 supply = QAP.totalSupply();
+        assertLt(
+            supply,
+            numTokensSellToAddToLiquidity,
+            "Total supply is insufficient to trigger swapAndLiquify"
+        );
+    }
+}
+```

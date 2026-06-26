@@ -1,0 +1,31 @@
+{
+  "project_id": "2-srt",
+  "finding_id": 0,
+  "vulnerability_category": "Exceed Limit Fees Manipulation",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    ├─ [2679] CoinToken::balanceOf(0x9c2ccc6A98dF8FB70d79d03063154666581f17E2) [staticcall]\n    │   └─ ← [Return] 1567355486196520213 [1.567e18]\n    ├─ [0] VM::prank(Owner: [0x0000000000000000000000000000000000000001])\n    │   └─ ← [Return]\n    ├─ [13834] CoinToken::updateFee(50, 0, Owner: [0x0000000000000000000000000000000000000001])\n    │   └─ ← [Stop]\n    ├─ [690] CoinToken::txFee() [staticcall]\n    │   └─ ← [Return] 50\n    ├─ [0] VM::prank(User: [0x000000000000000000000000000000000000bEEF])\n    │   └─ ← [Return]\n    ├─ [53679] CoinToken::transfer(Recipient: [0x000000000000000000000000000000000000cafE], 1000)\n    │   ├─ emit Transfer(from: User: [0x000000000000000000000000000000000000bEEF], to: Owner: [0x0000000000000000000000000000000000000001], value: 500)\n    │   ├─ emit Transfer(from: User: [0x000000000000000000000000000000000000bEEF], to: Recipient: [0x000000000000000000000000000000000000cafE], value: 500)\n    │   └─ ← [Return] true\n    ├─ [679] CoinToken::balanceOf(Owner: [0x0000000000000000000000000000000000000001]) [staticcall]\n    │   └─ ← [Return] 500\n    ├─ [0] VM::assertEq(500, 1567355486196520713 [1.567e18]) [staticcall]\n    │   └─ ← [Revert] assertion failed: 500 != 1567355486196520713\n    └─ ← [Revert] assertion failed: 500 != 1567355486196520713\n[FAIL: assertion failed: 500 != 1567355486196520713] testManipulateFee() (gas: 139481)"
+  },
+  "prompt_tokens": 3111,
+  "completion_tokens": 2219,
+  "total_cost": 0.0,
+  "duration_seconds": 33.42714214324951,
+  "error": {
+    "error_type": "ASSERTION_FAILED",
+    "reason": "Assertion failed (no specific reason extracted)",
+    "location": null,
+    "raw_snippet": "...d to read cache file err=Os { code: 2, kind: NotFound, message: \"No such file or directory\" } path=\"/Users/carl/.foundry/cache/rpc/bsc/104547934\"\n\nRan 1 test for test/Exploit.t.sol:ExploitTest\n[FAIL: assertion failed: 500 != 1567355486196520713] testManipulateFee() (gas: 139481)\nLogs:\n  Owner: 0x0000000000000000000000000000000000000001\n\n2026-06-16T10:11:02.122164Z  WARN traces::etherscan: could no...",
+    "failure_stage": "oracle",
+    "reached_sink": true,
+    "oracle_outcome": "failed"
+  }
+}

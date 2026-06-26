@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface ILionsLounge {
+    function getOwner() external view returns (address);
+    function pair() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function setBuyTxLimitInPercent(uint256 maxBuyTxPercent) external;
+    function setSellTxLimitInPercent(uint256 maxSellTxPercent) external;
+    function setIsTxLimitExempt(address holder, bool exempt) external;
+    function isTxLimitExempt(address) external view returns (bool);
+}
+
+interface IDEXRouter {
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable;
+    function WETH() external pure returns (address);
+}
+
+contract ExploitTest is Test {
+    address constant LILO = 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    ILionsLounge public token;
+    IDEXRouter public router;
+    address public owner;
+    address public user = address(0x5678);
+    address public attacker = address(0x1234);
+
+    function setUp() public {
+        token = ILionsLounge(LILO);
+        router = IDEXRouter(ROUTER);
+        owner = token.getOwner();
+
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(attacker, "Attacker");
+        vm.label(LILO, "LILO");
+
+        // Provide user and owner with BNB for trading
+        vm.deal(user, 10 ether);
+        vm.deal(owner, 100 ether);
+        vm.deal(attacker, 1 ether);
+    }
+
+    function testOwnerCanStopTransactionsForOthers() public {
+        // Step 1: Owner restricts transaction limits to 0
+        vm.startPrank(owner);
+        token.setBuyTxLimitInPercent(0);
+        token.setSellTxLimitInPercent(0);
+        // Owner is exempt from these limits
+        token.setIsTxLimitExempt(owner, true);
+        vm.stopPrank();
+
+        // Verify owner is exempt
+        assertTrue(token.isTxLimitExempt(owner), "Owner should be exempt from tx limits");
+
+        // Step 2: User attempts to buy tokens – should revert
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = LILO;
+
+        vm.startPrank(user);
+        vm.expectRevert("TX Limit Exceeded");
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1 ether}(
+            0,
+            path,
+            user,
+            block.timestamp + 100
+        );
+        vm.stopPrank();
+
+        // Step 3: Owner can still buy because they are exempt
+        vm.startPrank(owner);
+        uint256 balanceBefore = token.balanceOf(owner);
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1 ether}(
+            0,
+            path,
+            owner,
+            block.timestamp + 100
+        );
+        uint256 balanceAfter = token.balanceOf(owner);
+        vm.stopPrank();
+
+        assertGt(balanceAfter, balanceBefore, "Owner should have successfully purchased tokens");
+    }
+}
+```

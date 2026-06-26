@@ -1,0 +1,51 @@
+```solidity
+// Exploit.t.sol
+// PoC for vulnerability ID 6: "Unprotected function calls"
+// The report states that setFeeTo and setFeeToSetter lack access modifiers.
+// However, the deployed contract (0xe2c9c976337357369845c761dd851e2b6942d69f) does not expose these functions,
+// as confirmed by the ABI summary. Therefore the reported vulnerability cannot be triggered.
+// This test verifies that calling these functions reverts, proving they are not present.
+
+import "forge-std/Test.sol";
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0xe2c9c976337357369845c761dd851e2b6942d69f;
+
+    // Use low-level call to handle potential missing selectors
+    function testSetFeeToDoesNotExist() public {
+        bytes memory payload = abi.encodeWithSignature("setFeeTo(address)", address(this));
+        (bool success, ) = TOKEN.call(payload);
+        assertFalse(success, "setFeeTo should not be callable");
+    }
+
+    function testSetFeeToSetterDoesNotExist() public {
+        bytes memory payload = abi.encodeWithSignature("setFeeToSetter(address)", address(this));
+        (bool success, ) = TOKEN.call(payload);
+        assertFalse(success, "setFeeToSetter should not be callable");
+    }
+
+    // Additional check: any other sensitive functions are protected by onlyOwner
+    function testOnlyOwnerGuardedFunctionsRevertForUnauthorized() public {
+        address nonOwner = address(0xBEEF);
+        vm.prank(nonOwner);
+        vm.expectRevert("Ownable: caller is not the owner");
+        // Use an actual function that exists and is onlyOwner
+        ILiquidityGeneratorToken(TOKEN).setTaxFeePercent(100);
+
+        vm.prank(nonOwner);
+        vm.expectRevert("Ownable: caller is not the owner");
+        ILiquidityGeneratorToken(TOKEN).setLiquidityFeePercent(100);
+
+        vm.prank(nonOwner);
+        vm.expectRevert("Ownable: caller is not the owner");
+        ILiquidityGeneratorToken(TOKEN).excludeFromFee(address(this));
+    }
+}
+
+// Minimal interface for the token functions used in the test
+interface ILiquidityGeneratorToken {
+    function setTaxFeePercent(uint256 taxFeeBps) external;
+    function setLiquidityFeePercent(uint256 liquidityFeeBps) external;
+    function excludeFromFee(address account) external;
+}
+```

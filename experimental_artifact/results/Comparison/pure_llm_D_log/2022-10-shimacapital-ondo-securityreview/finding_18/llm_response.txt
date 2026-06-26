@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ITetherToken {
+    function approve(address spender, uint256 value) external;
+    function allowance(address owner, address spender) external view returns (uint256);
+    function transfer(address to, uint256 value) external;
+    function transferFrom(address from, address to, uint256 value) external;
+    function owner() external view returns (address);
+    function issue(uint256 amount) external;
+    function balanceOf(address who) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    ITetherToken usdt = ITetherToken(USDT);
+
+    address alice = address(0x1);
+    address bob = address(0x2);
+
+    function setUp() public {
+        vm.label(USDT, "USDT");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+
+        // Impersonate owner to mint tokens and fund Alice
+        address owner = usdt.owner();
+        vm.startPrank(owner);
+        // Mint 10,000 USDT to owner (6 decimals)
+        usdt.issue(10_000 * 1e6);
+        // Transfer 1,000 USDT to Alice
+        usdt.transfer(alice, 1_000 * 1e6);
+        vm.stopPrank();
+    }
+
+    function testNonConformantApprove() public {
+        // Verify initial allowance is zero
+        assertEq(usdt.allowance(alice, bob), 0);
+
+        // Alice approves Bob for 100 USDT
+        vm.prank(alice);
+        usdt.approve(bob, 100 * 1e6);
+        assertEq(usdt.allowance(alice, bob), 100 * 1e6);
+
+        // Attempt to change approval from non-zero to a different non-zero value
+        // This should revert per the non-standard ERC20 requirement
+        vm.prank(alice);
+        vm.expectRevert();
+        usdt.approve(bob, 200 * 1e6);
+
+        // Allowance remains unchanged
+        assertEq(usdt.allowance(alice, bob), 100 * 1e6);
+
+        // Bob can still use the old allowance
+        vm.prank(bob);
+        usdt.transferFrom(alice, bob, 100 * 1e6);
+        assertEq(usdt.balanceOf(bob), 100 * 1e6);
+        assertEq(usdt.balanceOf(alice), 900 * 1e6);
+    }
+}
+```

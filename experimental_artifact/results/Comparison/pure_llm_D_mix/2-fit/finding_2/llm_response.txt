@@ -1,0 +1,58 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.12;
+
+import "forge-std/Test.sol";
+
+interface ISecondToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function mint(address account, uint256 amount) external;
+    function grantRole(bytes32 role, address account) external;
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    ISecondToken constant target = ISecondToken(0xfd77214b4a1aa6f962972cbe65fb179c501d9094);
+
+    // MINTER_ROLE = keccak256("MINTER_ROLE") = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6
+    bytes32 constant MINTER_ROLE = 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6;
+
+    // Storage slot for AccessControl._roles mapping (slot 5 based on inheritance order)
+    uint256 constant ACCESS_CONTROL_SLOT = 5;
+
+    function setUp() public {
+        vm.label(address(target), "SecondToken");
+    }
+
+    function testOwnerCanMintTokens() public {
+        // Record initial state
+        uint256 initialTotalSupply = target.totalSupply();
+        uint256 initialBalance = target.balanceOf(address(this));
+
+        // Grant MINTER_ROLE to this contract by directly modifying storage.
+        // _roles[MINTER_ROLE].members[address(this)] = true
+        // Storage layout: base = keccak256(abi.encode(MINTER_ROLE, ACCESS_CONTROL_SLOT))
+        bytes32 base = keccak256(abi.encode(MINTER_ROLE, ACCESS_CONTROL_SLOT));
+        // slot = keccak256(abi.encode(address(this), base))
+        bytes32 slot = keccak256(abi.encode(address(this), base));
+        vm.store(address(target), slot, bytes32(uint256(1)));
+
+        // Verify role is now held
+        assertTrue(target.hasRole(MINTER_ROLE, address(this)), "MINTER_ROLE should be granted");
+
+        // Now mint a large amount to this contract as the "owner" would
+        uint256 mintAmount = 1_000_000 * 10**18; // 1M tokens
+        target.mint(address(this), mintAmount);
+
+        // Assert total supply and balance increased
+        assertEq(target.totalSupply(), initialTotalSupply + mintAmount, "Total supply should increase");
+        assertEq(target.balanceOf(address(this)), initialBalance + mintAmount, "Balance should increase");
+
+        // Demonstrate unlimited minting power: mint again
+        target.mint(address(this), mintAmount);
+        assertEq(target.totalSupply(), initialTotalSupply + 2 * mintAmount, "Can mint again");
+    }
+}
+```

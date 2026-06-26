@@ -1,0 +1,31 @@
+{
+  "project_id": "Honey",
+  "finding_id": 0,
+  "vulnerability_category": "Wrong minting and burning",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    ├─ [0] VM::prank(Owner: [0x5B21e58c55cF777241b6Ce74c014C12f84fd583f])\n    │   └─ ← [Return]\n    ├─ [26779] honeyToken::mint(Attacker: [0x000000000000000000000000000000000000dEaD], 100000 [1e5])\n    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Attacker: [0x000000000000000000000000000000000000dEaD], value: 100000 [1e5])\n    │   └─ ← [Stop]\n    ├─ [3187] honeyToken::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(Attacker: [0x000000000000000000000000000000000000dEaD])\n    │   └─ ← [Return]\n    ├─ [4142] honeyToken::burn(100000 [1e5])\n    │   ├─ emit Transfer(from: Attacker: [0x000000000000000000000000000000000000dEaD], to: 0x0000000000000000000000000000000000000000, value: 100000 [1e5])\n    │   └─ ← [Stop]\n    ├─ [550] honeyToken::totalSupply() [staticcall]\n    │   └─ ← [Return] 552040440 [5.52e8]\n    ├─ [1187] honeyToken::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::assertEq(552040440 [5.52e8], 551940440 [5.519e8], \"Total supply should decrease by mintAmount\") [staticcall]\n    │   └─ ← [Revert] Total supply should decrease by mintAmount: 552040440 != 551940440\n    └─ ← [Revert] Total supply should decrease by mintAmount: 552040440 != 551940440\n[FAIL: Total supply should decrease by mintAmount: 552040440 != 551940440] testWrongMintAndBurn_ExcludedAccount() (gas: 132986)"
+  },
+  "prompt_tokens": 6500,
+  "completion_tokens": 4257,
+  "total_cost": 0.0,
+  "duration_seconds": 55.37595582008362,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "Total supply should decrease by mintAmount: 552040440 != 551940440",
+    "location": null,
+    "raw_snippet": "    │   ├─ emit Transfer(from: Attacker: [0x000000000000000000000000000000000000dEaD], to: 0x0000000000000000000000000000000000000000, value: 100000 [1e5])\n    │   └─ ← [Stop]\n    ├─ [550] honeyToken::totalSupply() [staticcall]\n    │   └─ ← [Return] 552040440 [5.52e8]\n    ├─ [1187] honeyToken::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::assertEq(552040440 [5.52e8], 551940440 [5.519e8], \"Total supply should decrease by mintAmount\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Total supply should decrease by mintAmount: 552040440 != 551940440",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

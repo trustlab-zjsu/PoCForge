@@ -1,0 +1,45 @@
+No files changed, compilation skipped
+2026-06-16T12:15:55.036346Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104564592"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Owner must have tokens: 0 <= 0] testBackdoorTransferFrom() (gas: 46455)
+2026-06-16T12:15:58.837427Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:15:58.837485Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:15:58.837498Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:15:59.558679Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:15:59.558698Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [60165] ExploitTest::setUp()
+    ├─ [2383] StandardToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC]
+    ├─ [0] VM::label(StandardToken: [0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328], "StandardToken")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Attacker: [0x000000000000000000000000000000000000dEaD], "Attacker")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [46455] ExploitTest::testBackdoorTransferFrom()
+    ├─ [0] VM::prank(Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC])
+    │   └─ ← [Return]
+    ├─ [26692] StandardToken::approve(Attacker: [0x000000000000000000000000000000000000dEaD], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   ├─ emit Approval(owner: Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC], spender: Attacker: [0x000000000000000000000000000000000000dEaD], value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   └─ ← [Return] true
+    ├─ [730] StandardToken::allowance(Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC], Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   └─ ← [Return] 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77]
+    ├─ [2580] StandardToken::balanceOf(Owner: [0xBbbBe719304B016f6f0EBA44209Fe1422cCD68eC]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertGt(0, 0, "Owner must have tokens") [staticcall]
+    │   └─ ← [Revert] Owner must have tokens: 0 <= 0
+    └─ ← [Revert] Owner must have tokens: 0 <= 0
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.80s (1.00s CPU time)
+
+Ran 1 test suite in 5.98s (3.80s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Owner must have tokens: 0 <= 0] testBackdoorTransferFrom() (gas: 46455)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

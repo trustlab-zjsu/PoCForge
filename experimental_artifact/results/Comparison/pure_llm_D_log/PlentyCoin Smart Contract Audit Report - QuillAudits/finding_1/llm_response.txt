@@ -1,0 +1,63 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IPlenty {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function lock(bytes32 _reason, uint256 _amount, uint256 _time) external returns (bool);
+    function unlock(address _of) external returns (uint256 unlockableTokens);
+    function tokensLocked(address _of, bytes32 _reason) external view returns (uint256 amount);
+    function tokensUnlockable(address _of, bytes32 _reason) external view returns (uint256 amount);
+    function addWhitelistAdmin(address account) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    // not needed for test, but helpful for interface completeness
+    function locked(address, bytes32) external view returns (uint256 amount, uint256 validity, bool claimed);
+}
+
+contract ExploitTest is Test {
+    address constant PLENTY = 0xa5e8a886b6bab60e1a2273b79caa72143ed8b418;
+    IPlenty plenty = IPlenty(PLENTY);
+
+    function testUnderflowOnUnlock() public {
+        // Identify the owner (who is also a whitelist admin due to initialization)
+        address owner = plenty.owner();
+        vm.label(owner, "Owner");
+
+        // Choose a lock reason
+        bytes32 reason = keccak256("test_lock");
+
+        // Ensure the owner has sufficient balance; they should hold the entire supply initially.
+        uint256 lockAmount = 1e18;
+        assertGe(plenty.balanceOf(owner), lockAmount, "Owner must have enough tokens to lock");
+
+        // === Locking Phase ===
+        vm.startPrank(owner);
+        // The lock function will transfer tokens from the owner to the contract and create a lock entry.
+        plenty.lock(reason, lockAmount, 100); // lock for 100 seconds
+        vm.stopPrank();
+
+        // Verify lock state
+        assertEq(plenty.tokensLocked(owner, reason), lockAmount, "Locked amount should be recorded");
+        assertEq(plenty.tokensUnlockable(owner, reason), 0, "Not yet unlockable");
+
+        // === Fast-forward past the lock expiry ===
+        vm.warp(block.timestamp + 101);
+
+        // Verify tokens are now unlockable
+        assertEq(plenty.tokensUnlockable(owner, reason), lockAmount, "Tokens should be unlockable");
+
+        // === Attempt to unlock – this should revert due to _lockedAmount underflow ===
+        vm.startPrank(owner);
+        vm.expectRevert(bytes("SafeMath: subtraction overflow"));
+        plenty.unlock(owner);
+        vm.stopPrank();
+
+        // The locked tokens remain stuck, proving the vulnerability.
+        // (After the attempted unlock, the lock entry should still exist because the transaction reverted)
+        assertEq(plenty.tokensLocked(owner, reason), lockAmount, "Tokens should still be locked after failed unlock");
+    }
+}
+```

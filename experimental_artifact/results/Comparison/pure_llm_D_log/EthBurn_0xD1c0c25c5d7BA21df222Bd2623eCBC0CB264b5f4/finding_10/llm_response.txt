@@ -1,0 +1,125 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+interface IEthBurn {
+    function owner() external view returns (address);
+    function updateTransferFee(uint256 newTransferFee) external;
+    function updateFees(
+        uint256 deadBuy,
+        uint256 deadSell,
+        uint256 marketingBuy,
+        uint256 marketingSell,
+        uint256 liquidityBuy,
+        uint256 liquiditySell,
+        uint256 RewardsBuy,
+        uint256 RewardsSell,
+        uint256 devBuy,
+        uint256 devSell
+    ) external;
+    function setCanTransferBefore(address wallet, bool enable) external;
+    function setLimitsInEffect(bool value) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function buyRewardsFee() external view returns (uint256);
+    function sellRewardsFee() external view returns (uint256);
+    function transferFee() external view returns (uint256);
+    // Additional state variables needed for assert
+    function buyDeadFees() external view returns (uint256);
+    function buyMarketingFees() external view returns (uint256);
+    function buyLiquidityFee() external view returns (uint256);
+    function buyDevFee() external view returns (uint256);
+    function sellDeadFees() external view returns (uint256);
+    function sellMarketingFees() external view returns (uint256);
+    function sellLiquidityFee() external view returns (uint256);
+    function sellDevFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4;
+    IEthBurn target = IEthBurn(TARGET);
+
+    address alice = address(0x1234);
+    address bob   = address(0x5678);
+
+    function setUp() public {
+        vm.label(TARGET, "EthBurn");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+    }
+
+    function testOwnerCanChangeTransferFee() public {
+        address owner = target.owner();
+        vm.label(owner, "Owner");
+
+        // Prepare users to be able to transfer before trading is enabled
+        vm.startPrank(owner);
+        target.setCanTransferBefore(alice, true);
+        target.setCanTransferBefore(bob, true);
+        target.setLimitsInEffect(false);
+        // Give Alice some tokens via a fee‑free transfer from owner (owner is excluded from fees)
+        target.transfer(alice, 1000 ether);
+        vm.stopPrank();
+
+        uint256 contractBefore = target.balanceOf(TARGET);
+
+        // Owner changes transfer fee to maximum (5%)
+        vm.prank(owner);
+        target.updateTransferFee(5);
+
+        // Alice transfers 100 tokens to Bob; 5% fee should be taken
+        vm.prank(alice);
+        target.transfer(bob, 100 ether);
+
+        uint256 bobBalance = target.balanceOf(bob);
+        uint256 contractAfter = target.balanceOf(TARGET);
+
+        // Bob should receive 95 tokens
+        assertEq(bobBalance, 95 ether, "Bob should receive 95 tokens");
+        // Contract should have collected 5 tokens
+        assertEq(contractAfter - contractBefore, 5 ether, "Contract should have collected 5 tokens fee");
+        // Verify the new transfer fee value
+        assertEq(target.transferFee(), 5, "Transfer fee should be 5%");
+    }
+
+    function testOwnerCanChangeBuySellFees() public {
+        address owner = target.owner();
+
+        // Initial values (taken from constructor)
+        assertEq(target.buyRewardsFee(), 5);
+        assertEq(target.buyLiquidityFee(), 2);
+        assertEq(target.buyMarketingFees(), 1);
+        assertEq(target.buyDevFee(), 1);
+        assertEq(target.sellRewardsFee(), 5);
+        assertEq(target.sellLiquidityFee(), 2);
+        assertEq(target.sellMarketingFees(), 1);
+        assertEq(target.sellDevFee(), 1);
+
+        // Owner sets new fees (still within ≤15% total)
+        uint256 newBuyFees = 4; // buyRewardsFee
+        uint256 newSellFees = 3; // sellRewardsFee
+        vm.prank(owner);
+        target.updateFees(
+            2, // deadBuy
+            1, // deadSell
+            1, // marketingBuy
+            1, // marketingSell
+            1, // liquidityBuy
+            1, // liquiditySell
+            newBuyFees,   // RewardsBuy
+            newSellFees,  // RewardsSell
+            1, // devBuy
+            1  // devSell
+        );
+
+        // Assert changes
+        assertEq(target.buyRewardsFee(), newBuyFees, "Buy rewards fee updated");
+        assertEq(target.sellRewardsFee(), newSellFees, "Sell rewards fee updated");
+        assertEq(target.buyDeadFees(), 2);
+        assertEq(target.sellDeadFees(), 1);
+        // Total fees should still be ≤15% (we trust the require)
+    }
+}
+```

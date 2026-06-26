@@ -1,0 +1,38 @@
+No files changed, compilation skipped
+2026-06-16T14:50:39.298100Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104585221"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Operator: caller is not the operator] testOwnerMintAndBurnAbuse() (gas: 18889)
+2026-06-16T14:50:44.839209Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:50:44.839473Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:50:44.840107Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [15057] ExploitTest::setUp()
+    ├─ [2595] MadibaBEP20::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x49ebEBA8958aa6910c42541F2E6F73Fb0DC375D7]
+    ├─ [0] VM::label(Owner: [0x49ebEBA8958aa6910c42541F2E6F73Fb0DC375D7], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Victim: [0x0000000000000000000000000000000000001234], "Victim")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [18889] ExploitTest::testOwnerMintAndBurnAbuse()
+    ├─ [2533] MadibaBEP20::totalSupply() [staticcall]
+    │   └─ ← [Return] 505000000000000000000000000 [5.05e26]
+    ├─ [2957] MadibaBEP20::balanceOf(Owner: [0x49ebEBA8958aa6910c42541F2E6F73Fb0DC375D7]) [staticcall]
+    │   └─ ← [Return] 505000000000000000000000000 [5.05e26]
+    ├─ [0] VM::prank(Owner: [0x49ebEBA8958aa6910c42541F2E6F73Fb0DC375D7])
+    │   └─ ← [Return]
+    ├─ [3291] MadibaBEP20::mint(Owner: [0x49ebEBA8958aa6910c42541F2E6F73Fb0DC375D7], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] Operator: caller is not the operator
+    └─ ← [Revert] Operator: caller is not the operator
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.54s (1.79s CPU time)
+
+Ran 1 test suite in 7.05s (5.54s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Operator: caller is not the operator] testOwnerMintAndBurnAbuse() (gas: 18889)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

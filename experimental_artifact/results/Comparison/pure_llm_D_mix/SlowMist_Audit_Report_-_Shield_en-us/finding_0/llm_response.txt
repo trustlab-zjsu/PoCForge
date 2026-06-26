@@ -1,0 +1,116 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Uniswap V2 interfaces
+interface IUniswapV2Router02 {
+    function swapExactTokensForTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external returns (uint256[] memory amounts);
+}
+
+interface IUniswapV2Pair {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 value) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Mainnet addresses
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address constant ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+
+    IUniswapV2Pair pair;
+    IUniswapV2Router02 router = IUniswapV2Router02(ROUTER);
+    IERC20 wbtc = IERC20(WBTC);
+    IERC20 dai = IERC20(DAI);
+
+    function setUp() public {
+        // Label addresses for readability
+        vm.label(WBTC, "WBTC");
+        vm.label(DAI, "DAI");
+        vm.label(FACTORY, "UniswapV2Factory");
+        vm.label(ROUTER, "UniswapV2Router");
+
+        // Get the WBTC/DAI pair from the factory
+        address pairAddr = IUniswapV2Factory(FACTORY).getPair(WBTC, DAI);
+        require(pairAddr != address(0), "Pair not found");
+        pair = IUniswapV2Pair(pairAddr);
+        vm.label(pairAddr, "WBTC-DAI-Pair");
+
+        // Give the test contract a large amount of DAI to simulate attacker funds
+        deal(DAI, address(this), 10_000_000 * 1e18);
+        // Approve router to spend DAI
+        dai.approve(ROUTER, type(uint256).max);
+    }
+
+    // Helper: compute expected output for a given input via Uniswap constant product formula
+    function getAmountOut(uint256 amountIn, uint256 reserveIn, uint256 reserveOut) internal pure returns (uint256) {
+        require(amountIn > 0, "amountIn > 0");
+        uint256 amountInWithFee = amountIn * 997;
+        uint256 numerator = amountInWithFee * reserveOut;
+        uint256 denominator = reserveIn * 1000 + amountInWithFee;
+        return numerator / denominator;
+    }
+
+    function testOracleManipulation() public {
+        // --- 1. Initial state ---
+        (uint112 reserve0, uint112 reserve1, ) = pair.getReserves();
+        // Determine token0 and token1 order
+        address token0 = pair.token0();
+        (uint256 reserveWBTC, uint256 reserveDAI) =
+            token0 == WBTC ? (reserve0, reserve1) : (reserve1, reserve0);
+
+        uint256 inputAmount = 1000 * 1e18; // 1000 DAI
+        uint256 expectedOutputBefore = getAmountOut(inputAmount, reserveDAI, reserveWBTC);
+
+        // --- 2. Manipulate the pool by swapping large amount of DAI for WBTC ---
+        uint256 manipulationAmount = 5_000_000 * 1e18; // 5 million DAI
+        address[] memory path = new address[](2);
+        path[0] = DAI;
+        path[1] = WBTC;
+
+        uint256[] memory amounts = router.swapExactTokensForTokens(
+            manipulationAmount,
+            1, // min output (accept any)
+            path,
+            address(this),
+            block.timestamp + 300
+        );
+
+        // --- 3. Check reserves after manipulation ---
+        (uint112 newReserve0, uint112 newReserve1, ) = pair.getReserves();
+        (uint256 newReserveWBTC, uint256 newReserveDAI) =
+            token0 == WBTC ? (newReserve0, newReserve1) : (newReserve1, newReserve0);
+
+        uint256 expectedOutputAfter = getAmountOut(inputAmount, newReserveDAI, newReserveWBTC);
+
+        // --- 4. Assert price manipulation impact ---
+        // The expected output for 1000 DAI should be significantly less (more than 10% change)
+        console.log("WBTC obtained for 1000 DAI before manipulation:", expectedOutputBefore);
+        console.log("WBTC obtained for 1000 DAI after manipulation: ", expectedOutputAfter);
+
+        // After selling DAI, the WBTC/DAI pair has more DAI and less WBTC,
+        // so the price of WBTC in DAI increases -> you get less WBTC per DAI
+        assertLt(expectedOutputAfter, (expectedOutputBefore * 90) / 100, "Price not manipulated sufficiently");
+    }
+}
+```

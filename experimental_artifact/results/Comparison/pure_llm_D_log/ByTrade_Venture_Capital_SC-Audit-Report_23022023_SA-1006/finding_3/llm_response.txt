@@ -1,0 +1,103 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IByTradeToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function owner() external view returns (address);
+    function blacklist(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    address constant BY_TRADE_TOKEN = 0xe8bd1ca97f8a0582335407b40b0576df641fa94c;
+    IByTradeToken byTrade;
+
+    // Simulate an exploiter account (fresh wallet)
+    address exploiter = address(0xdead);
+
+    function setUp() public {
+        byTrade = IByTradeToken(BY_TRADE_TOKEN);
+        // Label for debugging
+        vm.label(BY_TRADE_TOKEN, "ByTradeToken");
+        vm.label(exploiter, "Exploiter");
+
+        // Fund exploiter with some BNB for gas (not needed for exploit)
+        deal(exploiter, 1 ether);
+    }
+
+    function testCopyKnownContracts_UseOfSafeMathLibrary() public {
+        // Demonstrate that the contract uses the copied SafeMath library
+        // by causing a revert that includes the SafeMath error message.
+        // The library's `sub` function in `_transfer` is used:
+        //   _balances[sender] = _balances[sender].sub(amount, "ERC20: transfer amount exceeds balance");
+        // We'll try to transfer more than the exploiter's balance (which is 0)
+        // and expect the exact revert message.
+
+        vm.startPrank(exploiter);
+
+        // Exploiter has 0 BTT tokens, try to transfer 1 wei
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        byTrade.transfer(address(0xb0b), 1);
+
+        vm.stopPrank();
+    }
+
+    function testCopyKnownContracts_OwnerCanPauseAndUnpause() public {
+        // The Ownable contract is a copy, not a standard OZ import.
+        // Show that the owner can pause transfers.
+        address owner = byTrade.owner();
+
+        vm.startPrank(owner);
+
+        // Initial state: paused = false
+        assertFalse(byTrade.paused(), "Should not be paused initially");
+
+        // Pause
+        byTrade.pause();
+        assertTrue(byTrade.paused(), "Should be paused after pause()");
+
+        // Now try to transfer (as non-owner) – must revert due to whenNotPaused modifier
+        vm.startPrank(exploiter);
+        vm.expectRevert();
+        byTrade.transfer(address(0xb0b), 1);
+        vm.stopPrank();
+
+        // Unpause as owner
+        vm.startPrank(owner);
+        byTrade.unpause();
+        assertFalse(byTrade.paused(), "Should be unpaused after unpause()");
+    }
+
+    function testCopyKnownContracts_OwnerCanOverridePause() public {
+        // The whenNotPaused modifier allows owner to bypass pause.
+        // This is a quirk of the copied modifier.
+        address owner = byTrade.owner();
+
+        vm.startPrank(owner);
+        byTrade.pause();
+        assertTrue(byTrade.paused());
+
+        // Now owner can still transfer despite paused
+        byTrade.transfer(address(0xb0b), 0); // zero amount, no balance needed
+        vm.stopPrank();
+    }
+
+    function testCopyKnownContracts_InitialSupply() public {
+        // Check that the initial supply is 10 billion (10^9 * 10^18)
+        // This is from the constructor: _mint(_owner, 10 * (10**9) * 10**18);
+        uint256 totalSupply = byTrade.totalSupply();
+        assertEq(totalSupply, 10 * 1e9 * 1e18, "Total supply should be 10 billion tokens");
+    }
+}
+```

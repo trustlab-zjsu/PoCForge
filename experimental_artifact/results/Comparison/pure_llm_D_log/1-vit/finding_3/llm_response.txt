@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ITokenTool {
+    function _owner() external view returns (address);
+    function _isBlacklisted(address) external view returns (bool);
+    function multipleBotlistAddress(address[] calldata accounts, bool excluded) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function name() external view returns (string memory);
+}
+
+contract ExploitTest is Test {
+    ITokenTool constant token = ITokenTool(0x3c6C6d32609d253d54951dB187DAEc272b1d848a);
+
+    address owner;
+    address user1;
+    address user2;
+
+    function setUp() public {
+        // Label addresses for debugging
+        owner = token._owner();
+        vm.label(owner, "Owner");
+        user1 = makeAddr("user1");
+        user2 = makeAddr("user2");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testOwnerCanBlacklistAndBlockTransfers() public {
+        // Ensure user1 has some tokens from owner
+        vm.prank(owner);
+        token.transfer(user1, 1000e18);
+
+        assertTrue(token.balanceOf(user1) > 0, "User1 should have tokens");
+
+        // Verify user1 is not blacklisted initially
+        assertFalse(token._isBlacklisted(user1), "User1 should not be blacklisted initially");
+
+        // Owner blacklists user1
+        address[] memory toBlacklist = new address[](1);
+        toBlacklist[0] = user1;
+        vm.prank(owner);
+        token.multipleBotlistAddress(toBlacklist, true);
+
+        // Confirm blacklist status
+        assertTrue(token._isBlacklisted(user1), "User1 should be blacklisted");
+
+        // User1 tries to transfer tokens – should revert with "Blacklisted address"
+        vm.prank(user1);
+        vm.expectRevert("Blacklisted address");
+        token.transfer(user2, 100);
+
+        // Also test that recipient blacklist blocks transfer
+        address[] memory blacklistRecipient = new address[](1);
+        blacklistRecipient[0] = user2;
+        vm.prank(owner);
+        token.multipleBotlistAddress(blacklistRecipient, true);
+
+        // Now a non-blacklisted user (user1 is blacklisted, so use another)
+        address user3 = makeAddr("user3");
+        vm.prank(owner);
+        token.transfer(user3, 500e18);
+
+        vm.prank(user3);
+        vm.expectRevert("Blacklisted address");
+        token.transfer(user2, 10);
+    }
+
+    function testRemovingBlacklistRestoresTransfer() public {
+        // Setup: give tokens to user1
+        vm.prank(owner);
+        token.transfer(user1, 500e18);
+
+        // Blacklist user1
+        address[] memory toBlacklist = new address[](1);
+        toBlacklist[0] = user1;
+        vm.prank(owner);
+        token.multipleBotlistAddress(toBlacklist, true);
+
+        // Remove blacklist
+        vm.prank(owner);
+        token.multipleBotlistAddress(toBlacklist, false);
+
+        assertFalse(token._isBlacklisted(user1), "User1 should no longer be blacklisted");
+
+        // Now transfer should succeed
+        vm.prank(user1);
+        token.transfer(user2, 100);
+        assertEq(token.balanceOf(user2), 100, "User2 should have received tokens");
+    }
+}
+```

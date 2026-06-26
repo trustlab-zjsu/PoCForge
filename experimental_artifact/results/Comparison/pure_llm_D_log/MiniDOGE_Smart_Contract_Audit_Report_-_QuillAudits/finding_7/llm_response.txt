@@ -1,0 +1,65 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMiniDOGE {
+    // Public state variables (exposed because of default visibility)
+    function _maxTxAmount() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _buyTaxFee() external view returns (uint256);
+    function _buyLiquidityFee() external view returns (uint256);
+    function _sellTaxFee() external view returns (uint256);
+    function _sellLiquidityFee() external view returns (uint256);
+    function _startTimeForSwap() external view returns (uint256);
+    function _intervalMinutesForSwap() external view returns (uint256);
+    function _buyBackRangeRate() external view returns (uint256);
+    function _buyBackDivisor() external view returns (uint256);
+    function _buyBackTimeInterval() external view returns (uint256);
+    function _buyBackMaxTimeForHistories() external view returns (uint256);
+    function _isAutoBuyBack() external view returns (bool);
+    function _isEnabledBuyBackAndBurn() external view returns (bool);
+    function marketingDivisor() external view returns (uint256);
+    function buyBackSellLimit() external view returns (uint256);
+    function _sellHistories(uint256) external view returns (uint256 time, uint256 bnbAmount);
+    function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function owner() external view returns (address);
+    function deadAddress() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    // Deployed MiniDOGE on BSC at the given address
+    IMiniDOGE constant target = IMiniDOGE(0xba07eed3d09055d60caef2bdfca1c05792f2dfad);
+
+    function testDefaultVisibility() public {
+        // Read a critical fee variable that was made public by default visibility
+        uint256 taxFee = target._taxFee();
+        assertEq(taxFee, 2, "Default visibility exposes _taxFee");
+
+        uint256 liquidityFee = target._liquidityFee();
+        assertEq(liquidityFee, 10, "Default visibility exposes _liquidityFee");
+
+        // Read a transaction limit that is also public
+        uint256 maxTx = target._maxTxAmount();
+        assertEq(maxTx, 3000000 * 10**6 * 10**9, "Default visibility exposes _maxTxAmount");
+
+        // Read buyback parameters
+        uint256 buyBackDivisor = target._buyBackDivisor();
+        assertEq(buyBackDivisor, 10, "Default visibility exposes _buyBackDivisor");
+
+        uint256 buyBackInterval = target._buyBackTimeInterval();
+        // 5 minutes in seconds = 300
+        assertEq(buyBackInterval, 300, "Default visibility exposes _buyBackTimeInterval");
+
+        // Verify that any user can retrieve the sell history length (iterable via public array)
+        // The array is public, so we can read any index; here we just check the first entry exists
+        (uint256 time, uint256 bnbAmount) = target._sellHistories(0);
+        // No assertion on values because they depend on prior transactions;
+        // the mere fact that this call does not revert proves the data is publicly accessible.
+        assertTrue(time > 0 || bnbAmount == 0, "Public _sellHistories array is readable");
+    }
+}
+```

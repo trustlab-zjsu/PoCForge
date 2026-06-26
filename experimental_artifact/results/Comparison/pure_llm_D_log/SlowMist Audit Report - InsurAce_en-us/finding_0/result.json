@@ -1,0 +1,31 @@
+{
+  "project_id": "SlowMist Audit Report - InsurAce_en-us",
+  "finding_id": 0,
+  "vulnerability_category": "Reordering attack risk",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   │   └─ ← [Return] true\n    │   ├─ [48558] UniswapV2Pair::swap(0, 54739505700603359639 [5.473e19], Attacker: [0x000000000000000000000000000000000000dEaD], 0x)\n    │   │   ├─ [12862] WETH::transfer(Attacker: [0x000000000000000000000000000000000000dEaD], 54739505700603359639 [5.473e19])\n    │   │   │   ├─ emit Transfer(from: UniswapV2Pair: [0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc], to: Attacker: [0x000000000000000000000000000000000000dEaD], value: 54739505700603359639 [5.473e19])\n    │   │   │   └─ ← [Return] true\n    │   │   ├─ [1339] USDC::fallback(UniswapV2Pair: [0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc]) [staticcall]\n    │   │   │   ├─ [553] FiatTokenV2_2::balanceOf(UniswapV2Pair: [0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc]) [delegatecall]\n    │   │   │   │   └─ ← [Return] 8683938508539 [8.683e12]\n    │   │   │   └─ ← [Return] 8683938508539 [8.683e12]\n    │   │   ├─ [534] WETH::balanceOf(UniswapV2Pair: [0xB4e16d0168e52d35CaCD2c6185b44281Ec28C9Dc]) [staticcall]\n    │   │   │   └─ ← [Return] 4712944342244727093426 [4.712e21]\n    │   │   ├─ emit Sync(reserve0: 8683938508539 [8.683e12], reserve1: 4712944342244727093426 [4.712e21])\n    │   │   ├─ emit Swap(sender: UniswapV2Router02: [0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D], amount0In: 100000000000 [1e11], amount1In: 0, amount0Out: 0, amount1Out: 54739505700603359639 [5.473e19], to: Attacker: [0x000000000000000000000000000000000000dEaD])\n    │   │   └─ ← [Stop]\n    │   └─ ← [Return] [100000000000 [1e11], 54739505700603359639 [5.473e19]]\n    ├─ emit log_named_decimal_uint(key: \"Attacker front-run WETH gained\", val: 54739505700603359639 [5.473e19], decimals: 18)\n    ├─ [0] VM::prank(Victim: [0x000000000000000000000000000000000000bEEF])\n    │   └─ ← [Revert] vm.prank: cannot override an ongoing prank with a single vm.prank; use vm.startPrank to override the current prank\n    └─ ← [Revert] vm.prank: cannot override an ongoing prank with a single vm.prank; use vm.startPrank to override the current prank\n[FAIL: vm.prank: cannot override an ongoing prank with a single vm.prank; use vm.startPrank to override the current prank] testReorderingAttack() (gas: 138114)"
+  },
+  "prompt_tokens": 8874,
+  "completion_tokens": 5327,
+  "total_cost": 0.0,
+  "duration_seconds": 70.45054888725281,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "vm.prank: cannot override an ongoing prank with a single vm.prank; use vm.startPrank to override the current prank",
+    "location": null,
+    "raw_snippet": "    │   │   │   └─ ← [Return] 4712944342244727093426 [4.712e21]\n    │   │   ├─ emit Sync(reserve0: 8683938508539 [8.683e12], reserve1: 4712944342244727093426 [4.712e21])\n    │   │   ├─ emit Swap(sender: UniswapV2Router02: [0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D], amount0In: 100000000000 [1e11], amount1In: 0, amount0Out: 0, amount1Out: 54739505700603359639 [5.473e19], to: Attacker: [0x000000000000000000000000000000000000dEaD])\n    │   │   └─ ← [Stop]\n    │   └─ ← [Return] [100000000000 [1e11], 54739505700603359639 [5.473e19]]\n    ├─ emit log_named_decimal_uint(key: \"Attacker front-run WETH gained\", val: 54739505700603359639 [5.473e19], decimals: 18)\n    ├─ [0] VM::prank(Victim: [0x000000000000000000000000000000000000bEEF])\n    │   └─ ← \n👉 [Revert Occurred Here]: vm.prank: cannot override an ongoing prank with a single vm.prank; use vm.startPrank to override the current prank",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

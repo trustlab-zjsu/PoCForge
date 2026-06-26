@@ -1,0 +1,110 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+// Interfaces for the target contract
+interface IXY3 {
+    struct Offer {
+        uint256 borrowAmount;
+        uint256 repayAmount;
+        address nftAsset;
+        uint32 borrowDuration;
+        uint16 adminShare;
+        address borrowAsset;
+        uint256 timestamp;
+    }
+    struct Signature {
+        uint256 nonce;
+        uint256 expiry;
+        address signer;
+        bytes signature;
+    }
+    struct LoanDetail {
+        uint256 borrowAmount;
+        uint256 repayAmount;
+        uint256 nftTokenId;
+        address borrowAsset;
+        uint32 loanDuration;
+        uint16 adminShare;
+        uint64 loanStart;
+        address nftAsset;
+        address borrower;
+        bool isCollection;
+    }
+
+    function DEFAULT_ADMIN_ROLE() external view returns (bytes32);
+    function MANAGER_ROLE() external view returns (bytes32);
+    function adminShare() external view returns (uint16);
+    function adminFeeReceiver() external view returns (address);
+    function grantRole(bytes32 role, address account) external;
+    function updateAdminShare(uint16 _newAdminShare) external;
+    function updateAdminFeeReceiver(address _newAdminFeeReceiver) external;
+    function hasRole(bytes32 role, address account) external view returns (bool);
+    // Additional functions if needed (not used directly)
+}
+
+contract ExploitTest is Test {
+    IXY3 constant xy3 = IXY3(0xc28f7ee92cd6619e8eec6a70923079fbafb86196);
+    bytes32 constant DEFAULT_ADMIN_ROLE = bytes32(0);
+    bytes32 constant MANAGER_ROLE = keccak256("MANAGER");
+
+    function setUp() public {
+        // Label the contract for debugging
+        vm.label(address(xy3), "XY3");
+    }
+
+    // Compute storage slot for AccessControl role mapping
+    // For a mapping(bytes32 => struct RoleData) _roles at slot 0,
+    // the RoleData struct for a given role is stored at:
+    // keccak256(abi.encode(role, uint256(0)))
+    // Inside that struct, the mapping members at slot 0.
+    // So the base slot for members mapping is: keccak256(abi.encode(role, uint256(0)))
+    // Then for a specific account, the slot is: keccak256(abi.encode(account, baseSlot))
+    function _roleMemberSlot(bytes32 role, address account) private pure returns (bytes32) {
+        bytes32 baseSlot = keccak256(abi.encode(role, uint256(0))); // slot of the RoleData struct
+        return keccak256(abi.encode(account, uint256(baseSlot)));   // slot of members[account]
+    }
+
+    function testExcessiveAuthority() public {
+        // Initially, the test contract does not have DEFAULT_ADMIN_ROLE
+        assertFalse(xy3.hasRole(DEFAULT_ADMIN_ROLE, address(this)));
+        assertFalse(xy3.hasRole(MANAGER_ROLE, address(this)));
+
+        // Directly set the storage to grant the test contract DEFAULT_ADMIN_ROLE
+        bytes32 key = _roleMemberSlot(DEFAULT_ADMIN_ROLE, address(this));
+        vm.store(address(xy3), key, bytes32(uint256(1))); // set bool to true
+
+        // Verify we now have DEFAULT_ADMIN_ROLE
+        assertTrue(xy3.hasRole(DEFAULT_ADMIN_ROLE, address(this)));
+
+        // As DEFAULT_ADMIN, we can grant ourselves the MANAGER_ROLE
+        xy3.grantRole(MANAGER_ROLE, address(this));
+        assertTrue(xy3.hasRole(MANAGER_ROLE, address(this)));
+
+        // Capture original adminShare
+        uint16 originalShare = xy3.adminShare();
+
+        // As MANAGER, we can update adminShare to any value up to 10000
+        // Set to 10000 (100%) – extreme case where admin takes all interest
+        uint16 maliciousShare = 10000;
+        xy3.updateAdminShare(maliciousShare);
+
+        // Verify adminShare changed
+        assertEq(xy3.adminShare(), maliciousShare);
+        // Show that the share is different from original (if originally not already 10000)
+        assertTrue(xy3.adminShare() != originalShare, "adminShare should have changed");
+
+        // Additionally, a manager can also change the admin fee receiver to any address
+        // This demonstrates the risk of funds being redirected
+        address attackerReceiver = address(0xdead);
+        xy3.updateAdminFeeReceiver(attackerReceiver);
+        assertEq(xy3.adminFeeReceiver(), attackerReceiver);
+
+        // The above actions show that the owner/manager has excessive authority:
+        // They can take all future interest by setting adminShare to 10000 and
+        // redirect admin fees to any address, potentially harming lenders and borrowers.
+    }
+}
+```

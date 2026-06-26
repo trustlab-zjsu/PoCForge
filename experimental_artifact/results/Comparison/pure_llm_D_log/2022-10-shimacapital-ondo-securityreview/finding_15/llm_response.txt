@@ -1,0 +1,97 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+/// @notice IUSDT minimal interface for interacting with TetherToken
+interface IUSDT {
+    function owner() external view returns (address);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function balanceOf(address who) external view returns (uint256);
+    function issue(uint256 amount) external;
+    function totalSupply() external view returns (uint256);
+}
+
+/// @notice Simple contract that relies on USDT transfers
+contract Receiver {
+    uint256 public received;
+
+    function checkBalance(address token) external view returns (uint256) {
+        return IUSDT(token).balanceOf(address(this));
+    }
+}
+
+contract ExploitTest is Test {
+    address constant USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+    IUSDT usdt;
+    Receiver receiver;
+    address attacker = address(0xACE);
+    address user = address(0xCAFE);
+    address owner;
+
+    function setUp() public {
+        usdt = IUSDT(USDT);
+        receiver = new Receiver();
+
+        // Get the current owner of USDT
+        owner = usdt.owner();
+
+        vm.label(USDT, "USDT");
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(user, "User");
+
+        // Mint USDT to user (via owner)
+        vm.prank(owner);
+        usdt.issue(1_000_000e6); // USDT has 6 decimals
+
+        // Transfer some USDT to user for the test
+        vm.prank(owner);
+        usdt.transfer(user, 1000e6);
+
+        // Verify user has balance
+        assertEq(usdt.balanceOf(user), 1000e6);
+    }
+
+    function testPauseTrapContract() public {
+        // Ensure token is not paused
+        assertFalse(usdt.paused());
+
+        // User transfers USDT to receiver contract before pause
+        vm.prank(user);
+        usdt.transfer(address(receiver), 500e6);
+        assertEq(receiver.checkBalance(address(usdt)), 500e6);
+        assertEq(usdt.balanceOf(user), 500e6);
+
+        // Owner pauses the token
+        vm.prank(owner);
+        usdt.pause();
+        assertTrue(usdt.paused());
+
+        // Now, the user tries to transfer again to the receiver – should fail
+        vm.prank(user);
+        vm.expectRevert(); // whenNotPaused modifier
+        usdt.transfer(address(receiver), 100e6);
+
+        // Receiver balance remains unchanged (still 500 USDT)
+        assertEq(receiver.checkBalance(address(usdt)), 500e6);
+
+        // The receiver contract may be relying on receiving the second transfer (e.g., for a trade)
+        // It remains "trapped" – cannot acquire the expected funds.
+        // Unpause to recover
+        vm.prank(owner);
+        usdt.unpause();
+        assertFalse(usdt.paused());
+
+        // Now transfer succeeds
+        vm.prank(user);
+        usdt.transfer(address(receiver), 100e6);
+        assertEq(receiver.checkBalance(address(usdt)), 600e6);
+    }
+}
+```

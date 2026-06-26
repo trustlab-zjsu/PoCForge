@@ -1,0 +1,45 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.7.4;
+
+import "forge-std/Test.sol";
+
+interface IOptiFi {
+    function owner() external view returns (address);
+    function tradingStatus(bool _status, uint256 _deadBlocks) external;
+    function setBotBlacklist(address _botAddress, bool _flag) external;
+    function blacklist(address) external view returns (bool);
+    function transfer(address to, uint256 value) external returns (bool);
+    function balanceOf(address who) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    IOptiFi constant opti = IOptiFi(0xb5D5D9C8E98cef68E7bdAd92b1De229d514179b6);
+
+    function testBlacklistExploit() public {
+        address owner = opti.owner();
+        vm.label(owner, "Owner");
+
+        // Enable trading and set deadBlocks to 0
+        vm.prank(owner);
+        opti.tradingStatus(true, 0);
+
+        // Give some tokens to a test user
+        address user = address(0xBEEF);
+        address recipient = address(0xDEAD);
+        uint256 ownerBalance = opti.balanceOf(owner);
+        vm.prank(owner);
+        opti.transfer(user, ownerBalance / 1000); // small amount
+
+        // Blacklist the user
+        vm.prank(owner);
+        opti.setBotBlacklist(user, true);
+        assertEq(opti.blacklist(user), true, "User should be blacklisted");
+
+        // Attempt to transfer from blacklisted user – must revert
+        vm.prank(user);
+        vm.expectRevert("Wallet is blacklisted");
+        opti.transfer(recipient, 1);
+    }
+}
+```

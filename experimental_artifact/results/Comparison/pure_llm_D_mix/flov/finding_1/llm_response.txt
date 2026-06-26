@@ -1,0 +1,101 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface IFLOV {
+    function owner() external view returns (address);
+    function BUSDRewardsFee() external view returns (uint256);
+    function liquidityFee() external view returns (uint256);
+    function marketingFee() external view returns (uint256);
+    function totalFees() external view returns (uint256);
+    function setBUSDRewardsFee(uint256 value) external;
+    function setLiquiditFee(uint256 value) external;
+    function setMarketingFee(uint256 value) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function _maxTxAmount() external view returns (uint256);
+    function swapTokensAtAmount() external view returns (uint256);
+    function isExcludedFromFees(address account) external view returns (bool);
+    function excludeFromFees(address account, bool excluded) external;
+    function decimals() external view returns (uint8);
+    function setMaxTxPercent(uint256 maxTxAmount) external;
+}
+
+interface IBUSD {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant FLOV_ADDR = 0xcA1e6f584E0D7eEc74F553E9a7b64A4ded8a4b61;
+    address constant BUSD_ADDR = 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56;
+    address constant WBNB_ADDR = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // PancakeSwap WBNB
+
+    IFLOV flov;
+    IBUSD busd;
+    address owner;
+    address user1 = address(0x1001);
+    address user2 = address(0x1002);
+
+    function setUp() public {
+        flov = IFLOV(FLOV_ADDR);
+        busd = IBUSD(BUSD_ADDR);
+        owner = flov.owner();
+
+        vm.label(FLOV_ADDR, "FLOV");
+        vm.label(BUSD_ADDR, "BUSD");
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testFeesExceedTwentyFivePercent() public {
+        // --- Baseline: fees are within 25% ---
+        uint256 initialBUSD = flov.BUSDRewardsFee();
+        uint256 initialLiq = flov.liquidityFee();
+        uint256 initialMkt = flov.marketingFee();
+        uint256 initialTotal = flov.totalFees();
+        assertEq(initialTotal, initialBUSD + initialLiq + initialMkt, "totalFees should match sum");
+        assertTrue(initialTotal <= 25, "Initial total fees must be <= 25% per report");
+
+        // --- Owner sets BUSDRewardsFee to 50% ---
+        vm.prank(owner);
+        flov.setBUSDRewardsFee(50);
+
+        uint256 newBUSD = flov.BUSDRewardsFee();
+        uint256 newTotal = flov.totalFees();
+        assertEq(newBUSD, 50, "BUSDRewardsFee should now be 50");
+        assertEq(newTotal, 50 + initialLiq + initialMkt, "totalFees should be 50+2+3=55");
+        assertTrue(newTotal > 25, "Total fees now exceed the 25% limit");
+
+        // --- Demonstrate impact: user transfer incurs excessive fees ---
+        // Owner sends tokens to user1 (owner is excluded from fees)
+        vm.startPrank(owner);
+        uint256 amountToUser = 1_000_000 * 1e18; // 1M tokens
+        flov.transfer(user1, amountToUser);
+        vm.stopPrank();
+
+        // Now user1 transfers to user2 – should be charged the inflated fee (55%)
+        uint256 transferAmount = 1000 * 1e18;
+        uint256 balanceUser1Before = flov.balanceOf(user1);
+        uint256 balanceContractBefore = flov.balanceOf(address(flov));
+        uint256 balanceUser2Before = flov.balanceOf(user2);
+
+        vm.prank(user1);
+        flov.transfer(user2, transferAmount);
+
+        uint256 expectedFee = (transferAmount * newTotal) / 100; // 55%
+        uint256 expectedReceived = transferAmount - expectedFee;
+
+        assertEq(flov.balanceOf(user1), balanceUser1Before - transferAmount, "User1 balance decreased by full amount");
+        assertEq(flov.balanceOf(user2), balanceUser2Before + expectedReceived, "User2 received only after fee");
+        assertEq(flov.balanceOf(address(flov)), balanceContractBefore + expectedFee, "Contract collected inflated fee");
+
+        // Confirm that the fee is indeed >25% of transfer
+        assertTrue(expectedFee > (transferAmount * 25) / 100, "Fee exceeds 25% of transfer amount");
+    }
+}
+```

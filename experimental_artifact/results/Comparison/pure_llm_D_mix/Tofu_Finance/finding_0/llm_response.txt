@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ITofoFinance {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address _owner) external view returns (uint256);
+    function transfer(address _to, uint256 _amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant TOFO = 0x19e506bbf1d8dbd08e963229434634664a577111;
+    // Owner address from constructor
+    address constant OWNER = 0xC8047F164033EF81aE915C745AA39bA5eb2bbFb6;
+
+    ITofoFinance public tofo;
+
+    function setUp() public {
+        tofo = ITofoFinance(TOFO);
+        vm.label(TOFO, "TofoFinance");
+        vm.label(OWNER, "Owner");
+    }
+
+    function testWrongBurn() public {
+        // Ensure owner has enough BNB for gas (not actually needed but safe)
+        vm.deal(OWNER, 1 ether);
+
+        uint256 initialTotalSupply = tofo.totalSupply();
+        uint256 initialOwnerBalance = tofo.balanceOf(OWNER);
+
+        // Transfer 1000 tokens (9 decimals) from owner to this contract
+        uint256 transferAmount = 1000 * 1e9; // 1000 TOFU
+        vm.prank(OWNER);
+        tofo.transfer(address(this), transferAmount);
+
+        uint256 finalTotalSupply = tofo.totalSupply();
+        uint256 zeroBalance = tofo.balanceOf(address(0));
+
+        // The burn fee is 2% of the transfer amount
+        uint256 burnFee = transferAmount * 2 / 100;
+
+        // Total supply should have decreased by burnFee
+        assertEq(finalTotalSupply, initialTotalSupply - burnFee, "Total supply reduction mismatch");
+
+        // The zero address should hold exactly the burned tokens
+        assertEq(zeroBalance, burnFee, "Zero address balance should equal burned amount");
+
+        // Sum of balances (owner, recipient, zero) should equal initial total supply
+        uint256 finalOwnerBalance = tofo.balanceOf(OWNER);
+        uint256 recipientBalance = tofo.balanceOf(address(this));
+        uint256 sum = finalOwnerBalance + recipientBalance + zeroBalance;
+        assertEq(sum, initialTotalSupply, "Sum of all balances should equal initial total supply");
+
+        // Therefore, actual tokens in existence (sum of balances) > totalSupply reported
+        assertTrue(sum > finalTotalSupply, "Bug: sum of balances > totalSupply");
+
+        // Additionally, the caller's balance is correct (transferAmount - burnFee)
+        assertEq(recipientBalance, transferAmount - burnFee, "Recipient balance mismatch");
+    }
+}
+```

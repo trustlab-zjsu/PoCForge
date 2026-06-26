@@ -1,0 +1,57 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IPlenty {
+    function setTaxFeePercent(uint256 taxFee) external;
+    function setLiquidityFeePercent(uint256 liquidityFee) external;
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function owner() external view returns (address);
+    function _taxFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xa5e8a886b6bab60e1a2273b79caa72143ed8b418;
+    IPlenty target;
+
+    function setUp() public {
+        target = IPlenty(TARGET);
+        vm.label(TARGET, "Plenty");
+    }
+
+    function testMissingEvents() public {
+        // Get the owner address from the contract
+        address owner = target.owner();
+        vm.label(owner, "Owner");
+
+        // Start recording logs
+        vm.recordLogs();
+
+        // Perform critical operations as owner
+        vm.startPrank(owner);
+        target.setTaxFeePercent(10);
+        target.setLiquidityFeePercent(8);
+        target.setMaxTxPercent(2); // 2% of total supply
+        vm.stopPrank();
+
+        // Retrieve all logs emitted during these calls
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Assert that no event was emitted for these operations (should be 0 logs)
+        // (The contract does not emit any event in these functions; only state changes)
+        assertEq(logs.length, 0, "Critical operations must not emit any event");
+
+        // Optional: also verify that the state was actually updated (to prove the calls executed)
+        assertEq(target._taxFee(), 10);
+        assertEq(target._liquidityFee(), 8);
+        // _maxTxAmount is calculated as _tTotal * maxTxPercent / 100
+        // total supply = 1000000000 * 1e6 * 1e18 = 1_000_000_000 * 1e24
+        uint256 expectedMaxTx = 1_000_000_000 * 1e24 * 2 / 100;
+        assertEq(target._maxTxAmount(), expectedMaxTx);
+    }
+}
+```

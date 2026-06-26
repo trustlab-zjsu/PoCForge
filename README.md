@@ -1,70 +1,77 @@
-# ASE26: PoCForge
+# PoCForge
 
-PoCForge is an automated Proof-of-Concept (PoC) generation and verification system for smart contract vulnerabilities. It leverages Large Language Models (LLMs) combined with static analysis and dynamic execution feedback (via Foundry) to autonomously exploit and validate smart contract logic and economic vulnerabilities.
+PoCForge 用于从智能合约审计报告中的漏洞条目生成 Foundry PoC，并通过本地 fork 测试验证结果。输入是 `dataset/` 中的目标 JSON；输出包括 `Exploit.t.sol`、运行记录和结果摘要。
 
-## Repository Structure
+## 目录
 
-- **`main.py`**: The core CLI entry point. Handles target parsing, AST extraction, and initiates the agent loop.
-- **`code/`**: Contains the main engine.
-  - `agent_loop.py`: The iterative prompt generation and fix loop.
-  - `executor/`: Local Foundry testing and execution trace parsing.
-  - `tools/`: Extractor for Slither AST, code writers, and source fetchers.
-- **`data/`**: Standardized datasets (`D_log_dataset` and `D_mix_dataset`) and the RAG (Retrieval-Augmented Generation) knowledge base.
-- **`scripts/`**: Utilities for benchmarking, plotting, and evaluating success metrics.
-- **`experiment/`**: Contains all raw PoC execution logs (`results/`) and compiled statistical tables (`Statistical Results/`).
-- **`foundry_sandbox/`**: The isolated environment where generated exploits are compiled and run natively.
+- `code/`: 主程序。`code/main.py` 是入口；`agent_loop.py` 负责迭代生成与修复；`executor/` 负责 Foundry 执行和 trace 解析；`tools/` 负责源码获取、Slither 分析和文件写入。
+- `dataset/`: 数据集，包含 `D_log/`、`D_mix/`、`rag_knowledge_base/` 和统计辅助文件。
+- `experimental_artifact/`: 实验结果、PoC、日志和统计表。
+- `foundry_sandbox/`: Foundry 沙箱，生成的测试会在这里编译和运行。
+- `.env.example`: 环境变量模板。
 
-## Prerequisites
+## 环境要求
 
-1. **Python 3.10+**
-2. **[Foundry](https://book.getfoundry.sh/)**: Must be installed and accessible in your system `PATH` (provides `forge` and `cast`).
-3. **Slither**: Required for AST extraction.
+- Python 3.10+
+- Foundry (`forge`, `cast`)
+- Slither
+- 可用的 LLM API key、RPC URL 和区块浏览器 API key
 
-## Installation
+## 安装
 
-1. Install Python dependencies:
-   ```bash
-   pip install -r code/requirements.txt
-   ```
-
-2. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Fill in your `.env` file with the necessary API keys (LLM APIs, Etherscan, BSCscan, RPC URLs).
-
-3. Set up Foundry:
-   The `foundry_sandbox` folder automatically manages the execution of PoCs. Ensure `remappings.txt` is correctly set up inside the sandbox to link standard libraries like OpenZeppelin.
-
-## Usage
-
-### 1. Run a Single Target
-Execute the pipeline against a specific vulnerability target JSON:
 ```bash
-python main.py --target data/D_log_dataset/your_target.pdf.json --output experiment/results/single_run
-```
-Add `--finding-id <ID>` if you only want to test a specific finding from the dataset.
-
-### 2. Run Batch Benchmarks
-You can process entire directories of vulnerabilities using the built-in batch mode, or use the provided script:
-```bash
-bash scripts/run_benchmark.sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r code/requirements.txt
+cp .env.example .env
 ```
 
-### 3. Evaluate Metrics
-To parse the output directories and calculate CSR (Compilation Success Rate), ERR (EVM Revert Rate), and VPR (Verification Pass Rate):
+编辑 `.env`，至少填写 `LLM_API_KEY`。如果需要从链上拉取源码或 fork 运行，还要配置 `ETH_RPC_URL`、`BSC_RPC_URL`、`ETHERSCAN_API_KEY`、`BSCSCAN_API_KEY`。
+
+## 运行
+
+单个目标：
+
 ```bash
-python scripts/evaluate_results.py experiment/results/your_run_name
+.venv/bin/python code/main.py \
+  --target dataset/D_log/1-vit.json \
+  --finding-id 0 \
+  --output experimental_artifact/results/local_run
 ```
-Metrics will be output directly to the console.
 
-## Datasets and Experimental Results
+批量运行：
 
-This repository contains the exact datasets and artifacts used to evaluate LogicGap against baselines (Quimera, AdvScanner) and multiple LLMs (DeepSeek, Qwen).
+```bash
+.venv/bin/python code/main.py \
+  --batch dataset/D_mix \
+  --output experimental_artifact/results/local_batch
+```
 
-- Raw execution data and generated `Exploit.t.sol` files can be found in `experiment/results/`.
-- Aggregated CSV and Markdown reports are available in `experiment/Statistical Results/`.
+常用参数：
 
-## License
+- `--finding-id`: 只处理某个漏洞条目。
+- `--severity high medium critical`: 指定批量筛选的严重等级。
+- `--max-attempts 3`: 设置每个漏洞的最大修复轮数。
+- `--block-number <number>`: 使用指定区块做 fork 测试。
+- `--verbose`: 输出调试日志。
 
-[MIT License](LICENSE)
+## 输出
+
+每个漏洞的结果保存在：
+
+```text
+<output>/<project>/finding_<id>/
+```
+
+主要文件：
+
+- `Exploit.t.sol`: 最终生成的 Foundry 测试。
+- `result.json`: 运行状态和统计信息。
+- `violation_target.json`: 结构化漏洞目标。
+- `attempt_history.json`: 每轮生成、编译和执行记录。
+
+## 数据和结果
+
+- 数据集在 `dataset/D_log/` 和 `dataset/D_mix/`。
+- 对比实验和消融实验结果在 `experimental_artifact/results/`。
+- 汇总表在 `experimental_artifact/Statistical Results/`。

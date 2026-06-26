@@ -1,0 +1,114 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IKARMA {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function owner() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function enableTrading() external;
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
+
+interface IUniswapV2Router02 {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable;
+}
+
+interface IWBNB {
+    function deposit() external payable;
+}
+
+contract ExploitTest is Test {
+    IKARMA constant karma = IKARMA(0x8f9ba08cbf014ab233a33067b21bedf3876c6605);
+    IUniswapV2Router02 constant router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    address owner;
+    address pair;
+    address buyer;
+
+    function setUp() public {
+        vm.label(address(karma), "KARMA");
+        vm.label(address(router), "UniswapV2Router");
+        vm.label(WBNB, "WBNB");
+        vm.label(DEAD, "DEAD");
+
+        owner = karma.owner();
+        vm.label(owner, "Owner");
+        pair = karma.uniswapV2Pair();
+        vm.label(pair, "Pair");
+        buyer = address(this);
+        vm.label(buyer, "Buyer");
+
+        // Provide BNB to owner for liquidity and to buyer for swap
+        vm.deal(owner, 1000 ether);
+        vm.deal(buyer, 100 ether);
+    }
+
+    function testTotalSupplyDiversion() public {
+        // Enable trading
+        vm.startPrank(owner);
+        karma.enableTrading();
+
+        // Add liquidity: send half of initial supply to the pair
+        uint256 liquidityAmount = karma.totalSupply() / 2;
+        karma.approve(address(router), liquidityAmount);
+        router.addLiquidityETH{value: 100 ether}(
+            address(karma),
+            liquidityAmount,
+            0,
+            0,
+            owner,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        // Baseline: before any swap, totalSupply should equal sum of balances of major holders
+        uint256 totalSupplyBefore = karma.totalSupply();
+        uint256 sumBefore = karma.balanceOf(owner) + karma.balanceOf(pair) + karma.balanceOf(DEAD) + karma.balanceOf(address(karma));
+        // After adding liquidity, owner and pair have the tokens, dead and contract have 0
+        // This assertion may be true, but we skip as we only care after swaps.
+
+        // Perform a swap: buyer buys some tokens from the pair
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = address(karma);
+        vm.prank(buyer);
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: 10 ether}(
+            0,
+            path,
+            buyer,
+            block.timestamp
+        );
+
+        // After the swap, totalSupply may have decreased due to burns
+        uint256 totalSupplyAfter = karma.totalSupply();
+        uint256 sumAfter = karma.balanceOf(owner) + karma.balanceOf(pair) + karma.balanceOf(DEAD) + karma.balanceOf(address(karma)) + karma.balanceOf(buyer);
+
+        // Vulnerability: totalSupply() is smaller than the sum of all token balances because
+        // _takeLiquidity decreases _tTotalSupply but increases _tOwned[DEAD], making dead's balance
+        // artificially inflated relative to total supply. This leads to an inconsistency.
+        assertGt(sumAfter, totalSupplyAfter, "totalSupply should be less than sum of balances after a swap with burn");
+    }
+}
+```

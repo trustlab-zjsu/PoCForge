@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IDoctorShiba {
+    function owner() external view returns (address);
+    function newun() external view returns (address);
+    function transfernewun(address _newun) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    IDoctorShiba public token;
+    address public constant TOKEN = 0x783e086d67670c0d85c4ef34ebbee5a8253b38ee;
+    address public blacklisted = address(0xDEAD); // arbitrary address to block
+    address public user = address(0x1234);
+    address public other = address(0x5678);
+
+    function setUp() public {
+        token = IDoctorShiba(TOKEN);
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(blacklisted, "Blacklisted");
+        vm.label(other, "Other");
+
+        // Ensure user has some tokens to transfer
+        vm.startPrank(owner);
+        // Owner holds total supply, send 1000 tokens to user
+        require(token.transfer(user, 1000e9), "transfer failed");
+        vm.stopPrank();
+    }
+
+    function testPreventSelling() public {
+        // Initially newun should be zero, so transfers are not restricted
+        assertEq(token.newun(), address(0));
+
+        // Owner sets newun to the blacklisted address
+        address owner = token.owner();
+        vm.prank(owner);
+        token.transfernewun(blacklisted);
+        assertEq(token.newun(), blacklisted);
+
+        // Now any transfer to blacklisted from a non-owner must revert
+        vm.startPrank(user);
+        // User approves himself to use transferFrom (or use direct transfer)
+        token.approve(user, 100e9);
+        // Attempt transferFrom(user, blacklisted, 10e9) - should revert
+        vm.expectRevert(bytes("please wait"));
+        token.transferFrom(user, blacklisted, 10e9);
+        vm.stopPrank();
+
+        // Also direct transfer to blacklisted by user should revert
+        vm.prank(user);
+        vm.expectRevert(bytes("please wait"));
+        token.transfer(blacklisted, 10e9);
+
+        // User can still send tokens to other addresses
+        vm.prank(user);
+        token.transfer(other, 10e9);
+        assertEq(token.balanceOf(other), 10e9);
+    }
+}
+```

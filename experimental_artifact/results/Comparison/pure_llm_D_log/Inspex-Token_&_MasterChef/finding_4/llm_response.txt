@@ -1,0 +1,110 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface ISamoyToken {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address, uint256) external returns (bool);
+    function transfer(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+    function allowance(address, address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function mintTo(address, uint256) external returns (bool);
+}
+
+interface ISamoyedMasterChef {
+    function owner() external view returns (address);
+    function BONUS_MULTIPLIER() external view returns (uint256);
+    function smoyPerBlock() external view returns (uint256);
+    function smoy() external view returns (address);
+    function kennel() external view returns (address);
+    function updateMultiplier(uint256) external;
+    function updateSmoyPerBlock(uint256) external;
+    function enterStaking(uint256) external;
+    function pendingSmoy(uint256, address) external view returns (uint256);
+    function userInfo(uint256, address) external view returns (uint256 amount, uint256 rewardDebt);
+    function poolInfo(uint256) external view returns (address lpToken, uint256 allocPoint, uint256 lastRewardBlock, uint256 accSmoyPerShare, uint256 minDepositFeeRate, uint256 maxDepositFeeRate, bool enabled);
+    function startBlock() external view returns (uint256);
+    function totalAllocPoint() external view returns (uint256);
+}
+
+interface IKennelClub {
+    function mint(address, uint256) external;
+}
+
+contract ExploitTest is Test {
+    ISamoyedMasterChef constant masterchef = ISamoyedMasterChef(0x5D21D02378670119453530478288AEe67b807e2a);
+    ISamoyToken smoy;
+    IKennelClub kennel;
+
+    function setUp() public {
+        smoy = ISamoyToken(masterchef.smoy());
+        kennel = IKennelClub(masterchef.kennel());
+        vm.label(address(masterchef), "SamoyedMasterChef");
+        vm.label(address(smoy), "SMOY");
+        vm.label(address(kennel), "KennelClub");
+    }
+
+    function test_OwnerCanChangeCriticalParameters() public {
+        address owner = masterchef.owner();
+        vm.label(owner, "Owner");
+        uint256 initialMultiplier = masterchef.BONUS_MULTIPLIER();
+        uint256 initialSmoyPerBlock = masterchef.smoyPerBlock();
+
+        // Owner changes multiplier
+        vm.startPrank(owner);
+        masterchef.updateMultiplier(2);
+        vm.stopPrank();
+
+        assertEq(masterchef.BONUS_MULTIPLIER(), 2, "Multiplier not updated");
+
+        // Owner changes smoyPerBlock
+        vm.prank(owner);
+        masterchef.updateSmoyPerBlock(1 ether);
+
+        assertEq(masterchef.smoyPerBlock(), 1 ether, "SmoyPerBlock not updated");
+    }
+
+    function test_OwnerCanManipulateUserRewards() public {
+        address user = address(0xdead);
+        vm.label(user, "User");
+        uint256 depositAmount = 1000e18; // 1000 SMOY
+
+        // Give user SMOY tokens
+        deal(address(smoy), user, depositAmount);
+        assertEq(smoy.balanceOf(user), depositAmount, "User should have SMOY");
+
+        // User approves MasterChef
+        vm.startPrank(user);
+        smoy.approve(address(masterchef), type(uint256).max);
+        // User stakes SMOY via enterStaking (pool 0)
+        masterchef.enterStaking(depositAmount);
+        vm.stopPrank();
+
+        // Verify staking succeeded
+        (uint256 userAmount, ) = masterchef.userInfo(0, user);
+        assertEq(userAmount, depositAmount, "User staked amount mismatch");
+
+        // Roll some blocks to accumulate rewards
+        vm.roll(block.number + 10);
+
+        // Record pending rewards before multiplier change
+        uint256 pendingBefore = masterchef.pendingSmoy(0, user);
+        assertGt(pendingBefore, 0, "Should have pending rewards");
+
+        // Owner sets multiplier to 0, halting future reward accumulation
+        address owner = masterchef.owner();
+        vm.prank(owner);
+        masterchef.updateMultiplier(0);
+
+        // Roll more blocks (should not increase pending rewards)
+        vm.roll(block.number + 10);
+
+        uint256 pendingAfter = masterchef.pendingSmoy(0, user);
+        // With multiplier 0, no new rewards are added beyond previous accrued
+        assertEq(pendingAfter, pendingBefore, "Owner should be able to stop reward accrual");
+    }
+}
+```

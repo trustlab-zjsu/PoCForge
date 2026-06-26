@@ -1,0 +1,90 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.12;
+
+import "forge-std/Test.sol";
+
+interface ISPOOKYHALLOWEENFLOKI {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setFees_base1000(uint256 _liquidityFee, uint256 _marketingFee, uint256 _teamFee, uint256 _developmentFee, uint256 _burnFee, uint256 _buybackFee) external;
+    function setSwapBackSettings(bool _enabled, uint256 _amount) external;
+    function swapEnabled() external view returns (bool);
+    function swapThreshold() external view returns (uint256);
+    function isFeeExempt(address) external view returns (bool);
+    function isTxLimitExempt(address) external view returns (bool);
+    function isWalletLimitExempt(address) external view returns (bool);
+    function totalFee() external view returns (uint256);
+    function burnFee() external view returns (uint256);
+    function liquidityFee() external view returns (uint256);
+    function marketingFee() external view returns (uint256);
+    function teamFee() external view returns (uint256);
+    function developmentFee() external view returns (uint256);
+    function buybackFee() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function _maxWalletToken() external view returns (uint256);
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    ISPOOKYHALLOWEENFLOKI constant TOKEN = ISPOOKYHALLOWEENFLOKI(0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f);
+    address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+    address constant ZERO = 0x0000000000000000000000000000000000000000;
+
+    address owner;
+
+    function setUp() public {
+        // Fetch owner from storage slot 0 (first variable of Auth contract)
+        owner = address(uint160(uint256(vm.load(address(TOKEN), bytes32(uint256(0))))));
+        vm.label(owner, "Owner");
+        vm.label(address(TOKEN), "SPOOKYHALLOWEENFLOKI");
+        vm.label(DEAD, "DEAD");
+    }
+
+    function testZeroDivisionInSwapBack() public {
+        // Step 1: Owner sets all fees to zero
+        vm.startPrank(owner);
+        TOKEN.setFees_base1000(0, 0, 0, 0, 0, 0); // totalFee becomes 0
+        // Verify totalFee = 0
+        assertEq(TOKEN.totalFee(), 0);
+
+        // Step 2: Enable swap and set threshold low
+        TOKEN.setSwapBackSettings(true, 1_000_000 * 1e9); // small threshold (1 million tokens)
+
+        // Step 3: Transfer tokens to the contract itself so that contract balance >= threshold
+        uint256 transferAmount = 2_000_000 * 1e9; // enough to exceed threshold
+        require(TOKEN.balanceOf(owner) >= transferAmount, "Owner balance insufficient");
+        TOKEN.transfer(address(TOKEN), transferAmount);
+        assertGe(TOKEN.balanceOf(address(TOKEN)), TOKEN.swapThreshold());
+
+        // Step 4: Now trigger a transfer from owner to DEAD – this should call swapBack()
+        // Because msg.sender is owner (not pair), swapEnabled true, contract balance >= threshold.
+        vm.stopPrank();
+
+        // Expect revert due to division by zero inside swapBack (SafeMath division)
+        vm.expectRevert("SafeMath: division by zero");
+        vm.prank(owner);
+        TOKEN.transfer(DEAD, 1); // any amount will trigger the revert
+    }
+
+    // Optional: Show normal behavior when fees are non-zero
+    function testNormalTransferDoesNotRevert() public {
+        // Ensure swapBack can be executed safely with default fees
+        // Set fees to default values (constructor values except set by admin)
+        vm.startPrank(owner);
+        TOKEN.setFees_base1000(10, 60, 10, 20, 0, 10); // totalFee = 110
+        // Enable swap with threshold
+        TOKEN.setSwapBackSettings(true, 1_000_000 * 1e9);
+        // Transfer tokens to contract
+        uint256 transferAmount = 2_000_000 * 1e9;
+        TOKEN.transfer(address(TOKEN), transferAmount);
+        vm.stopPrank();
+
+        // This transfer should succeed (no panic)
+        vm.prank(owner);
+        TOKEN.transfer(DEAD, 1);
+        // If we reach here, no revert occurred
+        assertTrue(true);
+    }
+}
+```

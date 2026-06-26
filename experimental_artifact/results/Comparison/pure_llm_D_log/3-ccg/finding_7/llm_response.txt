@@ -1,0 +1,90 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ILiquidityGeneratorToken {
+    function owner() external view returns (address);
+    function excludeFromReward(address account) external;
+    function includeInReward(address account) external;
+    function isExcludedFromReward(address account) external view returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function _charityAddress() external view returns (address);
+    function _charityFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function setSwapBackSettings(uint256 _amount) external;
+    function setTaxFeePercent(uint256 taxFeeBps) external;
+    function setLiquidityFeePercent(uint256 liquidityFeeBps) external;
+    function setCharityFeePercent(uint256 charityFeeBps) external;
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function numTokensSellToAddToLiquidity() external view returns (uint256);
+    function reflectionFromToken(uint256 tAmount, bool deductTransferFee) external view returns (uint256);
+    function tokenFromReflection(uint256 rAmount) external view returns (uint256);
+    // Additional view needed for storage slot read (optional)
+    receive() external payable;
+}
+
+contract ExploitTest is Test {
+    ILiquidityGeneratorToken constant target = ILiquidityGeneratorToken(0xe2c9c976337357369845c761dd851e2b6942d69f);
+
+    function setUp() public {
+        // Label the target contract
+        vm.label(address(target), "LiquidityGeneratorToken");
+        // Optionally label the owner
+        address owner = target.owner();
+        vm.label(owner, "Owner");
+    }
+
+    // Test: Lack of input validation in excludeFromReward / includeInReward
+    // The functions do not reject the zero address, allowing manipulation of an invalid account.
+    function test_excludeIncludeZeroAddress() public {
+        // Retrieve the current owner
+        address owner = target.owner();
+        address zero = address(0);
+
+        // Act as owner
+        vm.startPrank(owner);
+
+        // Verify that initially zero address is NOT excluded
+        assertFalse(target.isExcludedFromReward(zero), "Zero address should not be excluded initially");
+
+        // Exclude zero address – this should be rejected but the function lacks validation
+        target.excludeFromReward(zero);
+
+        // Confirm zero address is now marked as excluded (vulnerability demonstrated)
+        assertTrue(target.isExcludedFromReward(zero), "Zero address should have been excluded due to missing validation");
+
+        // Now include zero address back
+        target.includeInReward(zero);
+
+        // Confirm it is no longer excluded
+        assertFalse(target.isExcludedFromReward(zero), "Zero address should have been re-included");
+
+        vm.stopPrank();
+    }
+
+    // Additional test: Show that setSwapBackSettings accepts extremely large values without upper bound
+    function test_setSwapBackNoUpperBound() public {
+        address owner = target.owner();
+        uint256 hugeValue = type(uint256).max;
+
+        vm.startPrank(owner);
+
+        // This call should succeed because there is no upper bound check, only a lower bound check.
+        // The lower bound (0.05% of totalSupply) is easily satisfied.
+        target.setSwapBackSettings(hugeValue);
+
+        // Check that the setting was accepted – we can't directly read numTokensSellToAddToLiquidity
+        // but we can verify that it did not revert, and the value is likely stored.
+        // As a proxy, we can check that swapAndLiquifyEnabled is still true (no side effect).
+        assertTrue(target.swapAndLiquifyEnabled(), "swapAndLiquifyEnabled should still be true");
+
+        vm.stopPrank();
+    }
+}
+```

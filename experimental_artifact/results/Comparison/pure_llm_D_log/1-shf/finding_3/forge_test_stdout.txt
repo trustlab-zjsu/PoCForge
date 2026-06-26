@@ -1,0 +1,65 @@
+No files changed, compilation skipped
+2026-06-16T11:34:46.699579Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104559107"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: panic: division or modulo by zero (0x12)] testZeroDivisionAfterFeeReconfiguration() (gas: 124098)
+2026-06-16T11:34:55.462669Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.462715Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.462738Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.462760Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.462781Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.463257Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.463280Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.463301Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:34:55.463320Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [38774] ExploitTest::setUp()
+    ├─ [2465] SPOOKYHALLOWEENFLOKI::getOwner() [staticcall]
+    │   └─ ← [Return] Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34]
+    ├─ [0] VM::label(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(User: [0x000000000000000000000000000000000000dEaD], "User")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34], 100000000000000000000 [1e20])
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(User: [0x000000000000000000000000000000000000dEaD], 100000000000000000000 [1e20])
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 100000000000000000000 [1e20])
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [124098] ExploitTest::testZeroDivisionAfterFeeReconfiguration()
+    ├─ [0] VM::prank(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34])
+    │   └─ ← [Return]
+    ├─ [8738] SPOOKYHALLOWEENFLOKI::tradingStatus(true)
+    │   ├─ emit config_TradingStatus(Status: true)
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34])
+    │   └─ ← [Return]
+    ├─ [9681] SPOOKYHALLOWEENFLOKI::setSwapBackSettings(true, 10000000000 [1e10])
+    │   ├─ emit config_SwapSettings(Amount: 10000000000 [1e10], Enabled: true)
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34])
+    │   └─ ← [Return]
+    ├─ [56593] SPOOKYHALLOWEENFLOKI::setFees_base1000(0, 0, 0, 0, 100, 0)
+    │   ├─ emit UpdateFee(Buy: 100, Sell: 100, Transfer: 0)
+    │   └─ ← [Stop]
+    ├─ [374] SPOOKYHALLOWEENFLOKI::totalFee() [staticcall]
+    │   └─ ← [Return] 100
+    ├─ [372] SPOOKYHALLOWEENFLOKI::burnFee() [staticcall]
+    │   └─ ← [Return] 100
+    ├─ [0] VM::prank(Owner: [0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34])
+    │   └─ ← [Return]
+    ├─ [30797] SPOOKYHALLOWEENFLOKI::transfer(SPOOKYHALLOWEENFLOKI: [0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f], 10000000000 [1e10])
+    │   └─ ← [Revert] panic: division or modulo by zero (0x12)
+    └─ ← [Revert] panic: division or modulo by zero (0x12)
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 8.76s (4.71s CPU time)
+
+Ran 1 test suite in 11.18s (8.76s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: panic: division or modulo by zero (0x12)] testZeroDivisionAfterFeeReconfiguration() (gas: 124098)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

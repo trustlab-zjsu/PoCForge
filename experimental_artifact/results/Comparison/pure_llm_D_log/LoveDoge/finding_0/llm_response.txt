@@ -1,0 +1,93 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMyCoinToken {
+    function totalSupply() external view returns (uint256);
+    function totalBurn() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function adminAddress(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x7144e379c827fa71a7ecaa01d00607cbb7eb1b7a;
+    IMyCoinToken token = IMyCoinToken(TARGET);
+
+    address user = address(0xDEAD);
+    address recipient = address(0xBEEF);
+
+    function setUp() public {
+        vm.label(TARGET, "MyCoinToken");
+        vm.label(user, "User");
+        vm.label(recipient, "Recipient");
+
+        // Ensure sender and recipient are not admin, not pair, not router, not owner
+        // Impersonate to set admin? Not needed, just avoid those addresses.
+        // We'll directly set the balance of user using vm.store.
+        // Storage slot for _balances mapping: slot 3 (Ownable uses slots 0-2)
+        // _balances mapping: keccak256(abi.encode(user, 3))
+        bytes32 slot = keccak256(abi.encode(user, uint256(3)));
+        uint256 initialBalance = 1_000_000 * 10**9; // 1 million tokens (9 decimals)
+        vm.store(TARGET, slot, bytes32(uint256(initialBalance)));
+
+        // Set totalBurn to zero by storing (optional, but for clarity)
+        // totalBurn is at slot 20
+        bytes32 burnSlot = bytes32(uint256(20));
+        vm.store(TARGET, burnSlot, bytes32(uint256(0)));
+    }
+
+    function testWrongBurning() public {
+        uint256 totalSupplyBefore = token.totalSupply();
+        uint256 totalBurnBefore = token.totalBurn();
+        uint256 userBalanceBefore = token.balanceOf(user);
+        uint256 recipientBalanceBefore = token.balanceOf(recipient);
+
+        // Ensure transfers are not admin, not pairing
+        // user and recipient are random addresses, so _userTransfer will be called.
+        uint256 transferAmount = 100_000 * 10**9; // 100k tokens
+
+        // Perform transfer
+        vm.prank(user);
+        bool success = token.transfer(recipient, transferAmount);
+        assertTrue(success, "Transfer failed");
+
+        uint256 totalSupplyAfter = token.totalSupply();
+        uint256 totalBurnAfter = token.totalBurn();
+        uint256 userBalanceAfter = token.balanceOf(user);
+        uint256 recipientBalanceAfter = token.balanceOf(recipient);
+
+        // Expected values
+        uint256 burnFee = 2;
+        uint256 termFee = 2;
+        uint256 bounsFee = 6;
+        uint256 _burnToken = transferAmount * burnFee / 100;
+        uint256 _termToken = transferAmount * termFee / 100;
+        uint256 _bounsToken = transferAmount * bounsFee / 100;
+        uint256 realAmount = transferAmount - _burnToken - _termToken - _bounsToken;
+
+        // Total supply should NOT decrease (bug)
+        assertEq(totalSupplyAfter, totalSupplyBefore, "totalSupply should not change");
+        // Total burn should increase by burn amount
+        assertEq(totalBurnAfter, totalBurnBefore + _burnToken, "totalBurn not increased correctly");
+        // User balance decreased by full transfer amount
+        assertEq(userBalanceAfter, userBalanceBefore - transferAmount, "user balance decrease wrong");
+        // Recipient balance increased by realAmount
+        assertEq(recipientBalanceAfter, recipientBalanceBefore + realAmount, "recipient balance increase wrong");
+
+        // Additional evidence: sum of balances < totalSupply (since burn tokens are lost from supply)
+        uint256 sumBalances = token.balanceOf(address(0)) // zero address balance should be 0
+                              + token.balanceOf(address(this))
+                              + token.balanceOf(recipient)
+                              + token.balanceOf(user);
+        // Actually we can skip zero address, but we know some tokens are lost due to burn.
+        // More direct: totalSupply - totalBurn should equal sum of all balances? No, because burn tokens are not removed from supply.
+        // Let's compute expected sum (including termAddress and contract itself)
+        // Not needed for PoC; assertion above is sufficient.
+    }
+}
+```

@@ -1,0 +1,77 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the INCOME token
+interface IINCOME {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function blacklistAddress(address account, bool value) external;
+    function openTrade() external;
+    function _isBlacklisted(address account) external view returns (bool);
+    function isOpen() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant INCOME = 0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b;
+    IINCOME token;
+    address attacker;
+    address victim;
+    address owner;
+
+    function setUp() public {
+        token = IINCOME(INCOME);
+        // Identify owner of the contract
+        owner = token.owner();
+        // Create two test addresses
+        attacker = address(0xdeaddead);
+        victim = address(0xbeefbeef);
+
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(victim, "Victim");
+        vm.label(INCOME, "INCOME Token");
+    }
+
+    function testBlacklistedAddressCannotTransfer() public {
+        // Open trade so transfers are allowed
+        vm.prank(owner);
+        token.openTrade();
+
+        // Ensure trade is open
+        assertTrue(token.isOpen());
+
+        // Owner sends some tokens to attacker
+        uint256 amount = 1000 * 1e18;
+        vm.prank(owner);
+        token.transfer(attacker, amount);
+        assertEq(token.balanceOf(attacker), amount, "Attacker should have tokens");
+
+        // Owner blacklists attacker
+        vm.prank(owner);
+        token.blacklistAddress(attacker, true);
+
+        // Verify blacklist is set
+        assertTrue(token._isBlacklisted(attacker));
+
+        // Attempt transfer from attacker to victim -> should revert with 'Blacklisted address'
+        vm.prank(attacker);
+        vm.expectRevert("Blacklisted address");
+        token.transfer(victim, amount);
+
+        // Owner can un-blacklist to restore functionality
+        vm.prank(owner);
+        token.blacklistAddress(attacker, false);
+        assertFalse(token._isBlacklisted(attacker));
+
+        // Now transfer should succeed
+        vm.prank(attacker);
+        bool success = token.transfer(victim, amount);
+        assertTrue(success);
+        assertEq(token.balanceOf(victim), amount, "Victim should have received tokens");
+    }
+}
+```

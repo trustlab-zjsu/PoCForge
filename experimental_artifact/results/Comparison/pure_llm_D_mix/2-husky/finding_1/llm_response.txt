@@ -1,0 +1,69 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for HuskyInu
+interface IHuskyInu {
+    function owner() external view returns (address);
+    function addBlacklist(address b, bool enable) external;
+    function blacklist(address) external view returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address
+    address constant HUSKY_INU = 0x40a5Ad300Ee5a5b8bA6B50719647C19F2E52d5BE;
+    IHuskyInu huskyInu = IHuskyInu(HUSKY_INU);
+
+    address victim = address(0xdead);
+    address attacker = address(0xbeef);
+
+    function setUp() public {
+        // Label addresses for readability
+        vm.label(HUSKY_INU, "HuskyInu");
+        vm.label(victim, "Victim");
+        vm.label(attacker, "Attacker");
+    }
+
+    function testOwnerCanBlacklistAndBlockTransfers() public {
+        // Get the current owner of the contract
+        address owner = huskyInu.owner();
+        vm.label(owner, "Owner");
+
+        // Ensure the victim has some tokens to transfer later
+        // We'll transfer from owner to victim
+        uint256 amount = 100 * 1e18;
+        vm.startPrank(owner);
+        require(huskyInu.balanceOf(owner) >= amount, "Owner does not have enough tokens");
+        huskyInu.transfer(victim, amount);
+        vm.stopPrank();
+
+        // Verify victim received tokens
+        assertEq(huskyInu.balanceOf(victim), amount, "Victim should have received tokens");
+
+        // Victim is not blacklisted initially
+        assertFalse(huskyInu.blacklist(victim), "Victim should not be blacklisted initially");
+
+        // Owner blacklists the victim
+        vm.prank(owner);
+        huskyInu.addBlacklist(victim, true);
+
+        // Verify blacklist mapping
+        assertTrue(huskyInu.blacklist(victim), "Victim should now be blacklisted");
+
+        // Try to transfer from victim to attacker – should revert with BLACKLISTED
+        vm.startPrank(victim);
+        vm.expectRevert("BLACKLISTED");
+        huskyInu.transfer(attacker, 1 ether);
+        vm.stopPrank();
+
+        // Also check that the victim's balance is still unchanged
+        assertEq(huskyInu.balanceOf(victim), amount, "Victim balance should remain unchanged");
+    }
+}
+```

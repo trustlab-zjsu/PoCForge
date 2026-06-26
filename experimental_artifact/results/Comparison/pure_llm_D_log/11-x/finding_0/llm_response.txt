@@ -1,0 +1,67 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IXV4 {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function mint(address to, uint256 amount) external;
+    function decimals() external view returns (uint8);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
+
+contract ExploitTest is Test {
+    address constant XV4 = 0xb0C5E1fAFe22bDD9e44464eF5EB9451108318D4e;
+
+    function testOwnerCanMintTokens() public {
+        IXV4 token = IXV4(XV4);
+
+        // Record initial state
+        uint256 initialSupply = token.totalSupply();
+        address owner = token.owner();
+        uint256 ownerBalance = token.balanceOf(owner);
+
+        // Impersonate the owner
+        vm.startPrank(owner);
+
+        // Owner mints a large amount to themselves
+        uint256 mintAmount = 1_000_000 * 1e18; // 1 million tokens (18 decimals)
+        token.mint(owner, mintAmount);
+
+        vm.stopPrank();
+
+        // Assert inflation
+        assertEq(token.totalSupply(), initialSupply + mintAmount, "Total supply should increase by mint amount");
+        assertEq(token.balanceOf(owner), ownerBalance + mintAmount, "Owner balance should increase by mint amount");
+
+        // Additional verification: attacker (test contract) cannot mint
+        vm.startPrank(address(this));
+        vm.expectRevert("Ownable: caller is not the owner");
+        token.mint(address(this), 1000);
+        vm.stopPrank();
+    }
+
+    // Optional: test showing mint to arbitrary address
+    function testOwnerCanMintToArbitraryAddress() public {
+        IXV4 token = IXV4(XV4);
+
+        uint256 initialTotal = token.totalSupply();
+        address owner = token.owner();
+        address recipient = address(0x123);
+
+        vm.startPrank(owner);
+        token.mint(recipient, 5000 * 1e18);
+        vm.stopPrank();
+
+        assertEq(token.totalSupply(), initialTotal + 5000 * 1e18);
+        assertEq(token.balanceOf(recipient), 5000 * 1e18);
+    }
+}
+```

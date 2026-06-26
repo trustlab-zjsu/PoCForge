@@ -1,0 +1,81 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface ICLEToken {
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function excludeFromFee(address account) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function setSwapAndLiquifyEnabled(bool _enabled) external;
+}
+
+contract ExploitTest is Test {
+    address constant CLE_TOKEN = 0xdeea8fdb85503531f6a5d2a036d3268bd7c06c09;
+    ICLEToken constant token = ICLEToken(CLE_TOKEN);
+
+    address attacker = address(0x1337);
+    address spender  = address(0x42);
+
+    function setUp() public {
+        vm.label(CLE_TOKEN, "CLEToken");
+        vm.label(attacker, "Attacker");
+        vm.label(spender, "Spender");
+    }
+
+    function testShadowing_AllowanceAndOwnerUnaffected() public {
+        // 1. Get the actual owner from the state variable
+        address realOwner = token.owner();
+        assertTrue(realOwner != address(0));
+
+        // 2. Call allowance with the real owner address as the `owner` parameter.
+        //    This proves that the parameter name `owner` shadows the getter `owner()`.
+        //    The function should return the allowance for that address, not the owner.
+        uint256 allowanceForOwnerBefore = token.allowance(realOwner, spender);
+        assertEq(allowanceForOwnerBefore, 0);
+
+        // 3. Call allowance with a different address to prove the local variable is used
+        uint256 allowanceForAttacker = token.allowance(attacker, spender);
+        assertEq(allowanceForAttacker, 0);
+
+        // 4. Approve from the attacker account, setting their allowance
+        vm.prank(attacker);
+        token.approve(spender, 1000);
+        uint256 allowanceForAttackerAfter = token.allowance(attacker, spender);
+        assertEq(allowanceForAttackerAfter, 1000);
+
+        // 5. The real owner's allowance remains unchanged, proving the shadowing
+        uint256 allowanceForOwnerAfter = token.allowance(realOwner, spender);
+        assertEq(allowanceForOwnerAfter, 0);
+
+        // 6. The owner state variable is unchanged
+        assertEq(token.owner(), realOwner);
+    }
+
+    function testShadowing_ApproveUsesLocalOwner() public {
+        // This test shows that _approve's `owner` parameter correctly shadows Ownable.owner.
+        // It sets an allowance for the caller and checks it is stored under the caller, not the contract owner.
+
+        address caller = address(0x999);
+        vm.startPrank(caller);
+        token.approve(spender, 500);
+        vm.stopPrank();
+
+        uint256 allowanceForCaller = token.allowance(caller, spender);
+        assertEq(allowanceForCaller, 500);
+
+        uint256 allowanceForOwner = token.allowance(token.owner(), spender);
+        assertEq(allowanceForOwner, 0);
+    }
+}
+```

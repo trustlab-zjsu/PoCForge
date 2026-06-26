@@ -1,0 +1,153 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for CoinToken functions used in the exploit
+interface ICoinToken {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function enableBlacklist(address account) external;
+    function disableBlacklist(address account) external;
+    function isBlacklisted(address account) external view returns (bool);
+    function exclude(address account) external;
+    function isExcluded(address account) external view returns (bool);
+    function enableTax() external;
+    function disableTax() external;
+    function taxStatus() external view returns (bool);
+    function setBuyTax(uint256 dev, uint256 marketing, uint256 liquidity, uint256 charity) external;
+    function setSellTax(uint256 dev, uint256 marketing, uint256 liquidity, uint256 charity) external;
+    function setTaxWallets(address dev, address marketing, address charity) external;
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function burn(uint256 amount) external;
+    function triggerTax() external;
+    // Additional view functions from ABI
+    function decimals() external view returns (uint8);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0xF9881a0Bf01b1ec048506A188B06d48808087657;
+    address constant USER1 = address(0xDEAD);
+    address constant USER2 = address(0xBEEF);
+
+    ICoinToken token;
+    address owner;
+
+    function setUp() public {
+        token = ICoinToken(TOKEN);
+        owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(USER1, "User1");
+        vm.label(USER2, "User2");
+
+        // Ensure owner has some tokens to distribute (usually all supply)
+        // Transfer a small amount to USER1 for the tests
+        uint256 amount = 1000 * 1e18;
+        uint256 ownerBal = token.balanceOf(owner);
+        require(ownerBal >= amount, "Owner balance insufficient for testing");
+        vm.prank(owner);
+        token.transfer(USER1, amount);
+    }
+
+    // Test that owner can pause the token, blocking transfers
+    function testOwnerCanPauseAndBlockTransfers() public {
+        // Initially not paused
+        assertFalse(token.paused());
+
+        // Owner pauses
+        vm.prank(owner);
+        token.pause();
+        assertTrue(token.paused());
+
+        // USER1 tries to transfer -> should revert
+        vm.expectRevert("CoinToken: token transfer while paused");
+        vm.prank(USER1);
+        token.transfer(USER2, 1 ether);
+
+        // Owner can unpause
+        vm.prank(owner);
+        token.unpause();
+        assertFalse(token.paused());
+
+        // After unpause, transfer succeeds
+        vm.prank(USER1);
+        token.transfer(USER2, 1 ether);
+    }
+
+    // Test that owner can blacklist an address, blocking its transfers
+    function testOwnerCanBlacklistAddress() public {
+        // USER1 is not blacklisted initially
+        assertFalse(token.isBlacklisted(USER1));
+
+        // Owner blacklists USER1
+        vm.prank(owner);
+        token.enableBlacklist(USER1);
+        assertTrue(token.isBlacklisted(USER1));
+
+        // USER1 tries to send tokens -> should revert because msg.sender is blacklisted
+        vm.expectRevert("CoinToken: sender blacklisted");
+        vm.prank(USER1);
+        token.transfer(USER2, 1 ether);
+
+        // Also USER1 cannot receive because recipient blacklist check
+        vm.expectRevert("CoinToken: recipient blacklisted");
+        vm.prank(USER2);
+        token.transfer(USER1, 1 ether);
+
+        // Owner can remove blacklist
+        vm.prank(owner);
+        token.disableBlacklist(USER1);
+        assertFalse(token.isBlacklisted(USER1));
+    }
+
+    // Test that owner can arbitrarily set extreme taxes (demonstration of fee manipulation)
+    function testOwnerCanSetExtremeTaxes() public {
+        // At this point taxStatus is true by default
+        // Owner sets buy tax to 99% (dev=50, marketing=49, liquidity=0, charity=0) - denominator is 100
+        vm.prank(owner);
+        token.setBuyTax(50, 49, 0, 0);
+
+        // Also set sell tax similarly
+        vm.prank(owner);
+        token.setSellTax(50, 49, 0, 0);
+
+        // This demonstrates the owner can arbitrarily change the fee structure.
+        // The exploit is that the tax split and collection can be controlled by owner.
+        // Additionally, the owner can disable tax entirely:
+        vm.prank(owner);
+        token.disableTax();
+        assertFalse(token.taxStatus());
+    }
+
+    // Test that owner can exclude themselves from taxes (already excluded at construction)
+    function testOwnerCanExcludeAddresses() public {
+        // Owner is already excluded
+        assertTrue(token.isExcluded(owner));
+        // Owner can exclude another address
+        vm.prank(owner);
+        token.exclude(USER1);
+        assertTrue(token.isExcluded(USER1));
+        // Owner can remove exclusion
+        vm.prank(owner);
+        token.removeExclude(USER1);
+        assertFalse(token.isExcluded(USER1));
+    }
+
+    // Test that owner can change tax wallets arbitrarily
+    function testOwnerCanChangeTaxWallets() public {
+        address fakeWallet = address(0xCAFE);
+        vm.prank(owner);
+        token.setTaxWallets(fakeWallet, fakeWallet, fakeWallet);
+        // No revert means success; the tax will be sent to the fake addresses.
+    }
+}
+```

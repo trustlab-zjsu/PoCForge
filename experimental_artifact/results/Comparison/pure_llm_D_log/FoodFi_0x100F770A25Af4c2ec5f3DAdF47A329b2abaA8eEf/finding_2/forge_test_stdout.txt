@@ -1,0 +1,71 @@
+No files changed, compilation skipped
+2026-06-16T12:34:17.212929Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104567041"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] test_OwnerCanSetMaxBuyFee() (gas: 214899)
+2026-06-16T12:34:27.294674Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.295253Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.295295Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.301106Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.301659Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.302132Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.302161Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:34:27.302185Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [4839] ExploitTest::setUp()
+    ├─ [0] VM::label(Food_Fi_Token: [0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf], "Food_Fi_Token")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "PancakeRouter")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(WBNB: [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], "WBNB")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [214899] ExploitTest::test_OwnerCanSetMaxBuyFee()
+    ├─ [0] VM::load(Food_Fi_Token: [0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf], 0x0000000000000000000000000000000000000000000000000000000000000000) [staticcall]
+    │   └─ ← [Return] 0x00000000000000000000000021487feeb31047ff7977128e52b88ba34368f16c
+    ├─ [0] VM::label(Owner: [0x21487FEeB31047fF7977128E52b88BA34368f16C], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(Owner: [0x21487FEeB31047fF7977128E52b88BA34368f16C])
+    │   └─ ← [Return]
+    ├─ [13106] Food_Fi_Token::setSwapBackSettings(false, 0)
+    │   └─ ← [Stop]
+    ├─ [95915] Food_Fi_Token::setBuyFees(500, 500, 500, 0, 10000 [1e4])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [541] Food_Fi_Token::totalBuyFee() [staticcall]
+    │   └─ ← [Return] 1500
+    ├─ [564] Food_Fi_Token::feeDenominator() [staticcall]
+    │   └─ ← [Return] 10000 [1e4]
+    ├─ [0] VM::deal(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 100000000000000000 [1e17])
+    │   └─ ← [Return]
+    ├─ [2604] Food_Fi_Token::pair() [staticcall]
+    │   └─ ← [Return] PancakePair: [0x2986A061BCF307E6828b28C4ba14d77b09DF36F6]
+    ├─ [2974] Food_Fi_Token::balanceOf(Food_Fi_Token: [0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [72203] PancakeRouter::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 100000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf], ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1781613253 [1.781e9])
+    │   ├─ [23974] WBNB::deposit{value: 100000000000000000}()
+    │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 100000000000000000 [1e17])
+    │   │   └─ ← [Stop]
+    │   ├─ [25162] WBNB::transfer(PancakePair: [0x2986A061BCF307E6828b28C4ba14d77b09DF36F6], 100000000000000000 [1e17])
+    │   │   ├─ emit Transfer(from: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: PancakePair: [0x2986A061BCF307E6828b28C4ba14d77b09DF36F6], value: 100000000000000000 [1e17])
+    │   │   └─ ← [Return] true
+    │   ├─ [2974] Food_Fi_Token::balanceOf(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2893] PancakePair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 0, 0, 0
+    │   ├─ [534] WBNB::balanceOf(PancakePair: [0x2986A061BCF307E6828b28C4ba14d77b09DF36F6]) [staticcall]
+    │   │   └─ ← [Return] 100000000000000000 [1e17]
+    │   └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+    └─ ← [Revert] PancakeLibrary: INSUFFICIENT_LIQUIDITY
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 10.07s (7.64s CPU time)
+
+Ran 1 test suite in 13.43s (10.07s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: PancakeLibrary: INSUFFICIENT_LIQUIDITY] test_OwnerCanSetMaxBuyFee() (gas: 214899)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

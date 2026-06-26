@@ -1,0 +1,66 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IXV4 {
+    function owner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function addBlackList(address evilUser) external;
+    function removeBlackList(address clearedUser) external;
+    function isBlackListed(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xb0C5E1fAFe22bDD9e44464eF5EB9451108318D4e;
+    IXV4 constant xv4 = IXV4(TARGET);
+
+    address victim = address(0x1234);
+    address owner;
+    address randomGuy = address(0x5678);
+
+    function setUp() public {
+        // Get owner from contract
+        owner = xv4.owner();
+        vm.label(owner, "Owner");
+        vm.label(victim, "Victim");
+        vm.label(randomGuy, "RandomGuy");
+
+        // Give victim some tokens using storage manipulation (since mint is owner-only)
+        // We use deal to set the balance directly
+        deal(TARGET, victim, 1000e18); // 1000 tokens
+        deal(TARGET, randomGuy, 100e18); // for allowance test
+    }
+
+    function testOwnerCanBlacklistAndFreezeFunds() public {
+        // Initially victim is not blacklisted
+        assertFalse(xv4.isBlackListed(victim));
+
+        // Victim can transfer before blacklist
+        vm.prank(victim);
+        xv4.transfer(randomGuy, 100e18);
+        assertEq(xv4.balanceOf(randomGuy), 200e18); // 100 original + 100 transferred
+
+        // Now owner blacklists victim
+        vm.prank(owner);
+        xv4.addBlackList(victim);
+        assertTrue(xv4.isBlackListed(victim));
+
+        // Victim tries to transfer again – should revert
+        vm.prank(victim);
+        vm.expectRevert();
+        xv4.transfer(randomGuy, 1e18);
+
+        // Also transferFrom should revert when victim is the sender
+        // First give allowance
+        vm.prank(victim);
+        xv4.approve(randomGuy, 1e18);
+        vm.prank(randomGuy);
+        vm.expectRevert();
+        xv4.transferFrom(victim, randomGuy, 1e18);
+    }
+}
+```

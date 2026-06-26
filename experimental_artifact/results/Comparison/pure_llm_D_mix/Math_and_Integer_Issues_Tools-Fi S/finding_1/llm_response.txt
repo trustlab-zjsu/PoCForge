@@ -1,0 +1,84 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.12;
+
+import "forge-std/Test.sol";
+
+interface IStepOut {
+    function owner() external view returns (address);
+    function pair() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setSwapEnabled(bool state) external;
+    function setSellTaxes(uint256 _marketing, uint256 _liquidity, uint256 _burn) external;
+    function sellTaxes() external view returns (uint256, uint256, uint256);
+    function taxes() external view returns (uint256, uint256, uint256);
+    function excludedFromFees(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    IStepOut constant target = IStepOut(0x20e53d8081f135e7332382501798b57544fc6327);
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    address owner;
+    address pair;
+    address user;
+    uint256 constant MINTED_SUPPLY = 100_000_000 * 1e18; // 100e6 * 10**18
+
+    function setUp() public {
+        vm.label(address(target), "StepOut");
+        owner = target.owner();
+        pair = target.pair();
+        user = address(0xC0FFEE);
+        vm.label(owner, "Owner");
+        vm.label(pair, "Pair");
+        vm.label(user, "User");
+
+        // Give the user some tokens by transferring from owner (owner is excluded from fees)
+        vm.startPrank(owner);
+        target.transfer(user, 1000 * 1e18);
+        vm.stopPrank();
+    }
+
+    function test_exceedLimitFees() public {
+        // Owner can set sell tax to 30% (marketing) which exceeds the 25% limit
+        uint256 excessiveMarketing = 30; // 30% > 25%
+        uint256 zero = 0;
+
+        vm.startPrank(owner);
+        target.setSwapEnabled(false); // disable swap to avoid swapForFees complications
+        target.setSellTaxes(excessiveMarketing, zero, zero);
+        vm.stopPrank();
+
+        // Verify that the sell taxes were set
+        (uint256 m, uint256 l, uint256 b) = target.sellTaxes();
+        assertEq(m, excessiveMarketing);
+        assertEq(l, zero);
+        assertEq(b, zero);
+
+        // User transfers to pair, triggering sell tax
+        uint256 transferAmount = 100 * 1e18;
+        uint256 userBalanceBefore = target.balanceOf(user);
+        uint256 contractBalanceBefore = target.balanceOf(address(target));
+
+        vm.prank(user);
+        target.transfer(pair, transferAmount);
+
+        uint256 userBalanceAfter = target.balanceOf(user);
+        uint256 contractBalanceAfter = target.balanceOf(address(target));
+
+        // The fee is 30% of transferAmount = 30e18
+        uint256 expectedFee = (transferAmount * excessiveMarketing) / 100; // 30e18
+
+        // User loses exactly the transfer amount
+        assertEq(userBalanceBefore - userBalanceAfter, transferAmount, "User should lose full transfer amount");
+
+        // Contract balance should increase by the fee (burn is zero)
+        assertEq(contractBalanceAfter - contractBalanceBefore, expectedFee, "Contract should receive excessive fee");
+
+        // The fee percentage (30%) exceeds the alleged 25% limit
+        assertTrue(expectedFee > (transferAmount * 25) / 100, "Fee exceeds the allowed 25% limit");
+    }
+}
+```

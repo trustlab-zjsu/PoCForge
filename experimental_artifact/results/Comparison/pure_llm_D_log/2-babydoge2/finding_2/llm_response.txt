@@ -1,0 +1,141 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+
+interface IBabyDogeCoin20 {
+    function owner() external view returns (address);
+    function marketingWallet() external view returns (address);
+    function setMarketingWallet(address payable wallet) external;
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function getAllTaxes() external;
+    function setSwapAmount(uint256 amount) external;
+    function setSellTax(uint256 _wholeNumber, uint256 _firstNumberAfterDecimal, uint256 _secondNumberAfterDecimal) external;
+    function setBuyTax(uint256 _wholeNumber, uint256 _firstNumberAfterDecimal, uint256 _secondNumberAfterDecimal) external;
+    function setMaxTx(uint256 _wholeNumber, uint256 _firstNumberAfterDecimal, uint256 _secondNumberAfterDecimal) external;
+    function setMaxWallet(uint256 _wholeNumber, uint256 _firstNumberAfterDecimal, uint256 _secondNumberAfterDecimal) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    address constant BABYDOGE = 0x5681152e9ad9628c1518266a9ab29b6d8b35693b;
+    IBabyDogeCoin20 babyDoge = IBabyDogeCoin20(BABYDOGE);
+
+    // Helper to record logs
+    Vm.Log[] private _logs;
+    bytes32 constant MARKETING_WALLET_EVENT_SIG = keccak256("MarketingWalletUpdated(address)");
+    bytes32 constant SWAP_AMOUNT_EVENT_SIG = keccak256("SwapAmountUpdated(uint256)");
+    bytes32 constant TAX_EVENT_SIG = keccak256("TaxUpdated(uint256,uint256)");
+    bytes32 constant MAX_TX_EVENT_SIG = keccak256("MaxTxAmountUpdated(uint256)");
+    bytes32 constant MAX_WALLET_EVENT_SIG = keccak256("MaxWalletAmountUpdated(uint256)");
+
+    function setUp() public {
+        vm.label(BABYDOGE, "BabyDogeCoin20");
+        vm.label(babyDoge.owner(), "Owner");
+        vm.label(babyDoge.marketingWallet(), "MarketingWallet");
+    }
+
+    // Test that setMarketingWallet does NOT emit any event
+    function testSetMarketingWalletNoEvent() public {
+        address owner = babyDoge.owner();
+        address newMarketingWallet = makeAddr("newMarketing");
+
+        // Record logs before call
+        vm.recordLogs();
+
+        vm.prank(owner);
+        babyDoge.setMarketingWallet(payable(newMarketingWallet));
+
+        // Get logs after call
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+
+        // Verify that no event was emitted at all (since setMarketingWallet does not emit any)
+        assertEq(emittedLogs.length, 0, "setMarketingWallet should emit no event");
+    }
+
+    // Test that setSwapAmount does NOT emit any event
+    function testSetSwapAmountNoEvent() public {
+        address owner = babyDoge.owner();
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.setSwapAmount(1_000_000 * 1e18); // arbitrary valid amount
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+        assertEq(emittedLogs.length, 0, "setSwapAmount should emit no event");
+    }
+
+    // Test that setSellTax does NOT emit any event
+    function testSetSellTaxNoEvent() public {
+        address owner = babyDoge.owner();
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.setSellTax(5, 0, 0); // 5%
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+        assertEq(emittedLogs.length, 0, "setSellTax should emit no event");
+    }
+
+    // Test that setBuyTax does NOT emit any event
+    function testSetBuyTaxNoEvent() public {
+        address owner = babyDoge.owner();
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.setBuyTax(3, 0, 0); // 3%
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+        assertEq(emittedLogs.length, 0, "setBuyTax should emit no event");
+    }
+
+    // Test that setMaxTx does NOT emit any event
+    function testSetMaxTxNoEvent() public {
+        address owner = babyDoge.owner();
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.setMaxTx(2, 0, 0); // 2%
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+        assertEq(emittedLogs.length, 0, "setMaxTx should emit no event");
+    }
+
+    // Test that setMaxWallet does NOT emit any event
+    function testSetMaxWalletNoEvent() public {
+        address owner = babyDoge.owner();
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.setMaxWallet(3, 0, 0); // 3%
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+        assertEq(emittedLogs.length, 0, "setMaxWallet should emit no event");
+    }
+
+    // Test that getAllTaxes does NOT emit any event (beyond any transfer events from underlying swap)
+    function testGetAllTaxesNoEvent() public {
+        address owner = babyDoge.owner();
+        // Ensure contract has tokens to swap (mint some to contract via transfer from owner)
+        address ownerAddr = babyDoge.owner();
+        uint256 supply = babyDoge.totalSupply();
+        vm.startPrank(ownerAddr);
+        babyDoge.transfer(address(babyDoge), supply); // send all tokens to contract
+        vm.stopPrank();
+
+        vm.recordLogs();
+        vm.prank(owner);
+        babyDoge.getAllTaxes();
+        Vm.Log[] memory emittedLogs = vm.getRecordedLogs();
+
+        // Verify no new events beyond the expected Swap and Transfer from swapAndSendToFee
+        // Ideally we would check that no custom event was emitted, but for simplicity
+        // we can just verify that no event with a custom signature like "TaxesFlushed" appears.
+        bool foundCustomEvent = false;
+        bytes32 expectedSig = keccak64("TaxesFlushed(address,uint256)");
+        for (uint i = 0; i < emittedLogs.length; i++) {
+            if (emittedLogs[i].topics[0] == expectedSig) {
+                foundCustomEvent = true;
+                break;
+            }
+        }
+        assertFalse(foundCustomEvent, "getAllTaxes should not emit a custom event");
+    }
+
+    function keccak64(string memory sig) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(sig));
+    }
+}
+```

@@ -5,12 +5,99 @@ Extracts function dependency graphs using the Slither static analysis framework.
 
 import json
 import logging
+import re
 import tempfile
 import subprocess
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def extract_program_facts(source_code: str) -> dict:
+    """
+    Extract deterministic, prompt-sized program facts for VES grounding.
+
+    This intentionally favors stable facts over LLM summaries: externally
+    callable functions, modifiers, branch predicates, storage-like declarations,
+    token operations, and external interactions. Slither remains available for
+    precise per-function slicing via get_function_dependencies().
+    """
+    clean = _strip_comments(source_code)
+    facts = {
+        "external_functions": [],
+        "modifiers": [],
+        "branch_predicates": [],
+        "state_variables": [],
+        "external_interactions": [],
+        "token_operations": [],
+        "sensitive_operations": [],
+    }
+
+    function_pattern = re.compile(
+        r'function\s+([A-Za-z_]\w*)\s*\(([^)]*)\)\s*([^{};]*)\{',
+        re.MULTILINE
+    )
+    for match in function_pattern.finditer(clean):
+        name = match.group(1)
+        params = " ".join(match.group(2).split())
+        attrs = " ".join(match.group(3).split())
+        visibility = _extract_visibility(attrs)
+        modifiers = _extract_modifiers(attrs)
+        payable = "payable" in attrs.split()
+        if visibility in {"external", "public"}:
+            facts["external_functions"].append({
+                "name": name,
+                "params": params,
+                "visibility": visibility,
+                "modifiers": modifiers,
+                "payable": payable,
+            })
+
+        body = _extract_body(clean, match.end() - 1)
+        for predicate in re.findall(r'\b(?:require|assert|if)\s*\((.*?)\)', body, re.DOTALL):
+            compact = " ".join(predicate.split())
+            if compact and len(compact) <= 220:
+                facts["branch_predicates"].append({
+                    "function": name,
+                    "predicate": compact,
+                })
+
+        for receiver, func in re.findall(r'\b([A-Za-z_]\w*)\s*\.\s*([A-Za-z_]\w*)\s*\(', body):
+            if receiver in {"super", "this"}:
+                continue
+            entry = {"function": name, "target": receiver, "call": func}
+            facts["external_interactions"].append(entry)
+            if func in {"transfer", "transferFrom", "approve", "balanceOf", "mint", "burn"}:
+                facts["token_operations"].append(entry)
+            if func.lower() in {
+                "call", "delegatecall", "send", "transfer", "swapexacttokensforethsupportingfeeontransfertokens",
+                "swapexacttokensfortokenssupportingfeeontransfertokens", "addliquidityeth", "addliquidity",
+            }:
+                facts["sensitive_operations"].append(entry)
+
+    for modifier_match in re.finditer(r'modifier\s+([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*\{', clean):
+        name = modifier_match.group(1)
+        body = _extract_body(clean, modifier_match.end() - 1)
+        facts["modifiers"].append({
+            "name": name,
+            "guards": [" ".join(g.split()) for g in re.findall(r'\brequire\s*\((.*?)\)', body, re.DOTALL)[:5]],
+        })
+
+    state_pattern = re.compile(
+        r'^\s*(?:mapping\s*\([^;]+\)|[A-Za-z_]\w*(?:\s*\[[^\]]*\])?)\s+'
+        r'(?:public|private|internal|constant|immutable|override|\s)*'
+        r'([A-Za-z_]\w*)\s*(?:=|;)',
+        re.MULTILINE
+    )
+    for var in state_pattern.findall(clean):
+        if var not in {"memory", "storage", "calldata"}:
+            facts["state_variables"].append(var)
+
+    for key in facts:
+        if isinstance(facts[key], list):
+            facts[key] = _dedupe(facts[key])[:60]
+    return facts
 
 
 def get_function_dependencies(
@@ -58,6 +145,57 @@ def get_function_dependencies(
         result["error"] = f"Slither failed ({e}), used regex fallback"
 
     return result
+
+
+def _strip_comments(source_code: str) -> str:
+    source_code = re.sub(r'/\*.*?\*/', '', source_code, flags=re.DOTALL)
+    source_code = re.sub(r'//.*', '', source_code)
+    return source_code
+
+
+def _extract_visibility(attrs: str) -> str:
+    for visibility in ("external", "public", "internal", "private"):
+        if re.search(rf'\b{visibility}\b', attrs):
+            return visibility
+    return "public"
+
+
+def _extract_modifiers(attrs: str) -> list[str]:
+    keywords = {
+        "external", "public", "internal", "private", "payable", "view", "pure",
+        "virtual", "override", "returns", "memory", "calldata", "storage",
+    }
+    mods = []
+    attrs = re.sub(r'returns\s*\([^)]*\)', '', attrs)
+    for token in re.findall(r'\b[A-Za-z_]\w*\b', attrs):
+        if token not in keywords:
+            mods.append(token)
+    return mods
+
+
+def _extract_body(source_code: str, open_brace_pos: int) -> str:
+    depth = 0
+    for pos in range(open_brace_pos, len(source_code)):
+        char = source_code[pos]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return source_code[open_brace_pos + 1:pos]
+    return ""
+
+
+def _dedupe(items: list) -> list:
+    seen = set()
+    deduped = []
+    for item in items:
+        marker = json.dumps(item, sort_keys=True) if isinstance(item, dict) else item
+        if marker in seen:
+            continue
+        seen.add(marker)
+        deduped.append(item)
+    return deduped
 
 
 def _run_slither_analysis(

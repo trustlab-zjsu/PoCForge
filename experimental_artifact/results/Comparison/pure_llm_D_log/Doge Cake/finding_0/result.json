@@ -1,0 +1,31 @@
+{
+  "project_id": "Doge Cake",
+  "finding_id": 0,
+  "vulnerability_category": "Wrong distributeDividends",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   │   └─ ← [Stop]\n    │   ├─ [30523] CakeDividendTracker::process(600000 [6e5])\n    │   │   ├─ emit DividendWithdrawn(param0: 0x5b411f085E03FD17BAE394369583feEe676C9374, param1: 16992270780583781870441 [1.699e22])\n    │   │   ├─ [3177] CAKE::transfer(0x5b411f085E03FD17BAE394369583feEe676C9374, 16992270780583781870441 [1.699e22])\n    │   │   │   └─ ← [Revert] BEP20: transfer amount exceeds balance\n    │   │   └─ ← [Revert] BEP20: transfer amount exceeds balance\n    │   ├─ [37793] DogeDividendTracker::process(600000 [6e5])\n    │   │   ├─ emit DividendWithdrawn(param0: 0x172326106E293f9071CB0eEB27b5C5e30084730F, param1: 564501826331614066330 [5.645e20])\n    │   │   ├─ [10447] BEP20UpgradeableProxy::fallback(0x172326106E293f9071CB0eEB27b5C5e30084730F, 564501826331614066330 [5.645e20])\n    │   │   │   ├─ [3182] 0xBA5Fe23f8a3a24BEd3236F05F2FcF35fd0BF0B5C::transfer(0x172326106E293f9071CB0eEB27b5C5e30084730F, 564501826331614066330 [5.645e20]) [delegatecall]\n    │   │   │   │   └─ ← [Revert] BEP20: transfer amount exceeds balance\n    │   │   │   └─ ← [Revert] BEP20: transfer amount exceeds balance\n    │   │   └─ ← [Revert] BEP20: transfer amount exceeds balance\n    │   └─ ← [Return] true\n    ├─ [625] DogeCake::balanceOf(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]\n    │   └─ ← [Return] 960000000000000000000000 [9.6e23]\n    ├─ [0] VM::assertEq(960000000000000000000000 [9.6e23], 1000000000000000000000000 [1e24], \"Attacker should have received DOGECAKE\") [staticcall]\n    │   └─ ← [Revert] Attacker should have received DOGECAKE: 960000000000000000000000 != 1000000000000000000000000\n    └─ ← [Revert] Attacker should have received DOGECAKE: 960000000000000000000000 != 1000000000000000000000000\n[FAIL: Attacker should have received DOGECAKE: 960000000000000000000000 != 1000000000000000000000000] testDistributeDividendsPublic() (gas: 625428)"
+  },
+  "prompt_tokens": 15554,
+  "completion_tokens": 7133,
+  "total_cost": 0.0,
+  "duration_seconds": 110.53692483901978,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "BEP20: transfer amount exceeds balance",
+    "location": null,
+    "raw_snippet": "    │   ├─ [79528] DogeDividendTracker::setBalance(Owner: [0x4694DE7b31cb2Eb177Db42e57a4E956f3408b8C8], 340645802395477946487944 [3.406e23])\n    │   │   ├─ emit Transfer(from: Owner: [0x4694DE7b31cb2Eb177Db42e57a4E956f3408b8C8], to: 0x0000000000000000000000000000000000000000, value: 1000000000000000000000000 [1e24])\n    │   │   ├─ [7727] IterableMapping::bc2b405c(000000000000000000000000000000000000000000000000000000000000000f0000000000000000000000004694de7b31cb2eb177db42e57a4e956f3408b8c80000000000000000000000000000000000000000000048227229cbe003d55488) [delegatecall]\n    │   │   │   └─ ← [Stop]\n    │   │   ├─ emit DividendWithdrawn(param0: Owner: [0x4694DE7b31cb2Eb177Db42e57a4E956f3408b8C8], param1: 1015958147133305738542 [1.015e21])\n    │   │   ├─ [10447] BEP20UpgradeableProxy::fallback(Owner: [0x4694DE7b31cb2Eb177Db42e57a4E956f3408b8C8], 1015958147133305738542 [1.015e21])\n    │   │   │   ├─ [3182] 0xBA5Fe23f8a3a24BEd3236F05F2FcF35fd0BF0B5C::transfer(Owner: [0x4694DE7b31cb2Eb177Db42e57a4E956f3408b8C8], 1015958147133305738542 [1.015e21]) [delegatecall]\n    │   │   │   │   └─ ← \n👉 [Revert Occurred Here]: BEP20: transfer amount exceeds balance",
+    "failure_stage": "core",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

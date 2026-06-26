@@ -1,0 +1,78 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ICoinToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function EnemyAddress(address account, bool value) external;
+    function _isEnemy(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    ICoinToken public coinToken;
+    address public constant TARGET = 0xCA54954bb4E1b35AeE6eB04130CD406340EBA9B4;
+
+    address public alice = address(0x123);
+    address public bob = address(0x456);
+
+    function setUp() public {
+        coinToken = ICoinToken(TARGET);
+        
+        // Label addresses for trace clarity
+        vm.label(TARGET, "CoinToken");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+        
+        // Deal tokens to Alice
+        address owner = coinToken.owner();
+        vm.label(owner, "Owner");
+        
+        // We need tokens for Alice. Use deal cheatcode to mint tokens directly.
+        // Since we are on a fork, we can use `deal` to set balance for any ERC20.
+        // Note: `deal(ERC20, user, amount)` works on forked networks.
+        uint256 amount = 1000 * 1e18;
+        deal(address(coinToken), alice, amount);
+        require(coinToken.balanceOf(alice) == amount, "deal failed");
+    }
+
+    function testBlacklistPreventsTransfer() public {
+        // Alice transfers to Bob before blacklisting – should succeed
+        uint256 amount = 100 * 1e18;
+        vm.prank(alice);
+        coinToken.transfer(bob, amount);
+        assertEq(coinToken.balanceOf(bob), amount, "Pre-blacklist transfer failed");
+
+        // Owner blacklists Alice
+        address owner = coinToken.owner();
+        vm.prank(owner);
+        coinToken.EnemyAddress(alice, true);
+        
+        // Verify blacklist is set
+        assertTrue(coinToken._isEnemy(alice), "Alice should be enemy");
+
+        // Alice tries to transfer again – must revert
+        vm.prank(alice);
+        vm.expectRevert("Enemy address");
+        coinToken.transfer(bob, 1 ether);
+
+        // Also verify that a transfer to Alice from someone else reverts
+        vm.prank(bob);
+        vm.expectRevert("Enemy address");
+        coinToken.transfer(alice, 1 ether);
+
+        // Owner can remove blacklist
+        vm.prank(owner);
+        coinToken.EnemyAddress(alice, false);
+        assertFalse(coinToken._isEnemy(alice), "Alice should no longer be enemy");
+
+        // Now transfer works again
+        vm.prank(alice);
+        coinToken.transfer(bob, 1 ether);
+        assertTrue(true, "Transfer after unblacklist succeeded");
+    }
+}
+```

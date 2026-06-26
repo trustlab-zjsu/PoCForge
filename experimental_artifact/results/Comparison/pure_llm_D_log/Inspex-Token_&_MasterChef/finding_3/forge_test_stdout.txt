@@ -1,0 +1,108 @@
+No files changed, compilation skipped
+2026-06-16T12:53:11.104795Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104569560"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: SamoyToken: SupplyCap overflow] testRetroactiveRewardManipulation() (gas: 265800)
+2026-06-16T12:53:27.087441Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.088446Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.088560Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.088588Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.926390Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T12:53:27.926462Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T12:53:27.929050Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.929102Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:27.929578Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:53:28.173988Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T12:53:28.186667Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T12:53:28.194300Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [108405] ExploitTest::setUp()
+    ├─ [2393] SamoyedMasterChef::smoy() [staticcall]
+    │   └─ ← [Return] SamoyToken: [0xBdb44DF0A914c290DFD84c1eaf5899d285717fdc]
+    ├─ [2431] SamoyedMasterChef::owner() [staticcall]
+    │   └─ ← [Return] MasterChefOwner: [0xe355bBb2eBc9986B16A42A8748c729Ee849BAf8f]
+    ├─ [0] VM::label(MasterChefOwner: [0xe355bBb2eBc9986B16A42A8748c729Ee849BAf8f], "MasterChefOwner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(User: [0x0000000000000000000000000000000000123456], "User")
+    │   └─ ← [Return]
+    ├─ [2366] SamoyToken::getOwner() [staticcall]
+    │   └─ ← [Return] SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]
+    ├─ [0] VM::prank(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a])
+    │   └─ ← [Return]
+    ├─ [30043] SamoyToken::mintTo(User: [0x0000000000000000000000000000000000123456], 1000000000000000000000 [1e21])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: User: [0x0000000000000000000000000000000000123456], value: 1000000000000000000000 [1e21])
+    │   └─ ← [Return] true
+    ├─ [0] VM::prank(User: [0x0000000000000000000000000000000000123456])
+    │   └─ ← [Return]
+    ├─ [29804] SamoyToken::approve(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a], 1000000000000000000000 [1e21])
+    │   ├─ emit Approval(owner: User: [0x0000000000000000000000000000000000123456], spender: SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a], value: 1000000000000000000000 [1e21])
+    │   └─ ← [Return] true
+    └─ ← [Stop]
+
+  [265800] ExploitTest::testRetroactiveRewardManipulation()
+    ├─ [2384] SamoyedMasterChef::smoyPerBlock() [staticcall]
+    │   └─ ← [Return] 800000000000000000 [8e17]
+    ├─ [0] VM::prank(User: [0x0000000000000000000000000000000000123456])
+    │   └─ ← [Return]
+    ├─ [176389] SamoyedMasterChef::enterStaking(1000000000000000000000 [1e21])
+    │   ├─ [2604] SamoyToken::balanceOf(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]) [staticcall]
+    │   │   └─ ← [Return] 6924309073235488909081011 [6.924e24]
+    │   ├─ [14943] SamoyToken::mintTo(0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, 2488886153846153846153 [2.488e21])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, value: 2488886153846153846153 [2.488e21])
+    │   │   └─ ← [Return] true
+    │   ├─ [8143] SamoyToken::mintTo(0x1364e039DE60522AEF045095823148E5E20f649a, 24888861538461538461538 [2.488e22])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x1364e039DE60522AEF045095823148E5E20f649a, value: 24888861538461538461538 [2.488e22])
+    │   │   └─ ← [Return] true
+    │   ├─ [23671] SamoyToken::transferFrom(User: [0x0000000000000000000000000000000000123456], SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a], 1000000000000000000000 [1e21])
+    │   │   ├─ emit Transfer(from: User: [0x0000000000000000000000000000000000123456], to: SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a], value: 1000000000000000000000 [1e21])
+    │   │   ├─ emit Approval(owner: User: [0x0000000000000000000000000000000000123456], spender: SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a], value: 0)
+    │   │   └─ ← [Return] true
+    │   ├─ [37104] 0x1364e039DE60522AEF045095823148E5E20f649a::mint(User: [0x0000000000000000000000000000000000123456], 1000000000000000000000 [1e21])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: User: [0x0000000000000000000000000000000000123456], value: 1000000000000000000000 [1e21])
+    │   │   └─ ← [Stop]
+    │   ├─ emit Deposit(user: User: [0x0000000000000000000000000000000000123456], pid: 0, amount: 1000000000000000000000 [1e21])
+    │   └─ ← [Stop]
+    ├─ [0] VM::roll(104569652 [1.045e8])
+    │   └─ ← [Return]
+    ├─ [4539] SamoyedMasterChef::pendingSmoy(0, User: [0x0000000000000000000000000000000000123456]) [staticcall]
+    │   ├─ [604] SamoyToken::balanceOf(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]) [staticcall]
+    │   │   └─ ← [Return] 6925309073235488909081011 [6.925e24]
+    │   └─ ← [Return] 888602000000000 [8.886e14]
+    ├─ [0] VM::prank(MasterChefOwner: [0xe355bBb2eBc9986B16A42A8748c729Ee849BAf8f])
+    │   └─ ← [Return]
+    ├─ [70632] SamoyedMasterChef::updateSmoyPerBlock(1600000000000000000 [1.6e18])
+    │   ├─ [604] SamoyToken::balanceOf(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]) [staticcall]
+    │   │   └─ ← [Return] 6925309073235488909081011 [6.925e24]
+    │   ├─ [3343] SamoyToken::mintTo(0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, 615384615384615384 [6.153e17])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, value: 615384615384615384 [6.153e17])
+    │   │   └─ ← [Return] true
+    │   ├─ [3343] SamoyToken::mintTo(0x1364e039DE60522AEF045095823148E5E20f649a, 6153846153846153846 [6.153e18])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x1364e039DE60522AEF045095823148E5E20f649a, value: 6153846153846153846 [6.153e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [2492] 0xf8c3cedc71380BCB0b7103a270060c0041098bA2::balanceOf(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]) [staticcall]
+    │   │   └─ ← [Return] 2699400976629142623415 [2.699e21]
+    │   ├─ [3343] SamoyToken::mintTo(0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, 11520184615384615384615 [1.152e22])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, value: 11520184615384615384615 [1.152e22])
+    │   │   └─ ← [Return] true
+    │   ├─ [3343] SamoyToken::mintTo(0x1364e039DE60522AEF045095823148E5E20f649a, 115201846153846153846153 [1.152e23])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x1364e039DE60522AEF045095823148E5E20f649a, value: 115201846153846153846153 [1.152e23])
+    │   │   └─ ← [Return] true
+    │   ├─ [2492] 0x0c48e28Ce5D06D13DD790D7568b06498aEEC48b5::balanceOf(SamoyedMasterChef: [0x5D21D02378670119453530478288AEe67b807e2a]) [staticcall]
+    │   │   └─ ← [Return] 3193807200000000000000 [3.193e21]
+    │   ├─ [3343] SamoyToken::mintTo(0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, 2817503003076923076923076 [2.817e24])
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0xD1a7a10ed0Fca59374021BB02c4C281AF4D29Bf0, value: 2817503003076923076923076 [2.817e24])
+    │   │   └─ ← [Return] true
+    │   ├─ [1024] SamoyToken::mintTo(0x1364e039DE60522AEF045095823148E5E20f649a, 28175030030769230769230769 [2.817e25])
+    │   │   └─ ← [Revert] SamoyToken: SupplyCap overflow
+    │   └─ ← [Revert] SamoyToken: SupplyCap overflow
+    └─ ← [Revert] SamoyToken: SupplyCap overflow
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 15.97s (11.12s CPU time)
+
+Ran 1 test suite in 18.69s (15.97s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: SamoyToken: SupplyCap overflow] testRetroactiveRewardManipulation() (gas: 265800)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,85 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IONE1SHIBA {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function _maxTxAmount() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    IONE1SHIBA constant target = IONE1SHIBA(0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d);
+    address constant ATTACKER = address(0xdeadbeef);
+    address constant VICTIM = address(0xcafe);
+
+    function setUp() public {
+        // Label addresses for clarity
+        vm.label(address(target), "ONE1SHIBA");
+        vm.label(ATTACKER, "Attacker");
+        vm.label(VICTIM, "Victim");
+
+        // Get owner of the token contract
+        address owner = target.owner();
+        vm.label(owner, "Owner");
+
+        // Prank as owner to send some tokens to attacker and victim for testing
+        vm.startPrank(owner);
+        // Transfer a small amount to attacker (e.g., 1 token) -> 1e9 wei (9 decimals)
+        target.transfer(ATTACKER, 1_000_000_000); // 1 token
+        // Transfer 100 tokens to victim for later test
+        target.transfer(VICTIM, 100_000_000_000); // 100 tokens
+        vm.stopPrank();
+
+        // Verify attacker and victim got tokens
+        assertGt(target.balanceOf(ATTACKER), 0);
+        assertGt(target.balanceOf(VICTIM), 0);
+    }
+
+    function testOwnerCanStopTransactions() public {
+        address owner = target.owner();
+
+        // ------ Before attack: attacker can transfer (maxTxAmount is still large) ------
+        uint256 attackerBalanceBefore = target.balanceOf(ATTACKER);
+        // Attempt transfer from attacker to victim; should succeed
+        vm.prank(ATTACKER);
+        target.transfer(VICTIM, 1_000_000_000); // 1 token
+        assertEq(target.balanceOf(ATTACKER), attackerBalanceBefore - 1_000_000_000, "Attacker should have sent tokens");
+        // Send back to attacker for fairness
+        vm.prank(VICTIM);
+        target.transfer(ATTACKER, 1_000_000_000);
+
+        // ------ Owner sets maxTxPercent to 0 (i.e., maxTxAmount = 0) ------
+        vm.prank(owner);
+        target.setMaxTxPercent(0);
+        // Also verify that maxTxAmount is now 0
+        assertEq(target._maxTxAmount(), 0, "Max tx amount should be 0");
+
+        // ------ Now attacker cannot transfer any non-zero amount ------
+        // The require checks amount <= _maxTxAmount, and _maxTxAmount = 0.
+        vm.prank(ATTACKER);
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount.");
+        target.transfer(VICTIM, 1); // even 1 wei should fail
+
+        // ------ Owner can still transfer freely (check is skipped for from == owner) ------
+        uint256 ownerBalanceBefore = target.balanceOf(owner);
+        vm.prank(owner);
+        target.transfer(VICTIM, 1_000_000_000); // owner sends 1 token
+        assertEq(target.balanceOf(owner), ownerBalanceBefore - 1_000_000_000, "Owner should be able to transfer");
+        // Send back to owner
+        vm.prank(VICTIM);
+        target.transfer(owner, 1_000_000_000);
+
+        // ------ Also, transfers to the owner are allowed (to == owner) ------
+        // Set attacker back some tokens (the earlier transfer already reverted, so attacker still has balance)
+        // Actually attacker still has the original amount after first transfer and return; but we just need to test a transfer to owner.
+        vm.prank(ATTACKER);
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount."); // This checks from != owner, so attacker -> owner also fails
+        target.transfer(owner, 1_000_000_000);
+    }
+}
+```

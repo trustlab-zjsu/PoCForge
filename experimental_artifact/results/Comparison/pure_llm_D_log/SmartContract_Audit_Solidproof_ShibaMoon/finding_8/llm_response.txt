@@ -1,0 +1,60 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IShibaMoon {
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function lock(uint256 time) external;
+    function geUnlockTime() external view returns (uint256);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function _taxFee() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xf7958ffc6ce46de09e0ab69b7da360c38b16266b;
+    IShibaMoon public token;
+
+    address public owner;
+
+    function setUp() public {
+        token = IShibaMoon(TARGET);
+        owner = token.owner();
+        vm.label(TARGET, "ShibaMoon");
+        vm.label(owner, "Owner");
+    }
+
+    function testFloatingPragmaExploit() public {
+        // Step 1: Ensure the contract starts with an owner.
+        assertTrue(owner != address(0));
+
+        // Step 2: The owner renounces ownership, demonstrating that
+        // after renounce, the contract is left without an owner and
+        // core administrative functions become permanently locked.
+        vm.prank(owner);
+        token.renounceOwnership();
+
+        // Confirm owner is now zero address.
+        assertEq(token.owner(), address(0));
+
+        // Step 3: Verify that after renounce, the lock function is
+        // no longer callable (onlyOwner modifier blocks it).
+        vm.expectRevert("Ownable: caller is not the owner");
+        token.lock(1000);
+
+        // Step 4: Verify that administrative functions like setTaxFeePercent
+        // are also blocked, demonstrating loss of control over contract parameters.
+        vm.expectRevert("Ownable: caller is not the owner");
+        token.setTaxFeePercent(1);
+
+        // Impact: The contract is now ownerless. Critical parameters
+        // (tax fees, liquidity fees, max tx amount, blacklist, etc.)
+        // are permanently fixed, potentially harming users if fees are high
+        // or if the token cannot be updated to fix bugs.
+    }
+}
+```

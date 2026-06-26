@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface INOMOS {
+    function owner() external view returns (address);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function setMaxTxAmount(uint256 maxTxAmount) external;
+    function setTaxFeePercent(uint256 taxFee) external;
+    function _maxTxAmount() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    INOMOS constant nomos = INOMOS(0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc);
+    address owner;
+    address constant user = address(0x1234);
+    uint256 constant DECIMALS = 11;
+    uint256 constant AMOUNT = 1000 * 10**DECIMALS; // small amount
+
+    function setUp() public {
+        owner = nomos.owner();
+        vm.label(address(nomos), "NOMOS");
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+
+        // Transfer a small balance to this contract so we can test transfers
+        vm.startPrank(owner);
+        nomos.transfer(address(this), AMOUNT);
+        vm.stopPrank();
+    }
+
+    function testMaxTxAmountUnchecked() public {
+        // Initial maxTxAmount should be high
+        uint256 originalMaxTx = nomos._maxTxAmount();
+        assertTrue(originalMaxTx > 0);
+
+        // Set maxTxAmount to 0 via owner
+        vm.prank(owner);
+        nomos.setMaxTxAmount(0);
+
+        // Now any transfer from non-owner, non-pair, non-excluded should revert
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount.");
+        nomos.transfer(user, 10 * 10**DECIMALS);
+    }
+
+    function testTaxFeeUnchecked() public {
+        // Initial tax fee is 4%
+        uint256 originalTaxFee = nomos._taxFee();
+        assertEq(originalTaxFee, 4);
+
+        // Owner sets tax fee to 100 (100%)
+        vm.prank(owner);
+        nomos.setTaxFeePercent(100);
+
+        // We need a token holder that is not excluded from fee.
+        // address(this) holds some tokens from setUp.
+        // Transfer a small amount to user. With tax=100%, recipient should receive 0 tokens.
+        uint256 userBalanceBefore = nomos.balanceOf(user);
+        nomos.transfer(user, AMOUNT);
+        uint256 userBalanceAfter = nomos.balanceOf(user);
+        // Since all tokens are taken as fee, recipient balance should not increase.
+        assertEq(userBalanceBefore, userBalanceAfter);
+    }
+}
+```

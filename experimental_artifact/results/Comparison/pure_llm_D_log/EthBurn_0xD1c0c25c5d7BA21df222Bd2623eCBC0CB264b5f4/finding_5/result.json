@@ -1,0 +1,31 @@
+{
+  "project_id": "EthBurn_0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "finding_id": 5,
+  "vulnerability_category": "Potential reentrancy risks",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    ├─ [0] VM::deal(reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 1000000000000000000 [1e18])\n    │   └─ ← [Return]\n    ├─ [0] VM::prank(attacker: [0x0000000000000000000000000000000000001234])\n    │   └─ ← [Return]\n    ├─ [154016] EthBurn::transfer(reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 10000000000000000000000 [1e22])\n    │   ├─ emit Transfer(from: attacker: [0x0000000000000000000000000000000000001234], to: EthBurn: [0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4], value: 500000000000000000000 [5e20])\n    │   ├─ emit Transfer(from: attacker: [0x0000000000000000000000000000000000001234], to: reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: 9500000000000000000000 [9.5e21])\n    │   ├─ [37422] DividendTracker::setBalance(attacker: [0x0000000000000000000000000000000000001234], 90000000000000000000000 [9e22])\n    │   │   ├─ emit Transfer(from: attacker: [0x0000000000000000000000000000000000001234], to: 0x0000000000000000000000000000000000000000, value: 10000000000000000000000 [1e22])\n    │   │   └─ ← [Stop]\n    │   ├─ [53489] DividendTracker::setBalance(reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 9500000000000000000000 [9.5e21])\n    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: 9500000000000000000000 [9.5e21])\n    │   │   └─ ← [Stop]\n    │   └─ ← [Return] true\n    ├─ [4130] DividendTracker::withdrawableDividendOf(reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] console::log(\"Withdrawable dividends of reentrancyAttacker:\", 0) [staticcall]\n    │   └─ ← [Stop]\n    └─ ← [Revert] No dividends for reentrancyAttacker\n[FAIL: No dividends for reentrancyAttacker] testReentrancy() (gas: 685135)"
+  },
+  "prompt_tokens": 14275,
+  "completion_tokens": 5100,
+  "total_cost": 0.0,
+  "duration_seconds": 80.3047559261322,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "No dividends for reentrancyAttacker",
+    "location": null,
+    "raw_snippet": "    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: 9500000000000000000000 [9.5e21])\n    │   │   └─ ← [Stop]\n    │   └─ ← [Return] true\n    ├─ [4130] DividendTracker::withdrawableDividendOf(reentrancyAttacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] console::log(\"Withdrawable dividends of reentrancyAttacker:\", 0) [staticcall]\n    │   └─ ← [Stop]\n    └─ ← \n👉 [Revert Occurred Here]: No dividends for reentrancyAttacker",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

@@ -8,9 +8,52 @@ import re
 import logging
 from typing import Optional
 
-from core.models import TraceError, ErrorType
+from core.models import ExecutionEvidence, TraceError, ErrorType
 
 logger = logging.getLogger(__name__)
+
+
+def collect_evidence(
+    stdout: str,
+    stderr: str = "",
+    sink_markers: Optional[list[str]] = None,
+    exit_code: int = 0,
+) -> ExecutionEvidence:
+    """Collect execution evidence Gamma from Forge output."""
+    combined = stdout + "\n" + stderr
+    sink_markers = [m for m in (sink_markers or []) if m]
+    matched = []
+    combined_lower = combined.lower()
+    for marker in sink_markers:
+        if marker.lower() in combined_lower:
+            matched.append(marker)
+
+    trace_lines = [
+        line for line in combined.splitlines()
+        if "├─" in line or "└─" in line or "│" in line or "[PASS]" in line or "[FAIL" in line
+    ]
+    return ExecutionEvidence(
+        compiled="Compiler run failed" not in combined and "compiler run failed" not in combined_lower,
+        executed=exit_code == 0 or bool(trace_lines),
+        reached_sink=bool(matched) if sink_markers else None,
+        sink_markers=sink_markers,
+        matched_sink_markers=matched,
+        oracle_passed=exit_code == 0,
+        call_trace_excerpt="\n".join(trace_lines[-20:]) if trace_lines else _truncate(combined, 800),
+    )
+
+
+def build_reachability_error(evidence: ExecutionEvidence) -> TraceError:
+    """Create a structured failure descriptor for CHECKREACH failures."""
+    markers = ", ".join(evidence.sink_markers) or "not specified"
+    return TraceError(
+        error_type=ErrorType.ASSERTION_FAILED,
+        reason=f"Vulnerable sink was not observed in execution trace. Expected marker(s): {markers}",
+        failure_stage="trace",
+        reached_sink=False,
+        oracle_outcome="impact_oracle_passed_but_sink_unconfirmed",
+        raw_snippet=evidence.call_trace_excerpt,
+    )
 
 
 def parse(stdout: str, stderr: str = "") -> TraceError:
@@ -51,6 +94,7 @@ def parse(stdout: str, stderr: str = "") -> TraceError:
     return TraceError(
         error_type=ErrorType.UNKNOWN,
         reason="Unable to parse specific error from forge output",
+        failure_stage="unknown",
         raw_snippet=_truncate(combined, 500),
     )
 
@@ -96,6 +140,7 @@ def _parse_compile_error(output: str) -> Optional[TraceError]:
             error_type=ErrorType.COMPILE_ERROR,
             reason=reason,
             location=location,
+            failure_stage="compile",
             raw_snippet=_extract_context(output, match.start(), 300),
         )
 
@@ -106,6 +151,7 @@ def _parse_compile_error(output: str) -> Optional[TraceError]:
     return TraceError(
         error_type=ErrorType.COMPILE_ERROR,
         reason="Compiler run failed (details in raw_snippet)",
+        failure_stage="compile",
         raw_snippet=_truncate(context, 500),
     )
 
@@ -132,6 +178,9 @@ def _parse_assertion_failure(output: str) -> Optional[TraceError]:
         return TraceError(
             error_type=ErrorType.ASSERTION_FAILED,
             reason=reason,
+            failure_stage=_classify_assertion_stage(reason),
+            reached_sink=True,
+            oracle_outcome="failed",
             raw_snippet=_extract_context(output, match.start(), 400),
         )
 
@@ -145,6 +194,9 @@ def _parse_assertion_failure(output: str) -> Optional[TraceError]:
         return TraceError(
             error_type=ErrorType.ASSERTION_FAILED,
             reason="Assertion failed (no specific reason extracted)",
+            failure_stage="oracle",
+            reached_sink=True,
+            oracle_outcome="failed",
             raw_snippet=_extract_context(output, match.start(), 400),
         )
 
@@ -222,6 +274,8 @@ def _parse_evm_revert(output: str) -> Optional[TraceError]:
         return TraceError(
             error_type=ErrorType.EVM_REVERT,
             reason="EVM Revert (no specific reason in trace)",
+            failure_stage="trace",
+            reached_sink=False,
             raw_snippet=_truncate(output, 500),
         )
 
@@ -247,8 +301,32 @@ def _parse_evm_revert(output: str) -> Optional[TraceError]:
     return TraceError(
         error_type=ErrorType.EVM_REVERT,
         reason=reason,
+        failure_stage=_classify_revert_stage(reason),
+        reached_sink=False,
         raw_snippet=sliced_trace_context,
     )
+
+
+def _classify_assertion_stage(reason: str) -> str:
+    lowered = reason.lower()
+    if any(term in lowered for term in ("economic exploit failed", "logic exploit failed", "assertion failed")):
+        return "oracle"
+    if any(term in lowered for term in ("manual verification", "unknown operator")):
+        return "semantic"
+    return "core"
+
+
+def _classify_revert_stage(reason: str) -> str:
+    lowered = reason.lower()
+    if any(term in lowered for term in ("insufficient", "exceeds balance", "transfer amount", "allowance")):
+        return "core"
+    if any(term in lowered for term in ("ownable", "owner", "admin", "role", "forbidden", "unauthorized")):
+        return "core"
+    if any(term in lowered for term in ("expired", "deadline", "invalid path", "pair", "liquidity", "reserve")):
+        return "trace"
+    if any(term in lowered for term in ("assert", "oracle")):
+        return "oracle"
+    return "trace"
 
 
 def _extract_context(text: str, position: int, max_chars: int = 300) -> str:

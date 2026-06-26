@@ -1,0 +1,124 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.11;
+
+import "forge-std/Test.sol";
+
+interface IBEP20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+interface IAdvisory {
+    function owner() external view returns (address);
+    function token() external view returns (address);
+    function total(uint256) external view returns (uint256);
+    function user(address) external view returns (uint256 balance, uint256 totalClaimed, uint256 initiated, uint256 lastClaim);
+    function addDistributionWallet(address[] calldata account, uint256[] calldata amount, uint256[] calldata startTime) external;
+    function revokeDistributionWallet(address[] calldata account) external;
+    function claim() external;
+    function rewardInfo(address account) external view returns (uint256);
+    function setClaimPeriod(uint256 subSequentPeriod) external;
+    function setSubClaimPerMonth(uint256 subClaim) external;
+    function claimPeriod() external view returns (uint256);
+    function subsequentClaim() external view returns (uint256);
+    function failcase(address tokenAdd, uint256 amount) external;
+    event DistributionWalletInfo(address indexed account, uint256 amount, uint256 time);
+    event Claim(address indexed claimer, uint256 amount);
+    event revokewallet(address indexed account);
+}
+
+contract ExploitTest is Test {
+    address constant ADVISORY = 0xaba9Ecc06b23d688CB353FC57919D416eedFA095;
+    IAdvisory advisory = IAdvisory(ADVISORY);
+
+    function setUp() public {
+        vm.label(ADVISORY, "Advisory");
+        // Ensure block.timestamp is reasonable
+        vm.warp(block.timestamp + 1 days); // optional, but we need future startTime
+    }
+
+    function testRevokeMissingEventAmount() public {
+        // Get owner and token from the deployed contract
+        address owner = advisory.owner();
+        address tokenAddr = advisory.token();
+
+        vm.label(owner, "Owner");
+        vm.label(tokenAddr, "Token");
+
+        // Provide tokens to the advisory contract
+        uint256 allocAmount = 1000 * 1e18;
+        deal(tokenAddr, ADVISORY, allocAmount);
+
+        uint256 ownerTokenBefore = IBEP20(tokenAddr).balanceOf(owner);
+
+        // Impersonate owner to add a distribution wallet
+        address victim = address(0x1234);
+        vm.label(victim, "Victim");
+
+        address[] memory accounts = new address[](1);
+        accounts[0] = victim;
+
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = allocAmount;
+
+        uint256[] memory startTimes = new uint256[](1);
+        startTimes[0] = block.timestamp + 1; // > current time
+
+        vm.startPrank(owner);
+        advisory.addDistributionWallet(accounts, amounts, startTimes);
+        vm.stopPrank();
+
+        // Verify victim has balance
+        (uint256 balAfterAdd, , , ) = advisory.user(victim);
+        assertEq(balAfterAdd, allocAmount, "Victim balance after add");
+
+        // Record logs before revoke
+        vm.recordLogs();
+
+        vm.prank(owner);
+        advisory.revokeDistributionWallet(accounts);
+
+        // Get the recorded logs
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        // Compute event signature for revokewallet(address)
+        bytes32 expectedTopic0 = keccak256("revokewallet(address)");
+
+        // Find the revokewallet event
+        bool foundEvent = false;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length == 2 && logs[i].topics[0] == expectedTopic0) {
+                // event has one indexed parameter (account)
+                // data should be empty because there is no non-indexed parameter
+                assertEq(logs[i].data.length, 0, "Event data should be empty (missing amount)");
+                foundEvent = true;
+                break;
+            }
+        }
+        assertTrue(foundEvent, "revokewallet event should be emitted");
+
+        // Verify state changes
+        (uint256 balAfterRevoke, uint256 totalClaimed, , ) = advisory.user(victim);
+        assertEq(balAfterRevoke, 0, "Victim balance should be zero after revoke");
+        assertEq(totalClaimed, 0, "Victim totalClaimed should be zero after revoke");
+
+        // Owner should have received the full allocation
+        uint256 ownerTokenAfter = IBEP20(tokenAddr).balanceOf(owner);
+        assertEq(ownerTokenAfter - ownerTokenBefore, allocAmount, "Owner should receive revoked tokens");
+
+        // Also check total[0] went to zero
+        (uint256 total0, ) = advisory.total(0);
+        assertEq(total0, 0, "Total allocated should be zero after revoke");
+
+        // Emphasize that the event did not include the amount (demonstrating missing information)
+        console.log("revokewallet event emitted without amount - missing critical data");
+    }
+}
+```

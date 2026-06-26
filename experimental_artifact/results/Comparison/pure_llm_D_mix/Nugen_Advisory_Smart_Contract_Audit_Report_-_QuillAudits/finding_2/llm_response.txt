@@ -1,0 +1,77 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.11;
+
+import "forge-std/Test.sol";
+
+// Minimal interface to interact with the Advisory contract
+interface IAdvisory {
+    function owner() external view returns (address);
+    function token() external view returns (address);
+    function claimPeriod() external view returns (uint256);
+    function subsequentClaim() external view returns (uint256);
+    function total(uint256 index) external view returns (uint256);
+    function user(address account) external view returns (uint256 balance, uint256 totalClaimed, uint256 initiated, uint256 lastClaim);
+    function addDistributionWallet(address[] memory account, uint256[] memory amount, uint256[] memory startTime) external;
+    function claim() external;
+    function revokeDistributionWallet(address[] memory account) external;
+    function setClaimPeriod(uint256 subSequentPeriod) external;
+    function setSubClaimPerMonth(uint256 subClaim) external;
+    function failcase(address tokenAdd, uint256 amount) external;
+    function rewardInfo(address account) external view returns (uint256);
+}
+
+// Minimal proxy that delegates all calls to an implementation
+contract MinimalProxy {
+    address public immutable implementation;
+
+    constructor(address _implementation) {
+        implementation = _implementation;
+    }
+
+    fallback() external payable {
+        address _impl = implementation;
+        assembly {
+            let ptr := mload(0x40)
+            calldatacopy(ptr, 0, calldatasize())
+            let result := delegatecall(gas(), _impl, ptr, calldatasize(), 0, 0)
+            let size := returndatasize()
+            returndatacopy(ptr, 0, size)
+            switch result
+            case 0 { revert(ptr, size) }
+            default { return(ptr, size) }
+        }
+    }
+
+    receive() external payable {}
+}
+
+contract ExploitTest is Test {
+    // Deployed Advisory contract address (from report)
+    address constant TARGET = 0xaba9Ecc06b23d688CB353FC57919D416eedFA095;
+    IAdvisory advisory = IAdvisory(TARGET);
+
+    function setUp() public {
+        vm.label(TARGET, "AdvisoryImplementation");
+    }
+
+    function testConstructorNotInitializable() public {
+        // 1. Validate that the original contract's constructor ran successfully
+        address originalOwner = advisory.owner();
+        assertTrue(originalOwner != address(0), "Original owner should be set");
+
+        // 2. Deploy a minimal proxy that uses TARGET as implementation
+        MinimalProxy proxy = new MinimalProxy(TARGET);
+        vm.label(address(proxy), "AdvisoryProxy");
+
+        // 3. Call owner() on the proxy – it reads from the proxy's storage (slot 0)
+        //    Since the proxy has no constructor that sets _owner, it returns address(0)
+        address proxyOwner = IAdvisory(address(proxy)).owner();
+        assertEq(proxyOwner, address(0), "Proxy owner should be zero (uninitialized)");
+
+        // 4. This demonstrates the vulnerability: the implementation uses a constructor
+        //    instead of an initializer, so any proxy pointing to it will have zero owner
+        //    and cannot be properly initialized later. The contract is unsafe for upgradeable patterns.
+    }
+}
+```

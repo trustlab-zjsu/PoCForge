@@ -1,0 +1,56 @@
+No files changed, compilation skipped
+2026-06-16T12:41:24.256794Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104567990"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[PASS] testNonOwnerCannotMint() (gas: 11906)
+2026-06-16T12:41:28.211466Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.211527Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.211802Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.211826Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [11906] ExploitTest::testNonOwnerCannotMint()
+    ├─ [0] VM::prank(0x000000000000000000000000000000000000bEEF)
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf28dceb3:   Ownable: caller is not the owner)
+    │   └─ ← [Return]
+    ├─ [2654] MelodyToken::mint(0x000000000000000000000000000000000000bEEF, 100000000000000000000 [1e20])
+    │   └─ ← [Revert] Ownable: caller is not the owner
+    └─ ← [Stop]
+
+[FAIL: MELODY: mint zero amount] testOwnerMintsToManipulateRewardAllocation() (gas: 21887)
+2026-06-16T12:41:28.212084Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.212111Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.212343Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:41:28.212366Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [4121] ExploitTest::setUp()
+    ├─ [0] VM::label(MelodyToken: [0x2f619a1270226fD8ed3Df82f0C1e0cd90804346d], "MelodyToken")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(MasterChef_Pool: [0x0000000000000000000000000000000000001234], "MasterChef_Pool")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [21887] ExploitTest::testOwnerMintsToManipulateRewardAllocation()
+    ├─ [2382] MelodyToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x254C3233C162CDe86f1b7a91Ac801B780f79d40D]
+    ├─ [0] VM::label(Owner: [0x254C3233C162CDe86f1b7a91Ac801B780f79d40D], "Owner")
+    │   └─ ← [Return]
+    ├─ [2366] MelodyToken::totalSupply() [staticcall]
+    │   └─ ← [Return] 47000000000000000000000000 [4.7e25]
+    ├─ [2531] MelodyToken::balanceOf(MasterChef_Pool: [0x0000000000000000000000000000000000001234]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(Owner: [0x254C3233C162CDe86f1b7a91Ac801B780f79d40D])
+    │   └─ ← [Return]
+    ├─ [2984] MelodyToken::mint(MasterChef_Pool: [0x0000000000000000000000000000000000001234], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] MELODY: mint zero amount
+    └─ ← [Revert] MELODY: mint zero amount
+
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 3.95s (2.06s CPU time)
+
+Ran 1 test suite in 5.65s (3.95s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: MELODY: mint zero amount] testOwnerMintsToManipulateRewardAllocation() (gas: 21887)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

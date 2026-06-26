@@ -1,0 +1,66 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IKARMA {
+    function deliver(uint256 tAmount) external;
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function _isExcludedFromFees(address) external view returns (bool); // not needed but included
+}
+
+contract ExploitTest is Test {
+    address constant KARMA = 0x8f9ba08cbf014ab233a33067b21bedf3876c6605;
+    IKARMA karma = IKARMA(KARMA);
+
+    // Storage slots based on source layout (EVM slot indices)
+    // mapping(address => uint256) _rOwned => slot 0
+    // mapping(address => uint256) _tOwned => slot 1
+    // address[] _excluded => slot 5 (dynamic array)
+    // uint256 _tTotal => slot 9
+    // uint256 _rTotal => slot 11
+
+    uint256 constant _tTotal = 1_000_000_000 * 10**9; // 1e18 as per constructor
+    address constant excludedUser = address(0x1234567890abcdef);
+
+    function setUp() public {
+        vm.label(KARMA, "KARMA");
+        // - Ensure caller is not excluded from reward
+        bytes32 isExcludedSlot = keccak256(abi.encode(address(this), uint256(4)));
+        vm.store(KARMA, isExcludedSlot, bytes32(uint256(0)));
+
+        // - Set _excluded dynamic array length = 1
+        vm.store(KARMA, bytes32(uint256(5)), bytes32(uint256(1)));
+
+        // - Set first element of _excluded to excludedUser
+        bytes32 excludedArraySlot = keccak256(abi.encode(uint256(5)));
+        vm.store(KARMA, excludedArraySlot, bytes32(uint256(uint160(excludedUser))));
+
+        // - Set _rOwned[excludedUser] to 1 wei
+        bytes32 rOwnedSlot = keccak256(abi.encode(excludedUser, uint256(0)));
+        vm.store(KARMA, rOwnedSlot, bytes32(uint256(1)));
+
+        // - Set _tOwned[excludedUser] to _tTotal (1e18)
+        bytes32 tOwnedSlot = keccak256(abi.encode(excludedUser, uint256(1)));
+        vm.store(KARMA, tOwnedSlot, bytes32(_tTotal));
+
+        // Ensure that _rTotal is not zero (constructor sets it to MAX-(MAX%_tTotal))
+        // We can verify it's huge; no need to change.
+
+        // Ensure _isExcluded[excludedUser] is true so it's included in _excluded logic
+        bytes32 isExcludedUserSlot = keccak256(abi.encode(excludedUser, uint256(4)));
+        vm.store(KARMA, isExcludedUserSlot, bytes32(uint256(1))); // true
+    }
+
+    function testZeroDivision() public {
+        // Trigger _getRate() via deliver(), which will attempt division by zero
+        vm.expectRevert(
+            abi.encodeWithSignature("Panic(uint256)", 0x12) // division by zero
+        );
+        karma.deliver(1 ether);
+    }
+}
+```

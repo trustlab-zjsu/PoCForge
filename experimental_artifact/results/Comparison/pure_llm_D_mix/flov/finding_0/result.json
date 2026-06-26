@@ -1,0 +1,31 @@
+{
+  "project_id": "flov",
+  "finding_id": 0,
+  "vulnerability_category": "ST - Stop Transactions",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   │   │        topic 1: 0x0000000000000000000000003e46d309a446a589c8f1332c5a43a96fbb12baa2\n    │   │   │        topic 2: 0x0000000000000000000000000000000000000000000000000000000000000001\n    │   │   │           data: 0x00000000000000000000000000000000000000000000000002d384dd87120134\n    │   │   ├─ emit DividendWithdrawn(param0: 0xE5f1c40B05010DC77A83016F990dDdeED5342904, param1: 5199193751809210 [5.199e15])\n    │   │   ├─ [8071] BEP20Token::transfer(0xE5f1c40B05010DC77A83016F990dDdeED5342904, 5199193751809210 [5.199e15])\n    │   │   │   ├─ emit Transfer(from: 0x3160E89Ecd4fc540ff7c74184D59B2DF34300cB0, to: 0xE5f1c40B05010DC77A83016F990dDdeED5342904, value: 5199193751809210 [5.199e15])\n    │   │   │   └─ ← [Return] true\n    │   │   ├─  emit topic 0: 0xa2c38e2d2fb7e3e1912d937fd1ca11ed6d51864dee4cfa7a7bf02becd7acf092\n    │   │   │        topic 1: 0x000000000000000000000000e5f1c40b05010dc77a83016f990dddeed5342904\n    │   │   │        topic 2: 0x0000000000000000000000000000000000000000000000000000000000000001\n    │   │   │           data: 0x000000000000000000000000000000000000000000000000001278a3a0b1ecba\n    │   │   └─ ← [Return] 0x000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000676\n    │   ├─ emit ProcessedDividendTracker(iterations: 10, claims: 10, lastProcessedIndex: 1654, automatic: true, gas: 300000 [3e5], processor: DefaultSender: [0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38])\n    │   └─ ← [Return] true\n    ├─ [556] FLOV::balanceOf(User2: [0x0000000000000000000000000000000000002002]) [staticcall]\n    │   └─ ← [Return] 81000000000000000000 [8.1e19]\n    ├─ [0] VM::assertGt(81000000000000000000 [8.1e19], 100000000000000000000 [1e20], \"Owner transfer succeeded\") [staticcall]\n    │   └─ ← [Revert] Owner transfer succeeded: 81000000000000000000 <= 100000000000000000000\n    └─ ← [Revert] Owner transfer succeeded: 81000000000000000000 <= 100000000000000000000\n[FAIL: Owner transfer succeeded: 81000000000000000000 <= 100000000000000000000] test_OwnerCanStopTransactionsForUsers() (gas: 1132830)"
+  },
+  "prompt_tokens": 10489,
+  "completion_tokens": 2159,
+  "total_cost": 0.0,
+  "duration_seconds": 98.12555122375488,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "(custom error 0xf28dceb3:  (Transfer amount exceeds the maxTxAmount.)",
+    "location": null,
+    "raw_snippet": "    │   └─ ← [Return]\n    ├─ [3335] FLOV::setMaxTxPercent(0)\n    │   └─ ← [Stop]\n    ├─ [344] FLOV::_maxTxAmount() [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(User1: [0x0000000000000000000000000000000000001001])\n    │   └─ ← [Return]\n    ├─ [0] VM::expect\n👉 [Revert Occurred Here]: (custom error 0xf28dceb3:  (Transfer amount exceeds the maxTxAmount.)",
+    "failure_stage": "core",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

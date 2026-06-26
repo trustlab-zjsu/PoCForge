@@ -1,0 +1,61 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+interface IKarma {
+    function owner() external view returns (address);
+    function changeFees(
+        uint256 _reflectionFeeBuy,
+        uint256 _marketingFeeBuy,
+        uint256 _teamFeeBuy,
+        uint256 _reflectionFeeSell,
+        uint256 _marketingFeeSell,
+        uint256 _teamFeeSell
+    ) external;
+    function enableTrading() external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function isFeeExempt(address) external view returns (bool);
+    function setIsFeeExempt(address holder, bool exempt) external;
+    function isTxLimitExempt(address) external view returns (bool);
+    function setIsTxLimitExempt(address holder, bool exempt) external;
+}
+
+contract ExploitTest is Test {
+    IKarma constant karma = IKarma(0xbc570b260c52a032de9ef06087e91b2c5104c76b);
+    address owner;
+
+    function setUp() public {
+        vm.label(address(karma), "Karma");
+        owner = karma.owner();
+        vm.label(owner, "Owner");
+        // Fund a random user with some tokens via owner transfer (owner is fee exempt)
+        address user1 = makeAddr("user1");
+        vm.startPrank(owner);
+        karma.enableTrading(); // ensures trading is open for non-exempt sends
+        // Transfer a small amount to user1 (owner is fee exempt, so no fee taken)
+        karma.transfer(user1, 1000 * 1e18);
+        vm.stopPrank();
+    }
+
+    function testZeroDivisionOnZeroTotalFee() public {
+        // Owner sets all fees to zero: totalFeeBuy = totalFeeSell = 0
+        vm.startPrank(owner);
+        karma.changeFees(0, 0, 0, 0, 0, 0);
+        vm.stopPrank();
+
+        // Now user1 (non-fee-exempt) attempts to send to another non-fee-exempt address
+        address user2 = makeAddr("user2");
+        // Ensure user2 is not fee exempt and not tx limit exempt
+        assertFalse(karma.isFeeExempt(user2));
+        assertFalse(karma.isTxLimitExempt(user2));
+
+        vm.prank(user1);
+        // This transfer should revert due to division by zero in takeFeeInProportions
+        vm.expectRevert("SafeMath: division by zero");
+        karma.transfer(user2, 100 * 1e18);
+    }
+}
+```

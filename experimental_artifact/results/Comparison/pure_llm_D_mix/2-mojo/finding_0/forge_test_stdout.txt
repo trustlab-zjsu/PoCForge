@@ -1,0 +1,70 @@
+No files changed, compilation skipped
+2026-06-16T10:11:02.649743Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25329397"
+
+Ran 3 tests for test/Exploit.t.sol:ExploitTest
+[FAIL: EvmError: Revert] testEnemyAddressNoValidation() (gas: 9527)
+2026-06-16T10:11:07.560873Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [9527] ExploitTest::testEnemyAddressNoValidation()
+    ├─ [2400] CoinToken::owner() [staticcall]
+    │   └─ ← [Return] 0x95A9cdb6406dDE13c01A481E7A0322573CA1055b
+    ├─ [0] VM::prank(0x95A9cdb6406dDE13c01A481E7A0322573CA1055b)
+    │   └─ ← [Return]
+    ├─ [234] CoinToken::enemyAddress(0x000000000000000000000000000000000000bEEF, true)
+    │   └─ ← [Revert] unrecognized function selector 0xc1ffa645 for contract 0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb, which has no fallback function.
+    └─ ← [Revert] EvmError: Revert
+
+[FAIL: EvmError: Revert] testMissingValidation() (gas: 49566)
+2026-06-16T10:11:07.563786Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:07.563906Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:08.262875Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0xb49b96251371abd7a643478090a28c3881f409e1)
+Traces:
+  [49566] ExploitTest::testMissingValidation()
+    ├─ [2636] CoinToken::automatedMarketMakerPairs(0x000000000000000000000000000000000000dEaD) [staticcall]
+    │   └─ ← [Return] false
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000001234)
+    │   └─ ← [Return]
+    ├─ [2740] CoinToken::setAutomatedMarketMakerPair(0x000000000000000000000000000000000000dEaD, true)
+    │   └─ ← [Revert] Ownable: caller is not the owner
+    ├─ [2400] CoinToken::owner() [staticcall]
+    │   └─ ← [Return] 0x95A9cdb6406dDE13c01A481E7A0322573CA1055b
+    ├─ [0] VM::startPrank(0x95A9cdb6406dDE13c01A481E7A0322573CA1055b)
+    │   └─ ← [Return]
+    ├─ [32960] CoinToken::setAutomatedMarketMakerPair(0x000000000000000000000000000000000000dEaD, true)
+    │   ├─ [4713] 0xB49B96251371aBd7a643478090A28c3881F409E1::excludeFromDividends(0x000000000000000000000000000000000000dEaD)
+    │   │   └─ ← [Revert] EvmError: Revert
+    │   └─ ← [Revert] EvmError: Revert
+    └─ ← [Revert] EvmError: Revert
+
+[PASS] testSetAnyAddress() (gas: 140762)
+2026-06-16T10:11:08.264667Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0xb49b96251371abd7a643478090a28c3881f409e1)
+2026-06-16T10:11:08.264814Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:08.581870Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+Traces:
+  [140762] ExploitTest::testSetAnyAddress()
+    ├─ [35485] → new MaliciousPair@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 177 bytes of code
+    ├─ [2400] CoinToken::owner() [staticcall]
+    │   └─ ← [Return] 0x95A9cdb6406dDE13c01A481E7A0322573CA1055b
+    ├─ [0] VM::prank(0x95A9cdb6406dDE13c01A481E7A0322573CA1055b)
+    │   └─ ← [Return]
+    ├─ [62440] CoinToken::setAutomatedMarketMakerPair(MaliciousPair: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], true)
+    │   ├─ [30619] 0xB49B96251371aBd7a643478090A28c3881F409E1::excludeFromDividends(MaliciousPair: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   │   ├─ emit ExcludeFromDividends(param0: MaliciousPair: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   │   └─ ← [Stop]
+    │   ├─ emit SetAutomatedMarketMakerPair(pair: MaliciousPair: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: true)
+    │   └─ ← [Stop]
+    ├─ [636] CoinToken::automatedMarketMakerPairs(MaliciousPair: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
+    │   └─ ← [Return] true
+    └─ ← [Stop]
+
+Suite result: FAILED. 1 passed; 2 failed; 0 skipped; finished in 4.91s (6.13s CPU time)
+
+Ran 1 test suite in 7.02s (4.91s CPU time): 1 tests passed, 2 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 2 failing tests in test/Exploit.t.sol:ExploitTest
+[FAIL: EvmError: Revert] testEnemyAddressNoValidation() (gas: 9527)
+[FAIL: EvmError: Revert] testMissingValidation() (gas: 49566)
+
+Encountered a total of 2 failing tests, 1 tests succeeded

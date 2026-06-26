@@ -1,0 +1,31 @@
+{
+  "project_id": "MetaPets_AuditReport_InterFi",
+  "finding_id": 2,
+  "vulnerability_category": "Unvalidated user input",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   ├─ [23974] WBNB::deposit{value: 1000000000000000000}()\n    │   │   ├─ emit Deposit(dst: UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 1000000000000000000 [1e18])\n    │   │   └─ ← [Stop]\n    │   ├─ [8062] WBNB::transfer(PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], 1000000000000000000 [1e18])\n    │   │   ├─ emit Transfer(from: UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], value: 1000000000000000000 [1e18])\n    │   │   └─ ← [Return] true\n    │   ├─ [59188] MetaPets::balanceOf(attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   │   └─ ← [Return] 3010937728329457323413431 [3.01e24]\n    │   ├─ [2893] PancakePair::getReserves() [staticcall]\n    │   │   └─ ← [Return] 675310567367146605599870 [6.753e23], 2828710725579730634 [2.828e18], 1671659203 [1.671e9]\n    │   ├─ [534] WBNB::balanceOf(PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4]) [staticcall]\n    │   │   └─ ← [Return] 3828710725579730634 [3.828e18]\n    │   ├─ [184153] PancakePair::swap(176054676352584958567675 [1.76e23], 0, attacker: [0x000000000000000000000000000000000000dEaD], 0x)\n    │   │   ├─ [172386] MetaPets::transfer(attacker: [0x000000000000000000000000000000000000dEaD], 176054676352584958567675 [1.76e23])\n    │   │   │   ├─ emit Transfer(from: PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], to: 0xf93F51AA34F8A8bC80b3FB543042fFDA5186e55A, value: 0)\n    │   │   │   └─ ← [Revert] SafeMath: subtraction overflow\n    │   │   └─ ← [Revert] Pancake: TRANSFER_FAILED\n    │   └─ ← [Revert] Pancake: TRANSFER_FAILED\n    └─ ← [Revert] Pancake: TRANSFER_FAILED\n[FAIL: Pancake: TRANSFER_FAILED] test_TriggerSwapAndLiquifyByDonatingTokens() (gas: 318231)"
+  },
+  "prompt_tokens": 8413,
+  "completion_tokens": 7089,
+  "total_cost": 0.0,
+  "duration_seconds": 96.60098910331726,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "SafeMath: subtraction overflow",
+    "location": null,
+    "raw_snippet": "    │   ├─ [2893] PancakePair::getReserves() [staticcall]\n    │   │   └─ ← [Return] 675310567367146605599870 [6.753e23], 2828710725579730634 [2.828e18], 1671659203 [1.671e9]\n    │   ├─ [534] WBNB::balanceOf(PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4]) [staticcall]\n    │   │   └─ ← [Return] 3828710725579730634 [3.828e18]\n    │   ├─ [184153] PancakePair::swap(176054676352584958567675 [1.76e23], 0, attacker: [0x000000000000000000000000000000000000dEaD], 0x)\n    │   │   ├─ [172386] MetaPets::transfer(attacker: [0x000000000000000000000000000000000000dEaD], 176054676352584958567675 [1.76e23])\n    │   │   │   ├─ emit Transfer(from: PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], to: 0xf93F51AA34F8A8bC80b3FB543042fFDA5186e55A, value: 0)\n    │   │   │   └─ ← \n👉 [Revert Occurred Here]: SafeMath: subtraction overflow",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

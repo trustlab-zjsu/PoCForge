@@ -1,0 +1,74 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.0;
+
+import "forge-std/Test.sol";
+
+interface ICRVExchange {
+    function handleExtraToken(address from, address target_token, uint256 amount, uint256 min_amount) external;
+    function path_indexes(uint256) external view returns (bytes32);
+    function path_from_addr(uint256) external view returns (address);
+    function path_to_addr(uint256) external view returns (address);
+    function paths(bytes32) external view returns (address dex, bytes32 path);
+    function owner() external view returns (address);
+    function crv_token() external view returns (address);
+}
+
+interface IERC20 {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address, uint256) external returns (bool);
+    function transfer(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant EXCHANGE = 0x65ff67d6a61ae6bab8821c584f5f394d35e9b50e;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    ICRVExchange exchange;
+
+    function setUp() public {
+        exchange = ICRVExchange(EXCHANGE);
+        vm.label(EXCHANGE, "CRVExchange");
+        vm.label(CRV, "CRV");
+        vm.label(WETH, "WETH");
+        vm.label(USDC, "USDC");
+    }
+
+    /// @notice Demonstrates the vulnerable path-matching logic in handleExtraToken.
+    /// The function loops through all paths looking for one that matches the `from` and `target_token`.
+    /// If no path matches, the loop ends with `fpi = 0`. It then uses the first registered path,
+    /// regardless of the token pair. This can cause incorrect swaps or reverts.
+    /// Here we call handleExtraToken with USDC and the `to` address of the first path,
+    /// which does not match USDC. The contract proceeds to use the first path's DEX,
+    /// which does not have a USDC pair with that `to` token, causing a revert.
+    function testMismatchedPathUsage() public {
+        // Determine the number of registered paths
+        uint256 pathCount;
+        while (true) {
+            try exchange.path_indexes(pathCount) returns (bytes32) {
+                pathCount++;
+            } catch {
+                break;
+            }
+        }
+        require(pathCount > 0, "No paths registered; cannot demonstrate");
+
+        // Get the first path's correct from and to tokens
+        address correctFrom = exchange.path_from_addr(0);
+        address correctTo = exchange.path_to_addr(0);
+        // Use a from token that does NOT match the first path (USDC)
+        require(correctFrom != USDC, "First path already uses USDC – pick another token");
+        uint256 amount = 1000 * 1e6; // 1000 USDC
+        deal(USDC, address(this), amount);
+        IERC20(USDC).approve(EXCHANGE, amount);
+
+        // The function will try to swap USDC -> correctTo using the first path's DEX.
+        // Since the DEX does not support that pair, the swap call reverts.
+        vm.expectRevert();
+        exchange.handleExtraToken(USDC, correctTo, amount, 0);
+    }
+}
+```

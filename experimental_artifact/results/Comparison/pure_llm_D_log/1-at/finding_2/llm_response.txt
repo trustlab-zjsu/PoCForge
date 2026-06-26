@@ -1,0 +1,96 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IBlacklistToken {
+    function owner() external view returns (address);
+    function isBlacklistEnabled() external view returns (bool);
+    function isWhitelistEnabled() external view returns (bool);
+    function paused() external view returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function blackList(address addr) external;
+    function removeFromBlacklist(address addr) external;
+    function isPausable() external view returns (bool);
+    function unpause() external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    IBlacklistToken constant TARGET = IBlacklistToken(0x8e1564a6c63e5422f42ab1229a46407928e19404);
+
+    address victim = address(0xdead);
+    address recipient = address(0xbeef);
+
+    function setUp() public {
+        vm.label(address(TARGET), "FullFeatureToken");
+        vm.label(victim, "Victim");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testOwnerCanBlacklistAddresses() public {
+        // 1. Fetch owner from the contract
+        address owner = TARGET.owner();
+        vm.label(owner, "Owner");
+        console.log("Owner:", owner);
+
+        // 2. Ensure blacklist feature is enabled
+        bool isBlacklistEnabled = TARGET.isBlacklistEnabled();
+        assertTrue(isBlacklistEnabled, "Blacklist feature should be enabled for this test");
+
+        // 3. Ensure contract is not paused; unpause if needed
+        if (TARGET.paused()) {
+            // Only owner can unpause, and only if isPausable() is true
+            bool pausable = TARGET.isPausable();
+            assertTrue(pausable, "Contract cannot be unpaused because pausing is not enabled");
+            vm.prank(owner);
+            TARGET.unpause();
+        }
+        assertFalse(TARGET.paused(), "Contract should not be paused");
+
+        // 4. Transfer some tokens from owner to victim to give victim a balance
+        uint256 transferAmount = 100 * 1e18; // assume 18 decimals
+        uint256 ownerBalance = TARGET.balanceOf(owner);
+        require(ownerBalance >= transferAmount, "Owner has insufficient tokens for test");
+        vm.prank(owner);
+        bool success = TARGET.transfer(victim, transferAmount);
+        assertTrue(success, "Initial transfer to victim should succeed");
+        assertEq(TARGET.balanceOf(victim), transferAmount, "Victim should now have tokens");
+
+        // 5. Victim transfers some tokens to recipient – should succeed initially
+        vm.prank(victim);
+        success = TARGET.transfer(recipient, 10 * 1e18);
+        assertTrue(success, "Victim should be able to transfer before blacklisting");
+        uint256 victimBalance = TARGET.balanceOf(victim);
+        assertEq(victimBalance, transferAmount - 10 * 1e18, "Victim balance should be reduced");
+
+        // 6. Owner blacklists victim
+        vm.prank(owner);
+        TARGET.blackList(victim);
+
+        // 7. Victim attempts to transfer again – must revert with RecipientBlacklisted
+        vm.expectRevert(abi.encodeWithSignature("SenderBlacklisted(address)", victim));
+        vm.prank(victim);
+        TARGET.transfer(recipient, 5 * 1e18);
+
+        // 8. Even transferring to a non-blacklisted recipient fails because sender is blacklisted
+        // (Already tested above; sender blacklisted error)
+
+        // 9. Additionally, any transfer to victim from a non-blacklisted sender should also revert
+        vm.expectRevert(abi.encodeWithSignature("RecipientBlacklisted(address)", victim));
+        vm.prank(owner);
+        TARGET.transfer(victim, 1 * 1e18);
+
+        // 10. Owner removes victim from blacklist
+        vm.prank(owner);
+        TARGET.removeFromBlacklist(victim);
+
+        // 11. Now victim can transfer again
+        vm.prank(victim);
+        success = TARGET.transfer(recipient, 5 * 1e18);
+        assertTrue(success, "Victim should be able to transfer after being removed from blacklist");
+    }
+}
+```

@@ -1,0 +1,69 @@
+```solidity
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IShibaMoon {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function addBotToBlackList(address account) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function setSwapAndLiquifyEnabled(bool _enabled) external;
+    function _maxTxAmount() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant SHIBAMOON = 0xf7958ffc6ce46de09e0ab69b7da360c38b16266b;
+    IShibaMoon constant shiba = IShibaMoon(SHIBAMOON);
+    
+    address attacker = address(0xBAD);
+    address victim = address(0xCAFE);
+
+    function setUp() public {
+        vm.label(SHIBAMOON, "ShibaMoon");
+        vm.label(attacker, "attacker");
+        vm.label(victim, "victim");
+
+        // Fund the attacker with some tokens from the deployer (initial supply goes to deployer)
+        address deployer = shiba.owner();
+        vm.label(deployer, "deployer");
+        vm.prank(deployer);
+        shiba.transfer(attacker, 1_000_000 * 10**8); // 1 million tokens
+    }
+
+    function testUncheckedApproveReturnValue() public {
+        // The token's approve() always returns true even when the spender
+        // is blacklisted and cannot actually use the allowance.
+        // This shows the return value is not a reliable indicator of
+        // future transfer success, a classic unchecked-return-value pattern.
+
+        // 1. Add a blacklisted bot (only owner can do this, but we also
+        //    demonstrate that a user can approve the blacklisted address)
+        vm.prank(shiba.owner());
+        shiba.addBotToBlackList(victim);
+
+        // 2. Attacker approves the blacklisted victim
+        vm.prank(attacker);
+        bool approvalSuccess = shiba.approve(victim, 500_000 * 10**8);
+        assertTrue(approvalSuccess, "approve() must return true");
+
+        // 3. Confirm the allowance is set
+        uint256 allowanceAfter = shiba.allowance(attacker, victim);
+        assertEq(allowanceAfter, 500_000 * 10**8, "allowance should be set");
+
+        // 4. Show that a transferFrom will revert because the spender is blacklisted
+        vm.prank(victim);
+        vm.expectRevert("You have no power here!");
+        shiba.transferFrom(attacker, address(this), 100 * 10**8);
+
+        // 5. The approval remains even though it can never be used – the
+        //    contract returns true unconditionally, ignoring the actual
+        //    usability of the approval.
+    }
+}
+```

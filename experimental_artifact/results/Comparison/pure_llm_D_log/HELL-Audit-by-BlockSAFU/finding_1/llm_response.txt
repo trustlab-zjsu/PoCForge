@@ -1,0 +1,49 @@
+```solidity
+// Exploit.t.sol
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the StandardToken functions we need
+interface IStandardToken {
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed target on BSC
+    address constant TARGET = 0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20;
+    IStandardToken target = IStandardToken(TARGET);
+
+    // Event we expect to be emitted
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    function setUp() public {
+        vm.label(TARGET, "StandardToken");
+    }
+
+    function testUnprotectedApprovalOfZeroAddress() public {
+        // Simulate a random user
+        address user = address(0xDEAD);
+        vm.label(user, "User");
+
+        uint256 amount = 1000;
+
+        // Expect the Approval event with spender = zero address
+        vm.expectEmit(true, true, false, true);
+        emit Approval(user, address(0), amount);
+
+        // Call approve with spender = address(0) – should not revert
+        vm.prank(user);
+        bool success = target.approve(address(0), amount);
+        assertTrue(success, "approve returned false");
+
+        // Verify that allowance was set to the requested amount
+        uint256 allowed = target.allowance(user, address(0));
+        assertEq(allowed, amount, "allowance not updated");
+
+        // Optionally, also check that the event was emitted correctly
+        // (vm.expectEmit already checked it)
+    }
+}
+```

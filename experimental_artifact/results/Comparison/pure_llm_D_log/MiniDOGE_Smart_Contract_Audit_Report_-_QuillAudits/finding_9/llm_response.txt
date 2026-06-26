@@ -1,0 +1,56 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+/// @title MiniDOGE minimal interface
+interface IMiniDOGE {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function decimals() external view returns (uint8);
+    receive() external payable;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    address constant TARGET = 0xba07eed3d09055d60caef2bdfca1c05792f2dfad;
+    IMiniDOGE token;
+
+    address owner;
+    address constant RECIPIENT = address(0xdead);
+
+    function setUp() public {
+        token = IMiniDOGE(TARGET);
+        owner = token.owner();
+        vm.label(TARGET, "MiniDOGE");
+        vm.label(owner, "Owner");
+    }
+
+    /// @notice PoC: The transfer() function does not return a boolean value, violating ERC20 standard.
+    function testTransferDoesNotReturnBoolean() public {
+        // Ensure the owner has tokens to transfer
+        uint256 bal = token.balanceOf(owner);
+        if (bal == 0) {
+            // Manually insert a balance into the private _rOwned mapping (slot 0)
+            bytes32 slot = keccak256(abi.encode(owner, uint256(0)));
+            vm.store(TARGET, slot, bytes32(uint256(1_000_000_000 * 1e9))); // 1_000_000_000 * 10**9
+        }
+
+        uint256 amount = 1000 * 1e9; // 1000 tokens (including decimals 9)
+
+        // Low-level call to transfer()
+        vm.prank(owner);
+        (bool success, bytes memory data) = TARGET.call(
+            abi.encodeWithSignature("transfer(address,uint256)", RECIPIENT, amount)
+        );
+        require(success, "transfer call reverted");
+
+        // The ERC20 standard expects a boolean return value (32 bytes).
+        // If the return data is not exactly 32 bytes, the function does not return a boolean.
+        // The reported vulnerability states that no boolean is returned.
+        assertTrue(data.length != 32, "transfer() returned a boolean but should not");
+    }
+}
+```

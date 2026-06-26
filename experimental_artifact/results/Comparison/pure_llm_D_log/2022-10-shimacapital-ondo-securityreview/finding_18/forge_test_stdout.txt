@@ -1,0 +1,69 @@
+No files changed, compilation skipped
+2026-06-16T11:59:32.075711Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25329937"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: EvmError: Revert] testNonConformantApprove() (gas: 57802)
+2026-06-16T11:59:39.682914Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684081Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684311Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684344Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684370Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684663Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684689Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684713Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:59:39.684737Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [50644] ExploitTest::setUp()
+    ├─ [0] VM::label(USDT: [0xdAC17F958D2ee523a2206206994597C13D831ec7], "USDT")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Alice: [0x0000000000000000000000000000000000000001], "Alice")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Bob: [0x0000000000000000000000000000000000000002], "Bob")
+    │   └─ ← [Return]
+    ├─ [2752] USDT::owner() [staticcall]
+    │   └─ ← [Return] 0xC6CDE7C39eB2f0F0095F41570af89eFC2C1Ea828
+    ├─ [0] VM::startPrank(0xC6CDE7C39eB2f0F0095F41570af89eFC2C1Ea828)
+    │   └─ ← [Return]
+    ├─ [13124] USDT::issue(10000000000 [1e10])
+    │   ├─ emit Issue(amount: 10000000000 [1e10])
+    │   └─ ← [Stop]
+    ├─ [17701] USDT::transfer(Alice: [0x0000000000000000000000000000000000000001], 1000000000 [1e9])
+    │   ├─ emit Transfer(from: 0xC6CDE7C39eB2f0F0095F41570af89eFC2C1Ea828, to: Alice: [0x0000000000000000000000000000000000000001], value: 1000000000 [1e9])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [57802] ExploitTest::testNonConformantApprove()
+    ├─ [5356] USDT::allowance(Alice: [0x0000000000000000000000000000000000000001], Bob: [0x0000000000000000000000000000000000000002]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return]
+    ├─ [22953] USDT::approve(Bob: [0x0000000000000000000000000000000000000002], 100000000 [1e8])
+    │   ├─ emit Approval(owner: Alice: [0x0000000000000000000000000000000000000001], spender: Bob: [0x0000000000000000000000000000000000000002], value: 100000000 [1e8])
+    │   └─ ← [Stop]
+    ├─ [1356] USDT::allowance(Alice: [0x0000000000000000000000000000000000000001], Bob: [0x0000000000000000000000000000000000000002]) [staticcall]
+    │   └─ ← [Return] 100000000 [1e8]
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [903] USDT::approve(Bob: [0x0000000000000000000000000000000000000002], 200000000 [2e8])
+    │   └─ ← [Revert] EvmError: Revert
+    ├─ [1356] USDT::allowance(Alice: [0x0000000000000000000000000000000000000001], Bob: [0x0000000000000000000000000000000000000002]) [staticcall]
+    │   └─ ← [Return] 100000000 [1e8]
+    ├─ [0] VM::prank(Bob: [0x0000000000000000000000000000000000000002])
+    │   └─ ← [Return]
+    ├─ [4814] USDT::transferFrom(Alice: [0x0000000000000000000000000000000000000001], Bob: [0x0000000000000000000000000000000000000002], 100000000 [1e8])
+    │   └─ ← [Revert] EvmError: Revert
+    └─ ← [Revert] EvmError: Revert
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.60s (1.49s CPU time)
+
+Ran 1 test suite in 8.89s (7.60s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: EvmError: Revert] testNonConformantApprove() (gas: 57802)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

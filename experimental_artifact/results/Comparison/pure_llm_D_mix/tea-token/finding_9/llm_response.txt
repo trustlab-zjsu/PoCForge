@@ -1,0 +1,94 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for TeaToken (only functions used in the exploit)
+interface ITeaToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function setLiquidityFeePercent(uint256 liquidityFee) external;
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function setSwapAndLiquifyEnabled(bool _enabled) external;
+    function lock(uint256 time) external;
+    function unlock() external;
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x5e18Be2A7cE626B33C539919EAca06303f1Db568;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+    ITeaToken public token;
+    address public owner;
+    address public user1 = address(0x1);
+    address public user2 = address(0x2);
+
+    function setUp() public {
+        token = ITeaToken(TOKEN);
+        owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    // Test that owner can set tax fee to 100%, causing all transferred tokens to be taken as fee
+    function testOwnerManipulationFees() public {
+        // Transfer some tokens from owner to user1 for testing
+        vm.startPrank(owner);
+        uint256 amount = 1000; // 10.00 if considering 2 decimals, value is in smallest unit
+        token.transfer(user1, amount);
+        vm.stopPrank();
+
+        uint256 user1BalanceBefore = token.balanceOf(user1);
+        uint256 user2BalanceBefore = token.balanceOf(user2);
+
+        // Owner sets tax fee to 100% (100 basis points * 100 = 10000? Actually _taxFee is in percent (4 means 4%),
+        // so 100 would be 100% but the contract multiplies by 100? Let's see: _taxFee is an integer representing percent? 
+        // In calculateTaxFee: _amount.mul(_taxFee).div(10**2). So _taxFee=4 gives 4% fee. To get 100%, set _taxFee = 100.
+        vm.prank(owner);
+        token.setTaxFeePercent(100);
+
+        // User1 transfers to user2; the full amount should be taken as fee
+        vm.prank(user1);
+        token.transfer(user2, user1BalanceBefore);
+
+        // User2 received 0 tokens
+        assertEq(token.balanceOf(user2), user2BalanceBefore, "User2 should not receive any tokens due to 100% tax fee");
+        // User1's token balance should be drained (minus any rounding? but exact: transferred user1BalanceBefore, fee 100% so 0 transferred)
+        assertEq(token.balanceOf(user1), 0, "User1's balance should be zero after transferring all with 100% fee");
+    }
+
+    // Test that owner can block transfers for non-owner users by setting maxTxPercent to 0
+    function testOwnerManipulationBlockTransfers() public {
+        // Transfer some tokens from owner to user1
+        vm.startPrank(owner);
+        uint256 amount = 1000;
+        token.transfer(user1, amount);
+        vm.stopPrank();
+
+        // Owner sets maxTxPercent to 0, making _maxTxAmount = 0
+        vm.prank(owner);
+        token.setMaxTxPercent(0);
+
+        // Non-owner transfer should revert
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount.");
+        vm.prank(user1);
+        token.transfer(user2, 1);
+    }
+
+    // Optional: test that owner can still transfer even after blocking
+    function testOwnerStillCanTransferAfterBlock() public {
+        vm.prank(owner);
+        token.setMaxTxPercent(0);
+
+        // Owner should still be able to transfer
+        vm.prank(owner);
+        token.transfer(user1, 10);
+
+        assertEq(token.balanceOf(user1), 10, "Owner should be able to transfer");
+    }
+}
+```

@@ -1,0 +1,31 @@
+{
+  "project_id": "SlowMist Audit Report - Shield_en-us",
+  "finding_id": 2,
+  "vulnerability_category": "The available funds were not processed when the riskControl closed the position",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   └─ ← [Return] 100000000000 [1e11]\n    ├─ [869] MockPool::availableFunds(User: [0x0000000000000000000000000000000000001234]) [staticcall]\n    │   └─ ← [Return] 100000000000 [1e11]\n    ├─ [1970] MockPool::poolBalance() [staticcall]\n    │   ├─ [795] WBTC::balanceOf(MockPool: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]\n    │   │   └─ ← [Return] 100000000000 [1e11]\n    │   └─ ← [Return] 100000000000 [1e11]\n    ├─ [0] VM::prank(RiskControl: [0x000000000000000000000000000000000000bEEF])\n    │   └─ ← [Return]\n    ├─ [15009] MockPool::closePosition(User: [0x0000000000000000000000000000000000001234])\n    │   ├─ [8903] WBTC::transfer(Insurance: [0x000000000000000000000000000000000000dEaD], 50000000000 [5e10])\n    │   │   ├─ emit Transfer(from: MockPool: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], to: Insurance: [0x000000000000000000000000000000000000dEaD], value: 50000000000 [5e10])\n    │   │   └─ ← [Return] true\n    │   └─ ← [Stop]\n    ├─ [795] WBTC::balanceOf(Insurance: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   └─ ← [Return] 50001922732 [5e10]\n    ├─ [0] VM::assertEq(50001922732 [5e10], 50000000000 [5e10], \"Insurance should have received 500 WBTC\") [staticcall]\n    │   └─ ← [Revert] Insurance should have received 500 WBTC: 50001922732 != 50000000000\n    └─ ← [Revert] Insurance should have received 500 WBTC: 50001922732 != 50000000000\n[FAIL: Insurance should have received 500 WBTC: 50001922732 != 50000000000] test_AvailableFundsNotSetToZeroAfterClose() (gas: 130060)"
+  },
+  "prompt_tokens": 3114,
+  "completion_tokens": 4621,
+  "total_cost": 0.0,
+  "duration_seconds": 62.20473313331604,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "Insurance should have received 500 WBTC: 50001922732 != 50000000000",
+    "location": null,
+    "raw_snippet": "    │   ├─ [8903] WBTC::transfer(Insurance: [0x000000000000000000000000000000000000dEaD], 50000000000 [5e10])\n    │   │   ├─ emit Transfer(from: MockPool: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], to: Insurance: [0x000000000000000000000000000000000000dEaD], value: 50000000000 [5e10])\n    │   │   └─ ← [Return] true\n    │   └─ ← [Stop]\n    ├─ [795] WBTC::balanceOf(Insurance: [0x000000000000000000000000000000000000dEaD]) [staticcall]\n    │   └─ ← [Return] 50001922732 [5e10]\n    ├─ [0] VM::assertEq(50001922732 [5e10], 50000000000 [5e10], \"Insurance should have received 500 WBTC\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Insurance should have received 500 WBTC: 50001922732 != 50000000000",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

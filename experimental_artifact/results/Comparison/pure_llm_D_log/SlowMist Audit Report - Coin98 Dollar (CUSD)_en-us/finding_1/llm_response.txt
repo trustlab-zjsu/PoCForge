@@ -1,0 +1,78 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal IERC20 interface for testing
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+// Target CUSD contract (including its external functions)
+interface ICUSD is IERC20 {
+    function withdraw(address token_, address destination_, uint256 amount_) external;
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    // Mainnet addresses
+    address constant CUSD_ADDR = 0xC285B7E09A4584D027E5BC36571785B515898246;
+    address constant DAI_ADDR = 0x6B175474E89094C44Da98b954EedeAC495271d0F;
+
+    ICUSD public cusd;
+    IERC20 public dai;
+
+    address public owner;
+    address public attacker;
+
+    function setUp() public {
+        cusd = ICUSD(CUSD_ADDR);
+        dai = IERC20(DAI_ADDR);
+
+        // Fetch the current owner of the CUSD contract
+        owner = cusd.owner();
+        attacker = makeAddr("attacker");
+
+        vm.label(CUSD_ADDR, "CUSD");
+        vm.label(DAI_ADDR, "DAI");
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+    }
+
+    // Test: Owner can withdraw any ERC20 token held by the CUSD contract
+    function testWithdrawAnyTokens() public {
+        uint256 amount = 1000e18; // 1000 DAI
+
+        // Give DAI tokens to the CUSD contract using Foundry's deal cheatcode
+        deal(DAI_ADDR, CUSD_ADDR, amount);
+
+        // Sanity check: CUSD contract has the DAI tokens
+        assertEq(dai.balanceOf(CUSD_ADDR), amount, "CUSD should have 1000 DAI before withdraw");
+
+        // Act as owner and withdraw the DAI tokens to the attacker
+        vm.startPrank(owner);
+        cusd.withdraw(DAI_ADDR, attacker, amount);
+        vm.stopPrank();
+
+        // Assert: attacker received the DAI tokens, CUSD contract lost them
+        assertEq(dai.balanceOf(attacker), amount, "Attacker should have 1000 DAI");
+        assertEq(dai.balanceOf(CUSD_ADDR), 0, "CUSD should have 0 DAI");
+    }
+
+    // Test: Non-owner cannot call withdraw (should revert)
+    function testNonOwnerCannotWithdraw() public {
+        uint256 amount = 100e18;
+
+        // Give the contract some tokens to be safe, but the revert should happen before balance check
+        deal(DAI_ADDR, CUSD_ADDR, amount);
+
+        vm.prank(attacker);
+        vm.expectRevert("Ownable: caller is not the owner");
+        cusd.withdraw(DAI_ADDR, attacker, amount);
+    }
+}
+```

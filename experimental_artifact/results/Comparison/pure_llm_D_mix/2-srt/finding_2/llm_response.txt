@@ -1,0 +1,98 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ICoinToken {
+    function balanceOf(address owner) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+    function blackListAddress(address listAddress, bool isBlackListed) external returns (bool);
+    function owner() external view returns (address);
+    function paused() external view returns (bool);
+    function mint(address account, uint256 amount) external;
+}
+
+contract ExploitTest is Test {
+    ICoinToken constant token = ICoinToken(0xF44DE2b8731cD69d4A727Da0214874aE35559426);
+
+    address owner;
+    address user = address(0x1234);
+    address anotherUser = address(0x5678);
+
+    function setUp() public {
+        // Fetch the current owner
+        owner = token.owner();
+
+        // Label addresses for clearer traces
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(anotherUser, "AnotherUser");
+        vm.label(address(token), "CoinToken");
+
+        // Ensure the contract is not paused (owner can unpause if needed)
+        if (token.paused()) {
+            vm.prank(owner);
+            token.unpause();
+        }
+
+        // Give user some tokens from the owner's balance
+        // Owner is initial token holder, transfer some to user
+        vm.startPrank(owner);
+        token.transfer(user, 1000 * 1e18);
+        vm.stopPrank();
+    }
+
+    function test_BlacklistBlocksTransfers() public {
+        // Verify user has tokens
+        assertGt(token.balanceOf(user), 0);
+
+        // Blacklist the user
+        vm.prank(owner);
+        bool success = token.blackListAddress(user, true);
+        assertTrue(success);
+
+        // Attempt to transfer from user – should revert
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", ""));
+        // The transfer function in the contract uses require(tokenBlacklist[msg.sender] == false);
+        // The revert reason will be empty string (older Solidity)
+        vm.prank(user);
+        token.transfer(anotherUser, 100);
+
+        // Also verify that transferFrom is blocked when user is the spender
+        // First, user approves anotherUser to spend their tokens (cannot be done because approve has no blacklist check? Check source: 
+        // approve does not check blacklist. So user can still approve. But transferFrom checks msg.sender's blacklist, so the spender (anotherUser) must not be blacklisted.
+        // However, we can show that user cannot call transferFrom as spender? Actually transferFrom checks tokenBlacklist[msg.sender] where msg.sender is the caller (the one who calls transferFrom). So if user is blacklisted, user cannot call transferFrom. 
+        // We'll test with user as spender: user calls transferFrom (from someone else to anotherUser). That should revert.
+        // We'll set up an allowance from anotherUser to user.
+        vm.prank(anotherUser);
+        token.approve(user, 500);
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSignature("Error(string)", ""));
+        token.transferFrom(anotherUser, address(this), 100);
+
+        // Confirm blacklist is effective: user's balance remains unchanged
+        assertEq(token.balanceOf(user), 1000 * 1e18);
+    }
+
+    function test_OwnerCanUnblacklist() public {
+        // Blacklist user first
+        vm.prank(owner);
+        token.blackListAddress(user, true);
+
+        // Unblacklist
+        vm.prank(owner);
+        token.blackListAddress(user, false);
+
+        // Now user can transfer again
+        vm.prank(user);
+        bool ok = token.transfer(anotherUser, 100);
+        assertTrue(ok);
+        assertEq(token.balanceOf(user), 1000 * 1e18 - 100);
+        assertEq(token.balanceOf(anotherUser), 100);
+    }
+}
+```

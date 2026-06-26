@@ -1,0 +1,91 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal IBEP20 interface to interact with the vulnerable token
+interface IWWOD {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function owner() external view returns (address);
+    function pancakeswapV2Pair() external view returns (address);
+    function setGuard(address addr, bool defend) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    IWWOD constant wwod = IWWOD(0x0b5cad3cdda7d242ce16ddf81a555d5f8e3a6054);
+
+    // Storage slots computed from the contract source ordering
+    // _balances mapping at slot 10 (0-indexed)
+    uint256 constant BALANCES_SLOT = 10;
+    // isGuard mapping at slot 13
+    uint256 constant ISGUARD_SLOT = 13;
+
+    address attacker = address(0x1337);
+    address recipient = address(0xDEAD);
+
+    function setUp() public {
+        vm.label(address(wwod), "WWOD");
+        vm.label(attacker, "Attacker");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testStateVariableDefaultVisibility() public {
+        // 1. Get the target pair address (the liquidity pool)
+        address pair = wwod.pancakeswapV2Pair();
+        vm.label(pair, "Pair");
+
+        // Ensure the pair has some tokens (required for maxTx check to be triggered)
+        // Usually the pair has liquidity, but we can enforce it via storage manipulation if needed.
+        // If the pair balance is 0, the maxTx check would be skipped. We'll force it to be > 0.
+        uint256 pairBalance = wwod.balanceOf(pair);
+        if (pairBalance == 0) {
+            // Give the pair a minimal balance to enable the maxTx guard clause
+            bytes32 pairBalanceSlot = keccak256(abi.encode(pair, BALANCES_SLOT));
+            vm.store(address(wwod), pairBalanceSlot, bytes32(uint256(1 ether))); // 1 token
+        }
+
+        // 2. Compute storage slot for attacker's balance and set a large balance
+        bytes32 attackerBalanceSlot = keccak256(abi.encode(attacker, BALANCES_SLOT));
+        // The maxTxAmount = 5 * 10^6 * 10^18 = 5e24. We set balance to >5e24 to test bypass.
+        uint256 largeAmount = 10e24; // 10 * 10^24 (10e6 tokens)
+        vm.store(address(wwod), attackerBalanceSlot, bytes32(largeAmount));
+
+        // Verify that balance was set (optional)
+        assertEq(wwod.balanceOf(attacker), largeAmount);
+
+        // 3. Compute storage slot for isGuard[attacker] and set to true
+        bytes32 isGuardSlot = keccak256(abi.encode(attacker, ISGUARD_SLOT));
+        vm.store(address(wwod), isGuardSlot, bytes32(uint256(1))); // true
+
+        // 4. Now attempt a transfer that exceeds _maxTxAmount FROM attacker TO pair
+        // Since attacker is now a guard, the _checkMax (maxTx) should be bypassed.
+        uint256 transferAmount = 6e24; // > 5e24 maxTxAmount
+
+        // Execute transfer as the attacker
+        vm.prank(attacker);
+        bool success = wwod.transfer(pair, transferAmount);
+        assertTrue(success, "Transfer should succeed for guard bypassing maxTxAmount");
+
+        // 5. Assert that the balances changed accordingly
+        assertEq(wwod.balanceOf(attacker), largeAmount - transferAmount);
+        assertEq(wwod.balanceOf(pair), pairBalance + transferAmount);
+
+        // Additional check: another non-guard address cannot bypass the limit
+        address nonGuard = address(0xBAD);
+        // Give nonGuard some tokens
+        bytes32 nonGuardBalanceSlot = keccak256(abi.encode(nonGuard, BALANCES_SLOT));
+        vm.store(address(wwod), nonGuardBalanceSlot, bytes32(largeAmount));
+        // Attempt to transfer exceeding maxTx (will revert)
+        vm.prank(nonGuard);
+        vm.expectRevert(bytes("Transfer amount exceeds the maxTxAmount."));
+        wwod.transfer(pair, transferAmount);
+    }
+}
+```

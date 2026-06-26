@@ -1,0 +1,56 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IBrawlStarsToken {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function addBlacklist(address b, bool enable) external;
+    function blacklist(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    IBrawlStarsToken constant brawl = IBrawlStarsToken(0xdde57967990daf1f47296000505e4364f236805e);
+
+    address user = address(0x123);
+    address attacker = address(0x456);
+
+    function setUp() public {
+        vm.label(address(brawl), "BrawlStarsToken");
+        vm.label(user, "User");
+        vm.label(attacker, "Attacker");
+
+        // Get some tokens for the user from the owner
+        address owner = brawl.owner();
+        vm.label(owner, "Owner");
+
+        // Transfer some tokens to user (owner must have tokens)
+        vm.prank(owner);
+        uint256 amount = 100 * 1e18; // 100 tokens
+        require(brawl.balanceOf(owner) >= amount, "Owner has insufficient tokens for test");
+        brawl.transfer(user, amount);
+        assertEq(brawl.balanceOf(user), amount, "User should have received tokens");
+    }
+
+    function testBlacklistBlocksTransfers() public {
+        // Precondition: user can transfer tokens
+        vm.prank(user);
+        brawl.transfer(attacker, 10 * 1e18);
+        assertEq(brawl.balanceOf(attacker), 10 * 1e18, "Attacker should have received tokens");
+
+        // Owner blacklists user
+        address owner = brawl.owner();
+        vm.prank(owner);
+        brawl.addBlacklist(user, true);
+        assertTrue(brawl.blacklist(user), "User should be blacklisted");
+
+        // Now user cannot transfer (revert)
+        vm.prank(user);
+        vm.expectRevert("BLACKLISTED");
+        brawl.transfer(attacker, 1 * 1e18);
+    }
+}
+```

@@ -1,0 +1,60 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.5;
+
+import "forge-std/Test.sol";
+
+interface ILegendsDoge {
+    function owner() external view returns (address);
+    function setMaxTxPercent(uint256 maxTxPercent) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    ILegendsDoge constant doge = ILegendsDoge(0xCd092F1f9858204d7986b3a2e36730fF1229a2e5);
+    address owner;
+    address constant alice = address(0x1111);
+    address constant bob   = address(0x2222);
+
+    function setUp() public {
+        vm.label(address(doge), "LegendsDoge");
+        owner = doge.owner();
+        vm.label(owner, "Owner");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+
+        uint256 decimals = doge.decimals();
+        uint256 fundAmount = 1000 * 10**decimals;
+        vm.prank(owner);
+        doge.transfer(alice, fundAmount);
+        assertGe(doge.balanceOf(alice), fundAmount);
+    }
+
+    function testOwnerCanStopTransactions() public {
+        uint256 transferAmount = 1; // 1 wei / smallest unit
+
+        // Before: Alice can transfer to Bob (default maxTx is huge)
+        vm.prank(alice);
+        doge.transfer(bob, transferAmount);
+
+        // Owner sets maxTxPercent to 0 -> _maxTxAmount = 0
+        vm.prank(owner);
+        doge.setMaxTxPercent(0);
+
+        // Now Alice's transfer to Bob reverts
+        vm.expectRevert("Transfer amount exceeds the maxTxAmount.");
+        vm.prank(alice);
+        doge.transfer(bob, transferAmount);
+
+        // Owner can still transfer (bypasses the limit)
+        vm.prank(owner);
+        doge.transfer(bob, transferAmount);
+
+        // Verify Bob received both transfers (Alice's small + Owner's)
+        assertEq(doge.balanceOf(bob), transferAmount * 2);
+    }
+}
+```

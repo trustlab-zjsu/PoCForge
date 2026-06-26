@@ -1,0 +1,95 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface IMemeFarm {
+    function owner() external view returns (address);
+    function setBuyTaxes(uint256, uint256, uint256) external;
+    function setAllTaxes(uint256, uint256, uint256) external;
+    function setSwapAndLiquifyEnabled(bool) external;
+    function transfer(address, uint256) external returns (bool);
+    function balanceOf(address) external view returns (uint256);
+    function uniswapPair() external view returns (address);
+    function _buyLiquidityFee() external view returns (uint256);
+    function _buyMarketingFee() external view returns (uint256);
+    function _buyTeamFee() external view returns (uint256);
+    function _sellLiquidityFee() external view returns (uint256);
+    function _sellMarketingFee() external view returns (uint256);
+    function _sellTeamFee() external view returns (uint256);
+    function _totalTaxIfBuying() external view returns (uint256);
+    function _totalTaxIfSelling() external view returns (uint256);
+    function _IsExcludeFromFee(address) external view returns (bool);
+    function isMarketPair(address) external view returns (bool);
+    function minimumTokensBeforeSwapAmount() external view returns (uint256);
+    function setNumTokensBeforeSwap(uint256) external;
+    // Not all functions needed, but include for completeness
+}
+
+contract ExploitTest is Test {
+    IMemeFarm constant target = IMemeFarm(0x8fac119886dd328a84cd545881c7a484017e7ce6);
+    address user = address(this);
+
+    function setUp() public {
+        // Label addresses for clarity
+        vm.label(address(target), "MemeFarm");
+        vm.label(target.owner(), "Owner");
+        vm.label(target.uniswapPair(), "UniPair");
+    }
+
+    function test_excessiveFeesManipulation() public {
+        // 1. Retrieve owner
+        address owner = target.owner();
+
+        // 2. Owner sets buy and sell taxes to unreasonable levels (sum > 25%)
+        //    Let's set each component so that total is 30% (10+10+10)
+        vm.startPrank(owner);
+        target.setBuyTaxes(10, 10, 10);          // total buy tax = 30%
+        target.setAllTaxes(10, 10, 10);          // total sell tax = 30%
+        // Disable swap-and-liquify to avoid interference
+        target.setSwapAndLiquifyEnabled(false);
+        // Set minimum tokens before swap to a high value so no internal swap occurs
+        target.setNumTokensBeforeSwap(type(uint256).max);
+        vm.stopPrank();
+
+        // 3. Verify state changes – taxes exceed 25%
+        assertGt(target._totalTaxIfBuying(), 25, "Buy total tax should be >25%");
+        assertGt(target._totalTaxIfSelling(), 25, "Sell total tax should be >25%");
+        assertEq(target._totalTaxIfBuying(), 30, "Buy total tax should be 30");
+        assertEq(target._totalTaxIfSelling(), 30, "Sell total tax should be 30");
+
+        // 4. Demonstrate actual financial impact:
+        //    Owner transfers tokens to user (free of fee because owner is excluded)
+        uint256 transferAmount = 1000 * 1e9;        // token has 9 decimals
+        vm.prank(owner);
+        bool success = target.transfer(user, transferAmount);
+        require(success, "Transfer from owner to user failed");
+
+        // Record balances before the fee-applying transfer
+        uint256 userBalanceBefore = target.balanceOf(user);
+        uint256 contractBalanceBefore = target.balanceOf(address(target));
+        address pair = target.uniswapPair();
+        uint256 pairBalanceBefore = target.balanceOf(pair);
+
+        // User sells 100 tokens to the Uniswap pair
+        uint256 sellAmount = 100 * 1e9;
+        vm.prank(user);
+        target.transfer(pair, sellAmount);
+
+        // After transfer:
+        // User lost full sellAmount
+        assertEq(target.balanceOf(user), userBalanceBefore - sellAmount, "User should lose full amount");
+
+        // Contract gained 30% fee
+        uint256 fee = (sellAmount * 30) / 100;   // 30% sell fee
+        assertEq(target.balanceOf(address(target)), contractBalanceBefore + fee, "Contract should receive fee");
+
+        // Pair received the remainder (70%)
+        uint256 remainder = sellAmount - fee;
+        assertEq(target.balanceOf(pair), pairBalanceBefore + remainder, "Pair should receive net amount");
+
+        // Also verify that the buy tax is applied similarly if we test a buy, but not required.
+    }
+}
+```

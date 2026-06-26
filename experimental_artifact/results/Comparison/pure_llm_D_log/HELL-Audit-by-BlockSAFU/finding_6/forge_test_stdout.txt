@@ -1,0 +1,46 @@
+No files changed, compilation skipped
+2026-06-16T12:39:01.234683Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104567672"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[PASS] testLackOfAccessControlApprove() (gas: 37683)
+2026-06-16T12:39:05.109840Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.109976Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.109992Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.110281Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [37683] ExploitTest::testLackOfAccessControlApprove()
+    ├─ [0] VM::prank(Attacker: [0x000000000000000000000000000000000000bEEF])
+    │   └─ ← [Return]
+    ├─ [24643] StandardToken::approve(0x0000000000000000000000000000000000001234, 100000000000000000000 [1e20])
+    │   ├─ emit Approval(owner: Attacker: [0x000000000000000000000000000000000000bEEF], spender: 0x0000000000000000000000000000000000001234, value: 100000000000000000000 [1e20])
+    │   └─ ← [Return] true
+    ├─ [770] StandardToken::allowance(Attacker: [0x000000000000000000000000000000000000bEEF], 0x0000000000000000000000000000000000001234) [staticcall]
+    │   └─ ← [Return] 100000000000000000000 [1e20]
+    └─ ← [Stop]
+
+[PASS] testLackOfAccessControlTransfer() (gas: 42541)
+2026-06-16T12:39:05.110615Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.110631Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.110644Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.110727Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:39:05.110740Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [42541] ExploitTest::testLackOfAccessControlTransfer()
+    ├─ [0] VM::store(StandardToken: [0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20], 0xef390d4fc70c6ba9a2d2562306e85df905d25937a753bd1381a80db5465992bb, 0x00000000000000000000000000000000000000000000003635c9adc5dea00000)
+    │   └─ ← [Return]
+    ├─ [626] StandardToken::balanceOf(Attacker: [0x000000000000000000000000000000000000bEEF]) [staticcall]
+    │   └─ ← [Return] 1000000000000000000000 [1e21]
+    ├─ [0] VM::prank(Attacker: [0x000000000000000000000000000000000000bEEF])
+    │   └─ ← [Return]
+    ├─ [25286] StandardToken::transfer(Recipient: [0x000000000000000000000000000000000000cafE], 500000000000000000000 [5e20])
+    │   ├─ emit Transfer(from: Attacker: [0x000000000000000000000000000000000000bEEF], to: Recipient: [0x000000000000000000000000000000000000cafE], value: 500000000000000000000 [5e20])
+    │   └─ ← [Return] true
+    ├─ [626] StandardToken::balanceOf(Attacker: [0x000000000000000000000000000000000000bEEF]) [staticcall]
+    │   └─ ← [Return] 500000000000000000000 [5e20]
+    ├─ [626] StandardToken::balanceOf(Recipient: [0x000000000000000000000000000000000000cafE]) [staticcall]
+    │   └─ ← [Return] 500000000000000000000 [5e20]
+    └─ ← [Stop]
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 3.87s (1.35s CPU time)
+
+Ran 1 test suite in 5.40s (3.87s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)

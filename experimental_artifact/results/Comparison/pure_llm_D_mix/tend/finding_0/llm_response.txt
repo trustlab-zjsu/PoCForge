@@ -1,0 +1,79 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the Token contract (based on source)
+interface IToken {
+    function owner() external view returns (address);
+    function _taxFee() external view returns (uint8);
+    function _liquidityFee() external view returns (uint8);
+    function _burnFee() external view returns (uint8);
+    function _walletFee() external view returns (uint8);
+    function _buybackFee() external view returns (uint8);
+    function maxTaxFee() external view returns (uint8);
+    function maxLiqFee() external view returns (uint8);
+    function maxBurnFee() external view returns (uint8);
+    function maxWalletFee() external view returns (uint8);
+    function maxBuybackFee() external view returns (uint8);
+    function setAllFeePercent(uint8 taxFee, uint8 liquidityFee, uint8 burnFee, uint8 walletFee, uint8 buybackFee) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function excludeFromFee(address account) external;
+    function includeInFee(address account) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Target contract address (BSC)
+    address constant TOKEN = 0x222f737285d0b60d8d4f27fa22ce8884c9f119f8;
+
+    IToken token;
+
+    function setUp() public {
+        token = IToken(TOKEN);
+        vm.label(TOKEN, "Token");
+    }
+
+    function testOwnerCanSetFeesAbove25Percent() public {
+        // Get current owner
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        assertTrue(owner != address(0), "Owner should be non-zero");
+
+        // Record fee before
+        uint8 beforeTax = token._taxFee();
+        uint8 beforeLiq = token._liquidityFee();
+        uint8 beforeBurn = token._burnFee();
+        uint8 beforeWallet = token._walletFee();
+        uint8 beforeBb = token._buybackFee();
+        uint256 beforeTotal = beforeTax + beforeLiq + beforeBurn + beforeWallet + beforeBb;
+
+        // Owner sets each fee to the maximum allowed (10% each)
+        uint8 max = 10;
+        vm.prank(owner);
+        token.setAllFeePercent(max, max, max, max, max);
+
+        // Read fees after
+        uint8 tax = token._taxFee();
+        uint8 liq = token._liquidityFee();
+        uint8 burn = token._burnFee();
+        uint8 wallet = token._walletFee();
+        uint8 bb = token._buybackFee();
+        uint256 total = tax + liq + burn + wallet + bb;
+
+        // Verify each fee is set correctly
+        assertEq(tax, 10, "Tax fee should be 10%");
+        assertEq(liq, 10, "Liquidity fee should be 10%");
+        assertEq(burn, 10, "Burn fee should be 10%");
+        assertEq(wallet, 10, "Wallet fee should be 10%");
+        assertEq(bb, 10, "Buyback fee should be 10%");
+
+        // Total fee exceeds 25% (vulnerability)
+        assertGt(total, 25, "Total fee should exceed 25% (combined fees)");
+        emit log_named_uint("Total fee percent", total);
+        emit log("Vulnerability confirmed: owner can set combined fees >25%");
+    }
+}
+```

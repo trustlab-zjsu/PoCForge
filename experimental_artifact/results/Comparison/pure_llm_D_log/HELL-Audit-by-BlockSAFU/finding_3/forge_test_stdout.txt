@@ -1,0 +1,33 @@
+No files changed, compilation skipped
+2026-06-16T12:36:31.819201Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104567336"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: ERC20: transfer amount exceeds balance] testTransferExceedsBalance() (gas: 16994)
+2026-06-16T12:36:35.265300Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:36:35.267564Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [8520] ExploitTest::setUp()
+    ├─ [0] VM::label(VulnerableToken: [0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20], "VulnerableToken")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [16994] ExploitTest::testTransferExceedsBalance()
+    ├─ [2626] VulnerableToken::balanceOf(0x000000000000000000000000000000000000dEaD) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2626] VulnerableToken::balanceOf(0x000000000000000000000000000000000000bEEF) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(0x000000000000000000000000000000000000dEaD)
+    │   └─ ← [Return]
+    ├─ [1154] VulnerableToken::transfer(0x000000000000000000000000000000000000bEEF, 1)
+    │   └─ ← [Revert] ERC20: transfer amount exceeds balance
+    └─ ← [Revert] ERC20: transfer amount exceeds balance
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.44s (1.01s CPU time)
+
+Ran 1 test suite in 7.69s (3.44s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: ERC20: transfer amount exceeds balance] testTransferExceedsBalance() (gas: 16994)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

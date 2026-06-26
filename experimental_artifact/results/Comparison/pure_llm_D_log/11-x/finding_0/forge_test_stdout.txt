@@ -1,0 +1,53 @@
+No files changed, compilation skipped
+2026-06-16T11:39:41.002655Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104559762"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[PASS] testOwnerCanMintToArbitraryAddress() (gas: 59890)
+2026-06-16T11:39:46.796261Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:39:46.796748Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:39:48.129231Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T11:39:48.129300Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [59890] ExploitTest::testOwnerCanMintToArbitraryAddress()
+    ├─ [2349] XV4::totalSupply() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2368] XV4::owner() [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000000000
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [44839] XV4::mint(0x0000000000000000000000000000000000000123, 5000000000000000000000 [5e21])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: 0x0000000000000000000000000000000000000123, value: 5000000000000000000000 [5e21])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [349] XV4::totalSupply() [staticcall]
+    │   └─ ← [Return] 5000000000000000000000 [5e21]
+    ├─ [583] XV4::balanceOf(0x0000000000000000000000000000000000000123) [staticcall]
+    │   └─ ← [Return] 5000000000000000000000 [5e21]
+    └─ ← [Stop]
+
+[FAIL: ERC20: mint to the zero address] testOwnerCanMintTokens() (gas: 16145)
+2026-06-16T11:39:48.130170Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [16145] ExploitTest::testOwnerCanMintTokens()
+    ├─ [2349] XV4::totalSupply() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2368] XV4::owner() [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000000000
+    ├─ [2583] XV4::balanceOf(0x0000000000000000000000000000000000000000) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [717] XV4::mint(0x0000000000000000000000000000000000000000, 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] ERC20: mint to the zero address
+    └─ ← [Revert] ERC20: mint to the zero address
+
+Suite result: FAILED. 1 passed; 1 failed; 0 skipped; finished in 5.79s (5.51s CPU time)
+
+Ran 1 test suite in 8.50s (5.79s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: ERC20: mint to the zero address] testOwnerCanMintTokens() (gas: 16145)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

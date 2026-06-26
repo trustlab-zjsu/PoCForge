@@ -1,0 +1,31 @@
+{
+  "project_id": "QAP Token Full Smart Contract Security Audit",
+  "finding_id": 0,
+  "vulnerability_category": "Design issue",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    ├─ [0] VM::label(user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802], \"user2\")\n    │   └─ ← [Return]\n    ├─ [12429] QAPToken::balanceOf(0x290e5719A915b1D6946A8D7c205B4016527aBF8c) [staticcall]\n    │   └─ ← [Return] 1200000000000000 [1.2e15]\n    ├─ [0] VM::prank(0x290e5719A915b1D6946A8D7c205B4016527aBF8c)\n    │   └─ ← [Return]\n    ├─ [101981] QAPToken::transfer(user1: [0x29E3b139f4393aDda86303fcdAa35F60Bb7092bF], 600000000000000 [6e14])\n    │   ├─ emit Transfer(from: 0x290e5719A915b1D6946A8D7c205B4016527aBF8c, to: user1: [0x29E3b139f4393aDda86303fcdAa35F60Bb7092bF], value: 600000000000000 [6e14])\n    │   └─ ← [Return] true\n    ├─ [0] VM::prank(user1: [0x29E3b139f4393aDda86303fcdAa35F60Bb7092bF])\n    │   └─ ← [Return]\n    ├─ [85960] QAPToken::transfer(user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802], 300000000000000 [3e14])\n    │   ├─ emit Transfer(from: user1: [0x29E3b139f4393aDda86303fcdAa35F60Bb7092bF], to: user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802], value: 285000000000000 [2.85e14])\n    │   └─ ← [Return] true\n    ├─ [2429] QAPToken::balanceOf(user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802]) [staticcall]\n    │   └─ ← [Return] 285011400456018 [2.85e14]\n    ├─ [0] VM::assertEq(285011400456018 [2.85e14], 300000000000000 [3e14], \"user2 should receive the big transfer\") [staticcall]\n    │   └─ ← [Revert] user2 should receive the big transfer: 285011400456018 != 300000000000000\n    └─ ← [Revert] user2 should receive the big transfer: 285011400456018 != 300000000000000\n[FAIL: user2 should receive the big transfer: 285011400456018 != 300000000000000] testTransferNotRestrictedForNonOwner() (gas: 220734)"
+  },
+  "prompt_tokens": 7886,
+  "completion_tokens": 6367,
+  "total_cost": 0.0,
+  "duration_seconds": 77.27536201477051,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "user2 should receive the big transfer: 285011400456018 != 300000000000000",
+    "location": null,
+    "raw_snippet": "    │   └─ ← [Return]\n    ├─ [85960] QAPToken::transfer(user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802], 300000000000000 [3e14])\n    │   ├─ emit Transfer(from: user1: [0x29E3b139f4393aDda86303fcdAa35F60Bb7092bF], to: user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802], value: 285000000000000 [2.85e14])\n    │   └─ ← [Return] true\n    ├─ [2429] QAPToken::balanceOf(user2: [0x537C8f3d3E18dF5517a58B3fB9D9143697996802]) [staticcall]\n    │   └─ ← [Return] 285011400456018 [2.85e14]\n    ├─ [0] VM::assertEq(285011400456018 [2.85e14], 300000000000000 [3e14], \"user2 should receive the big transfer\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: user2 should receive the big transfer: 285011400456018 != 300000000000000",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

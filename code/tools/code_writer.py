@@ -8,7 +8,10 @@ import logging
 import re
 from typing import Optional
 
-from web3 import Web3
+try:
+    from web3 import Web3
+except Exception:
+    Web3 = None
 
 from core.models import ViolationTarget, ViolationCategory
 
@@ -41,6 +44,7 @@ contract ExploitTest is Test {{
     function testExploit() public {{
 {initial_balance_snapshot}
 {exploit_code}
+        // ─── Test Oracle ─────────────────────────────────────
 {oracle_assertion}
     }}
 
@@ -149,6 +153,8 @@ def _checksum_all_addresses(code: str) -> str:
     pattern = re.compile(r'0x[a-fA-F0-9]{40}')
     def replacer(match):
         addr = match.group(0)
+        if Web3 is None:
+            return addr
         try:
             return Web3.to_checksum_address(addr)
         except Exception:
@@ -168,50 +174,48 @@ def inject_test_oracle(violation_target: ViolationTarget) -> tuple[str, str]:
     """
     category = violation_target.violation_category
     oracle_data = violation_target.oracle_verification
+    assertions: list[str] = []
+    snapshots: list[str] = []
 
-    if category == ViolationCategory.ECONOMIC and oracle_data.economic_check:
+    if oracle_data.economic_check:
         check = oracle_data.economic_check
         token = check.target_token
 
         if token == "NATIVE":
-            snapshot = "uint256 initialBalance = address(this).balance;"
-            assertion = (
+            snapshots.append("uint256 initialBalance = address(this).balance;")
+            assertions.append(
                 'uint256 finalBalance = address(this).balance;\n'
                 'assertGt(finalBalance, initialBalance, "Economic Exploit Failed: No profit");'
             )
         else:
-            snapshot = f"uint256 initialBalance = IERC20({token}).balanceOf(address(this));"
-            assertion = (
+            snapshots.append(f"uint256 initialBalance = IERC20({token}).balanceOf(address(this));")
+            assertions.append(
                 f'uint256 finalBalance = IERC20({token}).balanceOf(address(this));\n'
                 f'assertGt(finalBalance, initialBalance, "Economic Exploit Failed: No ERC20 profit");'
             )
 
-        return assertion, snapshot
-
-    elif category == ViolationCategory.LOGIC and oracle_data.logic_check:
+    if oracle_data.logic_check:
         check = oracle_data.logic_check
         var = check.target_variable
         op = check.operator
         val = check.expected_value
 
-        snapshot = ""  # Logic checks don't need a balance snapshot
-
         if op == "==":
-            assertion = f'assertEq({var}, {val}, "Logic Exploit Failed: State not tampered");'
+            assertions.append(f'assertEq({var}, {val}, "Logic Exploit Failed: State not tampered");')
         elif op == ">":
-            assertion = f'assertGt({var}, {val}, "Logic Exploit Failed");'
+            assertions.append(f'assertGt({var}, {val}, "Logic Exploit Failed");')
         elif op == "<":
-            assertion = f'assertLt({var}, {val}, "Logic Exploit Failed");'
+            assertions.append(f'assertLt({var}, {val}, "Logic Exploit Failed");')
         elif op == "!=":
-            assertion = f'assertTrue({var} != {val}, "Logic Exploit Failed: Value unchanged");'
+            assertions.append(f'assertTrue({var} != {val}, "Logic Exploit Failed: Value unchanged");')
         else:
-            assertion = f'// Unknown operator: {op}\nassertTrue(true, "Manual verification needed");'
+            assertions.append(f'// Unknown operator: {op}\nassertTrue(true, "Manual verification needed");')
 
-        return assertion, snapshot
+    if assertions:
+        return "\n".join(assertions), "\n".join(snapshots)
 
-    else:
-        # Fallback: no specific oracle
-        return '// No oracle assertion configured\nassertTrue(true, "Manual verification needed");', ""
+    # Fallback: no specific oracle
+    return '// No oracle assertion configured\nassertTrue(true, "Manual verification needed");', ""
 
 
 def update_poc(existing_code: str, modifications: dict) -> str:

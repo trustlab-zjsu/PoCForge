@@ -1,0 +1,31 @@
+{
+  "project_id": "ContractWolf_Audit_Metaverse_Kombat",
+  "finding_id": 0,
+  "vulnerability_category": "Reentrancy",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   └─ ← [Return] true\n    ├─ [0] VM::stopPrank()\n    │   └─ ← [Return]\n    ├─ [482] MetaVerseKombat::marketingwallet() [staticcall]\n    │   └─ ← [Return] attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]\n    ├─ [565] MetaVerseKombat::balanceOf(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e]) [staticcall]\n    │   └─ ← [Return] 1000000000000000000000 [1e21]\n    ├─ [0] VM::prank(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e])\n    │   └─ ← [Return]\n    ├─ [90465] MetaVerseKombat::transfer(pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 1000000000000000000000 [1e21])\n    │   ├─ [275] PancakeRouter::WETH() [staticcall]\n    │   │   └─ ← [Return] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c\n    │   ├─ emit Approval(owner: MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 16515401642663323887234 [1.651e22])\n    │   ├─ [5531] PancakeRouter::swapExactTokensForETHSupportingFeeOnTransferTokens(16515401642663323887234 [1.651e22], 0, [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], 1781612327 [1.781e9])\n    │   │   ├─ [3059] MetaVerseKombat::transferFrom(MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 16515401642663323887234 [1.651e22])\n    │   │   │   └─ ← [Revert] BEP20: Sender Is Blocked\n    │   │   └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED\n    │   └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED\n    └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED\n[FAIL: TransferHelper: TRANSFER_FROM_FAILED] testReentrancyExploit() (gas: 673140)"
+  },
+  "prompt_tokens": 8637,
+  "completion_tokens": 6274,
+  "total_cost": 0.0,
+  "duration_seconds": 103.83075618743896,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "BEP20: Sender Is Blocked",
+    "location": null,
+    "raw_snippet": "    │   └─ ← [Return]\n    ├─ [90465] MetaVerseKombat::transfer(pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 1000000000000000000000 [1e21])\n    │   ├─ [275] PancakeRouter::WETH() [staticcall]\n    │   │   └─ ← [Return] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c\n    │   ├─ emit Approval(owner: MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 16515401642663323887234 [1.651e22])\n    │   ├─ [5531] PancakeRouter::swapExactTokensForETHSupportingFeeOnTransferTokens(16515401642663323887234 [1.651e22], 0, [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], 1781612327 [1.781e9])\n    │   │   ├─ [3059] MetaVerseKombat::transferFrom(MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 16515401642663323887234 [1.651e22])\n    │   │   │   └─ ← \n👉 [Revert Occurred Here]: BEP20: Sender Is Blocked",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

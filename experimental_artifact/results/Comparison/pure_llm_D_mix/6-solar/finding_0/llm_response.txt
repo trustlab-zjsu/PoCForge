@@ -1,0 +1,71 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the Solar token contract
+interface ISolar {
+    function owner() external view returns (address);
+    function mint(address _to, uint256 _amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    ISolar public constant solar = ISolar(0x04dd1fcfdd8bdaa30dbb30dc4f61f5a5d50d7be8);
+    address payable public attacker = payable(makeAddr("attacker"));
+
+    function setUp() public {
+        // Label for better traces
+        vm.label(address(solar), "Solar");
+        vm.label(attacker, "Attacker");
+    }
+
+    function testOwnerMintIncreasesSupply() public {
+        // Get the current owner
+        address owner = solar.owner();
+        vm.label(owner, "Owner");
+
+        // Record balances before mint
+        uint256 supplyBefore = solar.totalSupply();
+        uint256 ownerBalanceBefore = solar.balanceOf(owner);
+
+        // Owner mints 1000 SOLAR (1000 * 1e18) to himself
+        vm.prank(owner);
+        solar.mint(owner, 1000 * 1e18);
+
+        // Check supply increased
+        assertEq(solar.totalSupply(), supplyBefore + 1000 * 1e18);
+        // Check owner balance increased
+        assertEq(solar.balanceOf(owner), ownerBalanceBefore + 1000 * 1e18);
+    }
+
+    function testNonOwnerCannotMint() public {
+        // Attacker (non-owner) tries to mint – must revert
+        vm.prank(attacker);
+        vm.expectRevert("Ownable: caller is not the owner");
+        solar.mint(attacker, 1e18);
+    }
+
+    function testOwnerCanMintUpToMaxTotalSupply() public {
+        // Owner mints the max total supply (50 million SOLAR)
+        address owner = solar.owner();
+        uint256 maxSupply = 50_000_000 * 1e18; // as per getMaxTotalSupply()
+
+        // Mint the max amount in one go
+        vm.prank(owner);
+        solar.mint(owner, maxSupply);
+
+        // Total supply should be exactly maxSupply (assuming initially 0)
+        assertEq(solar.totalSupply(), maxSupply);
+
+        // Trying to mint more should revert
+        vm.prank(owner);
+        vm.expectRevert("ERC20: minting more than MaxTotalSupply");
+        solar.mint(owner, 1);
+    }
+}
+```

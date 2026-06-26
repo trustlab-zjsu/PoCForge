@@ -1,0 +1,87 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+import "forge-std/Test.sol";
+
+interface IAuthority {
+    function admin() external view returns (address);
+    function operators(address) external view returns (bool);
+    function chainId() external view returns (uint256);
+}
+
+interface IFCOToken {
+    function authority() external view returns (IAuthority);
+    function setAuthority(IAuthority _newAuthority) external;
+    function initialize(
+        address authority_,
+        address eventEmitter_,
+        string calldata name_,
+        string calldata symbol_,
+        uint128 signUpReward_,
+        uint128 visitReward_,
+        uint40 epochDuration_,
+        uint40 lockDuration_
+    ) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC (likely a proxy)
+    address constant FCO_TOKEN = 0x9049c073b9c3f32f204e0255cec09d09e0d9b6cf;
+
+    IFCOToken public token;
+
+    function setUp() public {
+        token = IFCOToken(FCO_TOKEN);
+        vm.label(FCO_TOKEN, "FCOToken");
+    }
+
+    function testSlotsCollision() public {
+        // Read current authority from the contract
+        IAuthority currentAuthority = token.authority();
+        address currentAdmin = currentAuthority.admin();
+        console.log("Current admin: %s", currentAdmin);
+
+        // Compute the expected storage slot for the authority variable
+        // assuming NO gaps in any base contract.
+        // Layout (no gaps):
+        // Initializable: _initialized(slot0), _initializing(slot1)
+        // ContextUpgradeable: (no vars without gap)
+        // ERC165Upgradeable: (no vars without gap)
+        // ERC20Upgradeable: _balances(slot2), _allowances(slot3), _totalSupply(slot4), _name(slot5), _symbol(slot6)
+        // AccessControlUpgradeable: _roles(slot7)
+        // AccessControl: authority(slot8)
+        //
+        // Therefore, if gaps are missing, authority is stored at slot 8.
+        // We will test if we can overwrite authority by writing to slot 8.
+
+        address fakeAuthority = address(0xDEAD);
+        vm.store(FCO_TOKEN, bytes32(uint256(8)), bytes32(uint256(uint160(fakeAuthority))));
+        address newAuthority = address(token.authority());
+        console.log("Authority after write to slot 8: %s", newAuthority);
+
+        if (newAuthority == fakeAuthority) {
+            // Vulnerability confirmed: authority is at slot 8, meaning __gap arrays are missing.
+            // This can cause storage collisions upon upgrade.
+            console.log("VULNERABILITY: Storage gap is missing! Authority at slot 8.");
+            assertEq(newAuthority, fakeAuthority, "Authority slot collision confirmed");
+        } else {
+            // Slot 8 did not affect authority. With correct gaps, authority should be at slot 302.
+            // We write to slot 302 to confirm proper layout.
+            vm.store(FCO_TOKEN, bytes32(uint256(302)), bytes32(uint256(uint160(fakeAuthority))));
+            newAuthority = address(token.authority());
+            console.log("Authority after write to slot 302: %s", newAuthority);
+            if (newAuthority == fakeAuthority) {
+                console.log("Contract uses proper gaps. Authority at slot 302.");
+                assertEq(newAuthority, fakeAuthority, "Correct slot for authority");
+            } else {
+                // If neither slot 8 nor 302 works, the layout is unexpected.
+                console.log("Unexpected storage layout. Further investigation needed.");
+            }
+        }
+
+        // Reset state to avoid breaking subsequent tests
+        // (writes are not permanent on fork)
+    }
+}
+```

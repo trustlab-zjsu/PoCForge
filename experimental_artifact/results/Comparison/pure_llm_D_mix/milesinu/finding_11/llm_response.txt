@@ -1,0 +1,105 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IMilesinu {
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+    function lock(uint256 time) external;
+    function unlock() external;
+    function geUnlockTime() external view returns (uint256);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function _taxFee() external view returns (uint256);
+    // view functions to verify state
+    function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    IMilesinu constant target = IMilesinu(0x9efeabd1ae9fe1e777ebe4d1e271510622b65711);
+
+    function setUp() public {
+        vm.label(address(target), "MilesInu");
+    }
+
+    // Demonstrate temporary lock: owner locks the contract for a period,
+    // administrative functions become inaccessible, then owner unlocks and regains control.
+    function test_TemporaryLocking() public {
+        // Get current owner
+        address owner = target.owner();
+        vm.label(owner, "Owner");
+
+        // Verify we can act as owner
+        vm.prank(owner);
+        target.lock(1 days); // lock for 1 day
+
+        // After lock, owner should be zero
+        assertEq(target.owner(), address(0), "Owner not zero after lock");
+
+        // Attempt to call an onlyOwner function as a random user – must revert
+        vm.prank(address(0xDEAD));
+        vm.expectRevert("Ownable: caller is not the owner");
+        target.setTaxFeePercent(2);
+
+        // Warp time past lock period
+        vm.warp(block.timestamp + 2 days);
+
+        // Unlock as the previous owner (the original owner)
+        vm.prank(owner);
+        target.unlock();
+
+        // Now owner should be restored
+        assertEq(target.owner(), owner, "Owner not restored after unlock");
+
+        // Owner can call onlyOwner again
+        vm.prank(owner);
+        target.setTaxFeePercent(5);
+        assertEq(target._taxFee(), 5, "Tax fee not updated");
+    }
+
+    // Demonstrate renounceOwnership: once called, ownership is permanently lost.
+    function test_RenounceOwnership() public {
+        address owner = target.owner();
+
+        // Renounce ownership
+        vm.prank(owner);
+        target.renounceOwnership();
+
+        // Owner becomes zero permanently
+        assertEq(target.owner(), address(0), "Owner not zero after renounce");
+
+        // Any onlyOwner call reverts
+        vm.prank(address(0xCAFE));
+        vm.expectRevert("Ownable: caller is not the owner");
+        target.setTaxFeePercent(10);
+
+        // There is no unlock function for renounced ownership – verify no other function can restore
+        // (unlock requires _previousOwner == msg.sender, which after renounce is address(0) unless lock was called first)
+        vm.prank(owner);
+        vm.expectRevert("You don't have permission to unlock");
+        target.unlock();
+    }
+
+    // Combined scenario: lock with an extremely long time to effectively permanently disable ownership
+    function test_PermanentLockByLargeTime() public {
+        address owner = target.owner();
+
+        // Lock with maximum possible time (uint256 max)
+        vm.prank(owner);
+        target.lock(type(uint256).max);
+
+        // Owner is zero
+        assertEq(target.owner(), address(0));
+
+        // Even if we warp far into future, unlock cannot be called because _lockTime will never be less than now
+        vm.warp(block.timestamp + 1000 days);
+        vm.prank(owner);
+        vm.expectRevert("Contract is locked until 7 days"); // actual error: "Contract is locked until 7 days" (the code uses that string, note: the error message is incorrect – it says "7 days" but the check is `now > _lockTime`, so it will revert because now is still not > max)
+        target.unlock();
+
+        // This demonstrates that a malicious owner can effectively lock the contract forever.
+    }
+}
+```

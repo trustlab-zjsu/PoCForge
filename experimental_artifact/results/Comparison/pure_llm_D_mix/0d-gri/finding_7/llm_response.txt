@@ -1,0 +1,76 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.8.17;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the GOLDENREGENTINVESTMENT token
+interface IGOLDENREGENTINVESTMENT {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setMaxWalletTokens(uint256 _maxToken) external;
+    function maxWalletToken() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address from the report
+    IGOLDENREGENTINVESTMENT constant token =
+        IGOLDENREGENTINVESTMENT(0x134C857757308AEeC4c20CA2A583F560a906ed28);
+
+    address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    address user1 = address(0x1001);
+    address user2 = address(0x1002);
+
+    function setUp() public {
+        vm.label(address(token), "GOLDENREGENTINVESTMENT");
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+    }
+
+    function testCentralizedOwnerCanStopTransactions() public {
+        // 1. Get the current owner (single point of control)
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        assertTrue(owner != address(0), "Owner must exist");
+
+        // 2. Owner holds the entire supply – transfer some tokens to user1
+        uint256 transferToUser = 1000 * 10**18;
+        vm.prank(owner);
+        token.transfer(user1, transferToUser);
+
+        uint256 user1Balance = token.balanceOf(user1);
+        assertEq(user1Balance, transferToUser, "User1 should have received tokens");
+
+        // 3. Initially maxWalletToken is the total supply (no restriction)
+        uint256 initialMax = token.maxWalletToken();
+        assertEq(initialMax, 500_000_000 * 10**18, "Initial maxWalletToken should be total supply");
+
+        // 4. Owner sets maxWalletToken to 0 – effectively blocking transfers
+        //    to any address that is not the owner, dead, or the Uniswap pair.
+        vm.prank(owner);
+        token.setMaxWalletTokens(0);
+
+        assertEq(token.maxWalletToken(), 0, "maxWalletToken should now be 0");
+
+        // 5. User1 tries to send 100 tokens to User2 – should revert
+        vm.prank(user1);
+        vm.expectRevert("Exceeds maximum wallet token amount.");
+        token.transfer(user2, 100 * 10**18);
+
+        // 6. Owner can still transfer (the check is skipped when from == owner)
+        vm.prank(owner);
+        bool success = token.transfer(user2, 1 ether);
+        assertTrue(success, "Owner should still be able to transfer");
+
+        // 7. Owner can restore the restriction and transfers resume
+        vm.prank(owner);
+        token.setMaxWalletTokens(500_000_000 * 10**18);
+
+        vm.prank(user1);
+        success = token.transfer(user2, 50 * 10**18);
+        assertTrue(success, "After restoring maxWalletToken, User1 should be able to transfer");
+    }
+}
+```

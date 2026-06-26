@@ -67,7 +67,13 @@ def fetch_contract_source(
             raise ValueError(f"Explorer API Error: Unexpected response: {data}")
     except Exception as e:
         logger.warning(f"API fetch failed: {e}")
-        raise ValueError(f"Explorer API Error: {e}") from e
+        try:
+            logger.info("Trying Sourcify repository fallback")
+            return fetch_contract_source_sourcify(address=address, chain=chain)
+        except Exception as sourcify_error:
+            raise ValueError(
+                f"Explorer API Error: {e}; Sourcify fallback failed: {sourcify_error}"
+            ) from e
 
     if not from_api:
         raise ValueError("Explorer API Error: Source fetch failed")
@@ -133,6 +139,59 @@ def fetch_contract_source(
     )
 
     return contract_info
+
+
+def fetch_contract_source_sourcify(address: str, chain: str = "bsc") -> dict:
+    """Fetch source code from Sourcify full/partial match repositories."""
+    chain_id = get_explorer_chain_id(chain)
+    checksum_or_raw = address
+    last_error = None
+
+    for match_kind in ("full_match", "partial_match"):
+        base_url = f"https://repo.sourcify.dev/contracts/{match_kind}/{chain_id}/{checksum_or_raw}"
+        try:
+            metadata_response = requests.get(f"{base_url}/metadata.json", timeout=10)
+            if metadata_response.status_code != 200:
+                last_error = f"{match_kind} metadata HTTP {metadata_response.status_code}"
+                continue
+            metadata = metadata_response.json()
+            sources = metadata.get("sources", {})
+            if not sources:
+                last_error = f"{match_kind} metadata has no sources"
+                continue
+
+            source_chunks = []
+            for filename in sources:
+                source_url = f"{base_url}/sources/{filename}"
+                source_response = requests.get(source_url, timeout=10)
+                source_response.raise_for_status()
+                source_chunks.append(f"// ===== {filename} =====\n{source_response.text}")
+
+            abi = metadata.get("output", {}).get("abi", [])
+            compilation_target = metadata.get("settings", {}).get("compilationTarget", {})
+            contract_name = next(iter(compilation_target.values()), "")
+            compiler_version = metadata.get("compiler", {}).get("version", "")
+
+            contract_info = {
+                "source_code": "\n\n".join(source_chunks),
+                "abi": abi,
+                "contract_name": contract_name,
+                "compiler_version": compiler_version,
+                "optimization_used": metadata.get("settings", {}).get("optimizer", {}).get("enabled", False),
+                "constructor_arguments": "",
+                "is_multi_file": len(source_chunks) > 1,
+                "source_provider": f"sourcify:{match_kind}",
+            }
+            logger.info(
+                f"Fetched source for {address} from Sourcify {match_kind}: "
+                f"{contract_name} ({len(contract_info['source_code'])} chars)"
+            )
+            return contract_info
+        except Exception as e:
+            last_error = str(e)
+            continue
+
+    raise ValueError(last_error or "Sourcify source not found")
 
 
 def extract_abi_functions(abi: list) -> list[dict]:

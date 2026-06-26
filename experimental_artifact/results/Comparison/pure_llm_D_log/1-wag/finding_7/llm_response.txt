@@ -1,0 +1,85 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IWagon {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function mint(address to, uint256 amount) external;
+    function addBlackList(address _evilUser) external;
+    function recoverBlackFunds(address _blackListedUser) external;
+    function pause() external;
+    function unpause() external;
+    function emergencyAccount() external view returns (address);
+    function isBlackListed(address) external view returns (bool);
+    function paused() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    IWagon constant WAGON = IWagon(0xd50c8a17d5c4b8e2d984933c7e37e5b92d687b8d);
+
+    address victim = address(0xdead);
+
+    function setUp() public {
+        // Label addresses for clarity
+        vm.label(address(WAGON), "WagonContract");
+        vm.label(victim, "Victim");
+
+        // Get the contract's owner (has all roles)
+        address owner = WAGON.emergencyAccount();
+        vm.label(owner, "Owner");
+
+        // Give some WAG tokens to victim via owner transfer
+        vm.startPrank(owner);
+        uint256 amount = 1000 * 1e18; // 1000 tokens
+        require(WAGON.balanceOf(owner) >= amount, "Owner balance insufficient");
+        WAGON.transfer(victim, amount);
+        vm.stopPrank();
+    }
+
+    function testAbuseOwnerPrivileges() public {
+        // Get owner address
+        address owner = WAGON.emergencyAccount();
+
+        // Record balances before exploit
+        uint256 ownerBalanceBefore = WAGON.balanceOf(owner);
+        uint256 victimBalanceBefore = WAGON.balanceOf(victim);
+        assertGt(victimBalanceBefore, 0, "Victim should have tokens");
+
+        // 1. Owner blacklists victim
+        vm.prank(owner);
+        WAGON.addBlackList(victim);
+        assertTrue(WAGON.isBlackListed(victim), "Victim should be blacklisted");
+
+        // 2. Owner recovers funds from victim (sends to emergency account = owner)
+        vm.prank(owner);
+        WAGON.recoverBlackFunds(victim);
+
+        // Verify victim lost all tokens and owner gained them
+        assertEq(WAGON.balanceOf(victim), 0, "Victim should lose all tokens");
+        assertEq(WAGON.balanceOf(owner), ownerBalanceBefore + victimBalanceBefore, "Owner should gain victim's tokens");
+
+        // 3. Owner mints additional tokens to themselves
+        uint256 mintAmount = 500_000 * 1e18;
+        vm.prank(owner);
+        WAGON.mint(owner, mintAmount);
+        assertEq(WAGON.balanceOf(owner), ownerBalanceBefore + victimBalanceBefore + mintAmount, "Mint should increase owner balance");
+
+        // 4. Owner pauses the contract – transfers should revert
+        vm.prank(owner);
+        WAGON.pause();
+        assertTrue(WAGON.paused(), "Contract should be paused");
+
+        // Attempt a normal transfer from owner to another address – should revert
+        vm.prank(owner);
+        vm.expectRevert("Pausable: paused");
+        WAGON.transfer(address(0x123), 1);
+
+        // Clean up: unpause for other tests if needed
+        vm.prank(owner);
+        WAGON.unpause();
+    }
+}
+```

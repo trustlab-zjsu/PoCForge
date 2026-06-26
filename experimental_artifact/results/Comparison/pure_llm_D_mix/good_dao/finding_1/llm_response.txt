@@ -1,0 +1,76 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IGDG {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function setMaxTxAmount(uint256 maxTxAmount) external;
+    function _maxTxAmount() external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Contract address on BSC from report
+    address constant GDG_CONTRACT = 0x048FFa8aAE293470932388b615A90A8265bFB25F;
+    IGDG gdg;
+
+    address attacker = makeAddr("attacker");
+    address victim = makeAddr("victim");
+    address owner; // will be fetched from contract
+
+    function setUp() public {
+        gdg = IGDG(GDG_CONTRACT);
+        owner = gdg.owner();
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(victim, "Victim");
+
+        // Ensure attacker has some tokens. Owner will transfer some.
+        // The total supply is 10000 * 10^6 * 10^9, owner holds all initially.
+        vm.startPrank(owner);
+        uint256 amountToSend = 1000 * 10**9; // 1000 tokens (decimals 9)
+        require(gdg.balanceOf(owner) >= amountToSend, "Owner balance insufficient");
+        gdg.transfer(attacker, amountToSend);
+        vm.stopPrank();
+
+        // Verify attacker received tokens
+        assertGe(gdg.balanceOf(attacker), amountToSend);
+    }
+
+    function testOwnerCanStopTransactions() public {
+        // Get initial maxTxAmount
+        uint256 initialMaxTx = gdg._maxTxAmount();
+        console.log("Initial maxTxAmount:", initialMaxTx);
+
+        // Owner sets maxTxAmount to a very low value (e.g., 1 wei)
+        vm.prank(owner);
+        gdg.setMaxTxAmount(1); // effectively stops any meaningful transfer
+
+        uint256 newMaxTx = gdg._maxTxAmount();
+        console.log("New maxTxAmount:", newMaxTx);
+        assertEq(newMaxTx, 1);
+
+        // Attacker tries to transfer a normal amount, should revert
+        uint256 transferAmount = 500 * 10**9; // 500 tokens
+        vm.expectRevert(bytes("Transfer amount exceeds the maxTxAmount."));
+        vm.prank(attacker);
+        gdg.transfer(victim, transferAmount);
+
+        // Attacker can only transfer 1 wei (or less) successfully
+        vm.prank(attacker);
+        gdg.transfer(victim, 1);
+        assertEq(gdg.balanceOf(victim), 1);
+        assertEq(gdg.balanceOf(attacker), 1000 * 10**9 - 1);
+
+        // Owner is still able to transfer large amounts (exempt from maxTxAmount check)
+        vm.prank(owner);
+        bool success = gdg.transfer(victim, 1000 * 10**9);
+        assertTrue(success, "Owner transfer should succeed");
+        assertGe(gdg.balanceOf(victim), 1000 * 10**9);
+    }
+}
+```

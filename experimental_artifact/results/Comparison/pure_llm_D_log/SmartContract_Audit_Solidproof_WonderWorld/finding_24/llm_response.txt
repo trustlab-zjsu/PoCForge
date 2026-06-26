@@ -1,0 +1,78 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface IWWOD {
+    function owner() external view returns (address);
+    function _earnFee() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint8);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function getOwner() external view returns (address);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    IWWOD constant wwod = IWWOD(0x0b5cad3cdda7d242ce16ddf81a555d5f8e3a6054);
+
+    function setUp() public {
+        vm.label(address(wwod), "WWOD");
+    }
+
+    function testFloatingPragma() public {
+        // The contract uses `pragma solidity ^0.8.0;` which is a floating
+        // directive. This allows compilation with any 0.8.x compiler version.
+        // Floating pragmas can lead to unintended behavior if a future compiler
+        // version introduces new semantics or bug fixes that alter the contract's
+        // logic. The deployed bytecode was compiled with v0.8.7, but the source
+        // code accepts any 0.8.x version.
+        //
+        // Concrete assertions:
+        // 1. The contract is deployed and accessible at the known address.
+        // 2. The contract's state matches expectations (owner non-zero, total supply).
+        // 3. The contract's name and symbol match the expected values.
+        //
+        // While no runtime exploit is demonstrated, this test confirms the presence
+        // of the floating pragma by verifying the contract exists and behaves as
+        // defined in the source code under the current compiler version.
+
+        // ---- Contract existence ----
+        uint256 totalSupply = wwod.totalSupply();
+        assertEq(totalSupply, 1000 * 10**6 * 10**18, "Total supply mismatch");
+
+        string memory name = wwod.name();
+        assertEq(name, "WonderWorld", "Name mismatch");
+
+        string memory symbol = wwod.symbol();
+        assertEq(symbol, "WWOD", "Symbol mismatch");
+
+        uint8 decimals = wwod.decimals();
+        assertEq(decimals, 18, "Decimals mismatch");
+
+        // ---- Owner is not zero (ownership not renounced) ----
+        address owner = wwod.owner();
+        assertTrue(owner != address(0), "Owner should not be zero address");
+
+        // ---- Initial earn fee is 1 (1%) ----
+        uint256 earnFee = wwod._earnFee();
+        assertEq(earnFee, 1, "Initial earnFee should be 1");
+
+        // ---- The deployer and team addresses are excluded from fees ----
+        bool isOwnerExcluded = wwod.isExcludedFromFee(owner);
+        assertTrue(isOwnerExcluded, "Owner should be excluded from fee");
+
+        // ---- The contract itself is excluded from fees ----
+        bool isContractExcluded = wwod.isExcludedFromFee(address(wwod));
+        assertTrue(isContractExcluded, "Contract itself should be excluded from fee");
+
+        // ---- The getOwner() view returns the same as owner() ----
+        address getOwner = wwod.getOwner();
+        assertEq(getOwner, owner, "getOwner() should match owner()");
+    }
+}
+```

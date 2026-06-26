@@ -1,0 +1,94 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IDoctorShiba {
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function owner() external view returns (address);
+    function newun() external view returns (address);
+    function transfernewun(address _newun) external;
+    function approve(address spender, uint256 amount) external returns (bool);
+    function mint(address _to, uint256 _amount) external returns (bool);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    IDoctorShiba constant target = IDoctorShiba(0x783e086d67670c0d85c4ef34ebbee5a8253b38ee);
+
+    address owner;
+    address user;
+    address exchange;
+    uint256 initialSupply = 1_000_000_000_000 * 1e9; // 1e12 * 1e9 = 1e21, but we'll use smaller amount
+    uint256 transferAmount = 1000 * 1e9; // 1000 tokens
+
+    function setUp() public {
+        // Label addresses for clarity
+        vm.label(address(target), "DoctorShiba");
+        owner = target.owner();
+        vm.label(owner, "Owner");
+        user = vm.addr(1);
+        vm.label(user, "User");
+        exchange = vm.addr(2);
+        vm.label(exchange, "Exchange");
+
+        // Ensure owner has enough tokens and transfer some to user
+        vm.startPrank(owner);
+        // Owner holds all supply initially, transfer some to user
+        require(target.transfer(user, transferAmount * 100), "setup transfer failed");
+        vm.stopPrank();
+
+        // Check user balance
+        assertEq(target.balanceOf(user), transferAmount * 100);
+    }
+
+    function testPreventSellBySettingNewun() public {
+        // Initially newun is address(0)
+        assertEq(target.newun(), address(0));
+
+        // Owner sets newun to exchange address
+        vm.prank(owner);
+        target.transfernewun(exchange);
+        assertEq(target.newun(), exchange);
+
+        // User tries to transfer tokens to exchange – should revert
+        uint256 amountToSell = 10 * 1e9; // 10 tokens
+        vm.prank(user);
+        vm.expectRevert(bytes("please wait"));
+        target.transfer(exchange, amountToSell);
+
+        // User can still transfer to other addresses
+        address other = vm.addr(3);
+        vm.prank(user);
+        target.transfer(other, amountToSell);
+        assertEq(target.balanceOf(other), amountToSell);
+    }
+
+    function testPreventSellViaTransferFrom() public {
+        // Owner sets newun to exchange
+        vm.prank(owner);
+        target.transfernewun(exchange);
+
+        // Approve a spender to transfer from user's tokens
+        address spender = vm.addr(4);
+        vm.prank(user);
+        target.approve(spender, 100 * 1e9);
+
+        // Spender tries to transferFrom user to exchange – should revert
+        vm.prank(spender);
+        vm.expectRevert(bytes("please wait"));
+        target.transferFrom(user, exchange, 1 * 1e9);
+
+        // TransferFrom to another address works
+        address other = vm.addr(5);
+        vm.prank(spender);
+        target.transferFrom(user, other, 1 * 1e9);
+        assertEq(target.balanceOf(other), 1 * 1e9);
+    }
+}
+```

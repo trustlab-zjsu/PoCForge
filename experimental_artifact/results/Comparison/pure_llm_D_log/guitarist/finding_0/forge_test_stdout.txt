@@ -1,0 +1,54 @@
+No files changed, compilation skipped
+2026-06-16T14:55:56.803357Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25330817"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: custom error 0xd1a57ed6] testReentrancyExploit() (gas: 366966)
+2026-06-16T14:56:02.948061Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:56:02.949805Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T14:56:02.951575Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T14:56:02.951640Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:56:02.952711Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:56:02.952753Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:56:02.952790Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:56:02.952825Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+Traces:
+  [3403] ExploitTest::setUp()
+    ├─ [0] VM::label(Guitarist: [0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3], "Guitarist")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [366966] ExploitTest::testReentrancyExploit()
+    ├─ [224065] → new Attacker@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 895 bytes of code
+    ├─ [0] VM::label(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 50000000000000000 [5e16])
+    │   └─ ← [Return]
+    ├─ [0] VM::store(Guitarist: [0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3], 0x0000000000000000000000000000000000000000000000000000000000000010, 0x0000000000000000000000005615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+    │   └─ ← [Return]
+    ├─ [404] Guitarist::treasuryWallet() [staticcall]
+    │   └─ ← [Return] Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]
+    ├─ [2481] Guitarist::totalSupply() [staticcall]
+    │   └─ ← [Return] 1001
+    ├─ [2675] Guitarist::balanceOf(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Return]
+    ├─ [87269] Attacker::attack{value: 50000000000000000}()
+    │   ├─ [79705] Guitarist::mint{value: 50000000000000000}(1)
+    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], tokenId: 1002)
+    │   │   ├─ [155] Attacker::onERC721Received(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 0x0000000000000000000000000000000000000000, 1002, 0x)
+    │   │   │   └─ ← [Revert] unrecognized function selector 0x150b7a02 for contract 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f, which has no fallback function.
+    │   │   └─ ← [Revert] TransferToNonERC721ReceiverImplementer()
+    │   └─ ← [Revert] TransferToNonERC721ReceiverImplementer()
+    └─ ← [Revert] TransferToNonERC721ReceiverImplementer()
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.14s (3.89s CPU time)
+
+Ran 1 test suite in 7.42s (6.14s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: custom error 0xd1a57ed6] testReentrancyExploit() (gas: 366966)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

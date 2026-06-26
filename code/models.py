@@ -56,6 +56,14 @@ class Precondition(BaseModel):
     description: str = Field(description="Human-readable description of the precondition")
     token_address: Optional[str] = None
     min_amount: Optional[str] = None
+    source: Optional[str] = Field(
+        default=None,
+        description="Evidence source: report, code, environment, or execution"
+    )
+    status: Optional[str] = Field(
+        default=None,
+        description="Grounding status: confirmed, environment, unsupported, or inferred"
+    )
 
 
 class EconomicCheck(BaseModel):
@@ -90,6 +98,30 @@ class ViolationTarget(BaseModel):
         default=None,
         description="High-level hint for the agent about the exploit strategy"
     )
+    vulnerable_sink: Optional[str] = Field(
+        default=None,
+        description="VES κ: concrete vulnerable function, call, or statement to reach"
+    )
+    intended_impact: Optional[str] = Field(
+        default=None,
+        description="VES phi: target security impact to demonstrate"
+    )
+    code_preconditions: list[Precondition] = Field(
+        default_factory=list,
+        description="VES Pi_code: code-level guards, roles, state predicates, and call constraints"
+    )
+    environment_preconditions: list[Precondition] = Field(
+        default_factory=list,
+        description="VES Pi_env: fork, market, resource, oracle, or attacker-controlled environment assumptions"
+    )
+    trigger_context: Optional[dict] = Field(
+        default=None,
+        description="VES Lambda: actor, function, ordering, and parameters that activate the sink"
+    )
+    evidence: list[str] = Field(
+        default_factory=list,
+        description="VES E: report and program facts supporting the chosen sink, preconditions, and oracle"
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -112,29 +144,52 @@ class TraceError(BaseModel):
         default=None,
         description="Relevant raw log snippet (trimmed)"
     )
+    failure_stage: Optional[str] = Field(
+        default=None,
+        description="PoCForge repair stage: compile, trace, core, oracle, semantic, or unknown"
+    )
+    reached_sink: Optional[bool] = Field(
+        default=None,
+        description="Whether execution evidence suggests the vulnerable sink was reached"
+    )
+    oracle_outcome: Optional[str] = Field(
+        default=None,
+        description="Structured oracle outcome used for feedback-driven repair"
+    )
 
     def to_feedback(self) -> str:
         """Convert error to actionable feedback prompt for the agent."""
         if self.error_type == ErrorType.COMPILE_ERROR:
             return (
-                f"编译失败：{self.reason}。"
-                f"请检查语法和导入是否正确。位置: {self.location or '未知'}"
+                f"Compilation failed: {self.reason}. "
+                f"Check Solidity syntax and imports. Location: {self.location or 'unknown'}"
             )
         elif self.error_type == ErrorType.ASSERTION_FAILED:
             return (
-                f"执行未回滚，但断言失败：{self.reason}。"
-                f"请检查攻击逻辑是否完整，或计算的参数是否正确。"
+                f"Execution did not revert, but an assertion failed: {self.reason}. "
+                "Check whether the exploit logic is complete and whether computed parameters are correct."
             )
         elif self.error_type == ErrorType.EVM_REVERT:
             reason_lower = self.reason.lower()
             if "transfer amount exceeds balance" in reason_lower:
-                return f"资金不足发生回滚。请在调用前使用 `deal()` 注入代币。原因: {self.reason}"
+                return f"Reverted due to insufficient balance. Use `deal()` to inject tokens before the call. Reason: {self.reason}"
             elif "is not the owner" in reason_lower or "ownable" in reason_lower:
-                return f"遭遇权限锁。请检查是否需要 `vm.prank` 伪造身份。原因: {self.reason}"
+                return f"Reverted due to an ownership or permission check. Check whether `vm.prank` is needed. Reason: {self.reason}"
             else:
-                return f"EVM Revert: {self.reason}。请调整参数或调用路径。"
+                return f"EVM revert: {self.reason}. Adjust the call path, parameters, resources, or environment state."
         else:
-            return f"未知错误: {self.reason}。请检查代码。"
+            return f"Unknown error: {self.reason}. Inspect the PoC code and execution logs."
+
+
+class ExecutionEvidence(BaseModel):
+    """Execution evidence Gamma collected from Forge output."""
+    compiled: bool = False
+    executed: bool = False
+    reached_sink: Optional[bool] = None
+    sink_markers: list[str] = Field(default_factory=list)
+    matched_sink_markers: list[str] = Field(default_factory=list)
+    oracle_passed: Optional[bool] = None
+    call_trace_excerpt: Optional[str] = None
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -156,6 +211,7 @@ class AttemptRecord(BaseModel):
     exit_code: int
     error: Optional[TraceError] = None
     feedback: Optional[str] = None
+    execution_evidence: Optional[ExecutionEvidence] = None
     
     # Telemetry metrics
     duration_seconds: float = 0.0

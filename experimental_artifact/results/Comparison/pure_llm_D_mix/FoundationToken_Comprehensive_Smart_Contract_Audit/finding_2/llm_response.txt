@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+/// @notice Interface for the FoundationToken contract.
+interface IFoundationToken {
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+    function withdrawStuckETH() external;
+    function balanceOf(address account) external view returns (uint256);
+}
+
+/// @notice A contract that cannot receive Ether (no receive/fallback).
+contract Rejecter {
+    // intentionally left empty
+}
+
+contract ExploitTest is Test {
+    // Deployed FoundationToken on BSC
+    IFoundationToken constant token = IFoundationToken(0x9c771503a42f9b6e498d89c43e99F2e58CB8B384);
+    address owner;
+
+    function setUp() public {
+        vm.label(address(token), "FoundationToken");
+
+        // Retrieve the actual owner from the forked chain
+        owner = token.owner();
+        vm.label(owner, "OriginalOwner");
+    }
+
+    /// @notice Demonstrates that the unchecked low-level call in withdrawStuckETH()
+    ///         can leave Ether locked in the contract when the recipient (owner)
+    ///         does not accept Ether.
+    function testUncheckedCallLeadsToStuckEther() public {
+        // Deploy a contract that rejects all Ether transfers
+        Rejecter rejecter = new Rejecter();
+        vm.label(address(rejecter), "Rejecter");
+
+        // Give the FoundationToken some Ether (simulating previously stuck funds)
+        deal(address(token), 1 ether);
+        assertEq(address(token).balance, 1 ether, "Token should start with 1 ETH");
+
+        // Transfer ownership to the rejecting contract
+        vm.startPrank(owner);
+        token.transferOwnership(address(rejecter));
+        vm.stopPrank();
+
+        // Verify ownership transferred
+        assertEq(token.owner(), address(rejecter), "Owner should now be Rejecter");
+
+        // Call withdrawStuckETH() from the new owner (rejecter) – it will attempt to
+        // send Ether to the rejecter address, which does not accept Ether. The
+        // return value of the low-level call is not checked, so the function
+        // completes without reverting, and the Ether remains in the token contract.
+        vm.prank(address(rejecter));
+        token.withdrawStuckETH();
+
+        // After the call, the token contract still holds the same Ether balance.
+        assertEq(address(token).balance, 1 ether, "Ether should remain locked in the token contract");
+    }
+}
+```

@@ -1,0 +1,31 @@
+{
+  "project_id": "2-blb",
+  "finding_id": 3,
+  "vulnerability_category": "Abuse of mint functionality by contract owner",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "[PASS] testOwnerCanMintArbitraryAmount() (gas: 51579)\n    ├─ [261] BLBToken::MINTER_ROLE() [staticcall]\n    │   └─ ← [Return] 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6\n    ├─ [2699] BLBToken::hasRole(0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6, Admin: [0xe189BfcC0D6f5f63401B104c1051699C7AA1ae4a]) [staticcall]\n    │   └─ ← [Return] true\n    ├─ [2394] BLBToken::totalSupply() [staticcall]\n    │   └─ ← [Return] 130000000000000000000000000 [1.3e26]\n    ├─ [2586] BLBToken::balanceOf(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(Admin: [0xe189BfcC0D6f5f63401B104c1051699C7AA1ae4a])\n    │   └─ ← [Return]\n    ├─ [26562] BLBToken::mint(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])\n    │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 1000000000000000000000000 [1e24])\n    │   └─ ← [Stop]\n    ├─ [586] BLBToken::balanceOf(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]\n    │   └─ ← [Return] 1000000000000000000000000 [1e24]\n    ├─ [394] BLBToken::totalSupply() [staticcall]\n    │   └─ ← [Return] 131000000000000000000000000 [1.31e26]\n    └─ ← [Stop]\n[FAIL: Error != expected error: AccessControl: account 0x000000000000000000000000000000000000beef is missing role 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6 != ] testNonMinterCannotMint() (gas: 42109)"
+  },
+  "prompt_tokens": 8441,
+  "completion_tokens": 1697,
+  "total_cost": 0.0,
+  "duration_seconds": 29.40932297706604,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "AccessControl: account 0x000000000000000000000000000000000000beef is missing role 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6",
+    "location": null,
+    "raw_snippet": "    │   └─ ← [Return]\n    └─ ← [Stop]\n    ├─ [0] VM::prank(0x000000000000000000000000000000000000bEEF)\n    │   └─ ← [Return]\n    ├─ [0] VM::expectRevert(custom error 0xf28dceb3: 0000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004408c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000)\n    │   └─ ← [Return]\n    ├─ [32266] BLBToken::mint(0x000000000000000000000000000000000000bEEF, 1000000000000000000 [1e18])\n    │   └─ ← \n👉 [Revert Occurred Here]: AccessControl: account 0x000000000000000000000000000000000000beef is missing role 0x9f2df0fed2c77648de5860a4cc508cd0818c85b8b8a1ab4ceeef8d981c8956a6",
+    "failure_stage": "core",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

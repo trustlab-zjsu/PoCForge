@@ -1,0 +1,84 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.15;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the BEP20LUNAINU contract
+interface IBEP20LUNAINU {
+    function getOwner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function isBlacklisted(address adr) external view returns (bool);
+    function manage_blacklist(address[] calldata addresses, bool status) external;
+    function tradingStatus(bool _status) external;
+    function isTxLimitExempt(address) external view returns (bool);
+    function isFeeExempt(address) external view returns (bool);
+    function isWalletLimitExempt(address) external view returns (bool);
+    function _maxTxAmount() external view returns (uint256);
+    function _maxWalletToken() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xf05a8a840f09ac83b79875b4275cec1e60c2abdf;
+    IBEP20LUNAINU constant target = IBEP20LUNAINU(TARGET);
+
+    address victim = address(0x123);
+    address recipient = address(0x456);
+
+    function setUp() public {
+        // Label addresses for readability
+        vm.label(TARGET, "BEP20LUNAINU");
+        vm.label(victim, "Victim");
+        vm.label(recipient, "Recipient");
+
+        // The test will be executed on a forked BSC chain where the contract is already deployed.
+        // We need to discover the owner by calling getOwner().
+        address owner = target.getOwner();
+        vm.label(owner, "Owner");
+    }
+
+    function test_blacklistFreezesVictim() public {
+        address owner = target.getOwner();
+
+        // 1. Owner opens trading (required for transfers from non-authorised addresses)
+        vm.prank(owner);
+        target.tradingStatus(true);
+
+        // 2. Owner sends tokens to victim (owner is fee- and limit-exempt)
+        uint256 transferAmount = 10_000 * 10**9; // 10,000 tokens (9 decimals)
+        uint256 victimBalanceBefore = target.balanceOf(victim);
+
+        vm.prank(owner);
+        target.transfer(victim, transferAmount);
+
+        uint256 victimBalanceAfter = target.balanceOf(victim);
+        assertEq(victimBalanceAfter - victimBalanceBefore, transferAmount, "Victim did not receive tokens");
+
+        // 3. Victim can normally transfer tokens to recipient
+        vm.prank(victim);
+        bool success = target.transfer(recipient, 100 * 10**9);
+        assertTrue(success, "Initial transfer should succeed");
+        uint256 recipientBalance = target.balanceOf(recipient);
+        assertGt(recipientBalance, 0, "Recipient did not receive tokens");
+
+        // 4. Owner blacklists the victim
+        address[] memory blacklistees = new address[](1);
+        blacklistees[0] = victim;
+        vm.prank(owner);
+        target.manage_blacklist(blacklistees, true);
+
+        // Verify victim is blacklisted
+        assertTrue(target.isBlacklisted(victim), "Victim should be blacklisted");
+
+        // 5. Victim tries to transfer again – must revert with "Blacklisted"
+        vm.expectRevert("Blacklisted");
+        vm.prank(victim);
+        target.transfer(recipient, 1);
+
+        // Balance of victim should remain unchanged since the transfer reverted
+        uint256 victimFinalBalance = target.balanceOf(victim);
+        assertEq(victimFinalBalance, victimBalanceAfter - 100 * 10**9, "Victim balance was modified despite revert");
+    }
+}
+```

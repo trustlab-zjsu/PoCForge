@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+/// @title Minimal interface for LiquidityGeneratorToken
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+interface ILiquidityGeneratorToken is IERC20 {
+    function owner() external view returns (address);
+    function excludeFromFee(address account) external;
+    function setTaxFeePercent(uint256 taxFeeBps) external;
+    function setLiquidityFeePercent(uint256 liquidityFeeBps) external;
+    function setCharityFeePercent(uint256 charityFeeBps) external;
+    function isExcludedFromFee(address account) external view returns (bool);
+    function _charityAddress() external view returns (address);
+    function _charityFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xe2c9c976337357369845c761dd851e2b6942d69f;
+    ILiquidityGeneratorToken public target;
+
+    function setUp() public {
+        target = ILiquidityGeneratorToken(TARGET);
+        vm.label(TARGET, "LiquidityGeneratorToken");
+    }
+
+    /// @notice Verify that `setTaxFeePercent` does not emit any events (missing event emission)
+    function testMissingEvent_SetTaxFeePercent() public {
+        address owner = target.owner();
+        vm.prank(owner);
+        vm.recordLogs();
+        target.setTaxFeePercent(100); // valid fee
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 0, "setTaxFeePercent should not emit any events");
+    }
+
+    /// @notice Verify that `excludeFromFee` does not emit any events (missing event emission)
+    function testMissingEvent_ExcludeFromFee() public {
+        address owner = target.owner();
+        // Choose an address not already excluded
+        address testAddr = address(0x1234);
+        vm.assume(!target.isExcludedFromFee(testAddr));
+        vm.prank(owner);
+        vm.recordLogs();
+        target.excludeFromFee(testAddr);
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 0, "excludeFromFee should not emit any events");
+    }
+}
+```

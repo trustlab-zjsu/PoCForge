@@ -1,0 +1,58 @@
+No files changed, compilation skipped
+2026-06-16T17:46:02.352573Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104608596"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[FAIL: Transfer amount exceeds the maxTxAmount.] test_setMaxTxToZero_preventsTransfers() (gas: 57801)
+2026-06-16T17:46:12.985061Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:46:12.986654Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:46:12.987808Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [3403] ExploitTest::setUp()
+    ├─ [0] VM::label(Elo: [0x35207068e057a01861A654463c01B04cc111E760], "Elo")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [57801] ExploitTest::test_setMaxTxToZero_preventsTransfers()
+    ├─ [0] VM::store(Elo: [0x35207068e057a01861A654463c01B04cc111E760], 0x0000000000000000000000000000000000000000000000000000000000000000, 0x0000000000000000000000007fa9385be102ac3eac297483dd6233d62b3e1496)
+    │   └─ ← [Return]
+    ├─ [470] Elo::owner() [staticcall]
+    │   └─ ← [Return] ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]
+    ├─ [5501] Elo::setMaxTxPercent(0)
+    │   └─ ← [Stop]
+    ├─ [387] Elo::_maxTxAmount() [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::label(Victim: [0x0000000000000000000000000000000000000123], "Victim")
+    │   └─ ← [Return]
+    ├─ [44873] Elo::transfer(Victim: [0x0000000000000000000000000000000000000123], 1000000000000 [1e12])
+    │   └─ ← [Revert] Transfer amount exceeds the maxTxAmount.
+    └─ ← [Revert] Transfer amount exceeds the maxTxAmount.
+
+[FAIL: SafeMath: subtraction overflow] test_setMaxTxToZero_sanityCheck_beforeSetting() (gas: 90733)
+2026-06-16T17:46:12.988381Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:46:12.988600Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T17:46:12.988689Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [3403] ExploitTest::setUp()
+    ├─ [0] VM::label(Elo: [0x35207068e057a01861A654463c01B04cc111E760], "Elo")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [90733] ExploitTest::test_setMaxTxToZero_sanityCheck_beforeSetting()
+    ├─ [0] VM::label(Victim2: [0x0000000000000000000000000000000000000789], "Victim2")
+    │   └─ ← [Return]
+    ├─ [0] VM::store(Elo: [0x35207068e057a01861A654463c01B04cc111E760], 0x0000000000000000000000000000000000000000000000000000000000000000, 0x0000000000000000000000007fa9385be102ac3eac297483dd6233d62b3e1496)
+    │   └─ ← [Return]
+    ├─ [85924] Elo::transfer(Victim2: [0x0000000000000000000000000000000000000789], 1000000000000 [1e12])
+    │   └─ ← [Revert] SafeMath: subtraction overflow
+    └─ ← [Revert] SafeMath: subtraction overflow
+
+Suite result: FAILED. 0 passed; 2 failed; 0 skipped; finished in 10.63s (14.29s CPU time)
+
+Ran 1 test suite in 12.59s (10.63s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 2 failing tests in test/Exploit.t.sol:ExploitTest
+[FAIL: Transfer amount exceeds the maxTxAmount.] test_setMaxTxToZero_preventsTransfers() (gas: 57801)
+[FAIL: SafeMath: subtraction overflow] test_setMaxTxToZero_sanityCheck_beforeSetting() (gas: 90733)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

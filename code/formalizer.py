@@ -11,7 +11,10 @@ from typing import Optional
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
-from web3 import Web3
+try:
+    from web3 import Web3
+except Exception:
+    Web3 = None
 
 from core.utils import strip_solidity_comments
 from core.config import (
@@ -30,50 +33,99 @@ from core.models import (
     LogicCheck,
     Precondition,
 )
+from core.tools.slither_analyzer import extract_program_facts
 
 logger = logging.getLogger(__name__)
 
-FORMALIZATION_SYSTEM_PROMPT = """You are a smart contract security expert. Your task is to analyze a vulnerability description and contract source code, then produce a structured exploit specification.
+FORMALIZATION_SYSTEM_PROMPT = """[Role]
+You are an elite smart contract security auditor specializing in vulnerability formalization.
 
-You MUST output a valid JSON object with the following schema:
+[Task]
+Transform the provided natural-language bug report, deterministic program facts, and contract context into a strict PoCForge Vulnerability Exploit Specification (VES). The VES must bridge human report semantics and machine-executable exploit targets.
+
+[VES Definition]
+Construct V=(κ, φ, Π_code, Π_env, Λ, Ω, E):
+- κ: the concrete vulnerable sink to reach, such as a function, call site, transfer, storage write, authorization check, or arithmetic operation.
+- φ: the intended security impact to demonstrate.
+- Π_code: code-level preconditions from guards, roles, path predicates, caller constraints, state predicates, and ordering requirements.
+- Π_env: environment preconditions such as attacker resources, fork state, market state, external protocol state, or token/liquidity availability.
+- Λ: trigger context, including actor, entry function, call ordering, and parameter constraints.
+- Ω: oracle verification track, either asset/economic or logic/state.
+- E: concise evidence from the report or code that supports the sink, preconditions, trigger, and oracle.
+
+[Schema Requirements]
+Output one JSON object with exactly the current implementation schema:
 
 {
-  "target_address": "<contract address>",
-  "vulnerability_type": "<short name, e.g., 'Owner Privilege Abuse', 'Price Oracle Manipulation'>",
-  "violation_category": "ECONOMIC" or "LOGIC",
-  "finding_id": <integer ID of the original finding>,
+  "target_address": "0x0000000000000000000000000000000000000000",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "vulnerable_sink": "concrete vulnerable function/call/statement to reach",
+  "intended_impact": "concrete security impact to demonstrate",
   "preconditions": [
     {
-      "type": "<e.g., 'token_balance', 'role', 'state'>",
-      "description": "<human-readable description>",
-      "token_address": "<optional token address>",
-      "min_amount": "<optional minimum amount in wei>"
+      "type": "token_balance",
+      "description": "human-readable requirement",
+      "token_address": null,
+      "min_amount": null,
+      "source": "report",
+      "status": "inferred"
     }
   ],
+  "code_preconditions": [
+    {
+      "type": "path_guard",
+      "description": "code-level precondition grounded in program facts",
+      "token_address": null,
+      "min_amount": null,
+      "source": "code",
+      "status": "confirmed"
+    }
+  ],
+  "environment_preconditions": [
+    {
+      "type": "attacker_resource",
+      "description": "environment assumption needed to exploit",
+      "token_address": null,
+      "min_amount": null,
+      "source": "environment",
+      "status": "environment"
+    }
+  ],
+  "trigger_context": {
+    "actor": "caller role/address if known",
+    "function": "entry function that activates the sink",
+    "ordering": ["ordered high-level step"],
+    "parameters": ["important argument constraint"]
+  },
   "oracle_verification": {
-    "economic_check": {  // ONLY if violation_category is "ECONOMIC"
-      "target_token": "<token address or 'NATIVE'>",
-      "victim_contract": "<victim contract address>",
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x0000000000000000000000000000000000000000",
       "condition": "attacker_balance_increased"
     },
-    "logic_check": {  // ONLY if violation_category is "LOGIC"
-      "target_variable": "<Solidity expression to check>",
-      "operator": "==" or ">" or "<" or "!=",
-      "expected_value": "<expected value after exploit>"
-    }
+    "logic_check": null
   },
-  "exploit_hint": "<high-level strategy hint for the exploit agent>"
+  "exploit_hint": "high-level strategy hint, including which functions to call and in what order",
+  "evidence": [
+    "short report or code fact supporting the sink/precondition/oracle"
+  ]
 }
 
-Classification Rules:
-- ECONOMIC: The vulnerability can lead to direct financial gain (token theft, price manipulation, flash loan attacks, unauthorized fund transfers). The oracle checks if the attacker's balance increased.
-- LOGIC: The vulnerability affects contract state/logic without direct financial gain (access control bypass, state corruption, unauthorized privilege escalation). The oracle checks if a state variable was manipulated.
+[Validation Track]
+- ECONOMIC is the Asset Track: use it only when the exploit can demonstrate direct financial impact, including token theft, native-token gain, unauthorized transfer, price manipulation, or balance extraction. Set economic_check to a non-null object and logic_check to null.
+- LOGIC is the Logic Track: use it when the exploit demonstrates unauthorized state change, privilege escalation, invariant breakage, or other non-profit logic impact. Set logic_check to a non-null object and economic_check to null.
 
-IMPORTANT:
-- Set ONLY economic_check OR logic_check based on the category, set the other to null.
-- For ECONOMIC exploits where native currency (BNB/ETH) is involved, set target_token to "NATIVE".
-- The exploit_hint should describe the high-level attack strategy, including which functions to call and in what order.
-- Be specific about preconditions like required roles (owner, admin) or token balances.
+[Grounding Rules]
+- Treat report claims as hypotheses. Keep them only when confirmed by program facts or explicitly represented as environment assumptions.
+- Separate root cause, vulnerable sink, intended impact, and oracle. Do not collapse them into one vague description.
+- Prefer concrete function names, guards, storage variables, token addresses, and actor roles over generic phrases.
+- Use "NATIVE" for ETH/BNB when the asset is the native chain token.
+- Mark unsupported report-only assumptions as "inferred" or "environment"; do not mark them "confirmed".
+
+[Format Constraint]
+Output strictly raw JSON. Do not wrap the result in Markdown code blocks. Do not include conversational filler.
 """
 
 
@@ -123,6 +175,7 @@ def formalize(
         raise ValueError("No suitable finding to formalize")
 
     logger.info(f"Formalizing finding #{finding.id}: {finding.title}")
+    program_facts = extract_program_facts(source_code)
 
     # Build the user prompt
     user_prompt = f"""## Contract Information
@@ -138,12 +191,17 @@ def formalize(
 - **Location**: {finding.location or 'Not specified'}
 - **CWE Categories**: {json.dumps(finding.category)}
 
+## Deterministic Program Facts
+```json
+{json.dumps(program_facts, indent=2, ensure_ascii=False)}
+```
+
 ## Contract Source Code (Distilled Context)
 ```solidity
 {strip_solidity_comments(source_code)}
 ```
 
-Please analyze this vulnerability and produce the structured exploit specification JSON.
+Please ground report cues against the deterministic program facts and produce the structured PoCForge VES JSON.
 """
 
     messages = [
@@ -178,11 +236,19 @@ Please analyze this vulnerability and produce the structured exploit specificati
 
 def _apply_checksums(vt: ViolationTarget) -> ViolationTarget:
     """Ensure all address fields are properly checksummed for Solidity."""
+    if Web3 is None:
+        return vt
     try:
         if vt.target_address and Web3.is_address(vt.target_address):
             vt.target_address = Web3.to_checksum_address(vt.target_address)
             
         for pre in vt.preconditions:
+            if pre.token_address and Web3.is_address(pre.token_address):
+                pre.token_address = Web3.to_checksum_address(pre.token_address)
+        for pre in vt.code_preconditions:
+            if pre.token_address and Web3.is_address(pre.token_address):
+                pre.token_address = Web3.to_checksum_address(pre.token_address)
+        for pre in vt.environment_preconditions:
             if pre.token_address and Web3.is_address(pre.token_address):
                 pre.token_address = Web3.to_checksum_address(pre.token_address)
                 

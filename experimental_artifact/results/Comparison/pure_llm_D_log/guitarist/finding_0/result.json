@@ -1,0 +1,31 @@
+{
+  "project_id": "guitarist",
+  "finding_id": 0,
+  "vulnerability_category": "PRE - Potential Reentrance Exploit",
+  "status": "FAILED",
+  "compiled": true,
+  "executed": false,
+  "oracle_passed": false,
+  "execution_evidence": {
+    "compiled": true,
+    "executed": true,
+    "reached_sink": null,
+    "sink_markers": [],
+    "matched_sink_markers": [],
+    "oracle_passed": false,
+    "call_trace_excerpt": "    │   └─ ← [Return]\n    ├─ [0] VM::store(Guitarist: [0xA249d8F280BA32Ab3E95bDdf4F3DBDE059d62AC3], 0x0000000000000000000000000000000000000000000000000000000000000010, 0x0000000000000000000000005615deb798bb3e4dfa0139dfa1b3d433cc23b72f)\n    │   └─ ← [Return]\n    ├─ [404] Guitarist::treasuryWallet() [staticcall]\n    │   └─ ← [Return] Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]\n    ├─ [2481] Guitarist::totalSupply() [staticcall]\n    │   └─ ← [Return] 1001\n    ├─ [2675] Guitarist::balanceOf(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])\n    │   └─ ← [Return]\n    ├─ [87269] Attacker::attack{value: 50000000000000000}()\n    │   ├─ [79705] Guitarist::mint{value: 50000000000000000}(1)\n    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], tokenId: 1002)\n    │   │   ├─ [155] Attacker::onERC721Received(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 0x0000000000000000000000000000000000000000, 1002, 0x)\n    │   │   │   └─ ← [Revert] unrecognized function selector 0x150b7a02 for contract 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f, which has no fallback function.\n    │   │   └─ ← [Revert] TransferToNonERC721ReceiverImplementer()\n    │   └─ ← [Revert] TransferToNonERC721ReceiverImplementer()\n    └─ ← [Revert] TransferToNonERC721ReceiverImplementer()\n[FAIL: custom error 0xd1a57ed6] testReentrancyExploit() (gas: 366966)"
+  },
+  "prompt_tokens": 8091,
+  "completion_tokens": 7111,
+  "total_cost": 0.0,
+  "duration_seconds": 100.70024609565735,
+  "error": {
+    "error_type": "EVM_REVERT",
+    "reason": "unrecognized function selector 0x150b7a02 for contract 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f, which has no fallback function.",
+    "location": null,
+    "raw_snippet": "    │   └─ ← [Return] 0\n    ├─ [0] VM::prank(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])\n    │   └─ ← [Return]\n    ├─ [87269] Attacker::attack{value: 50000000000000000}()\n    │   ├─ [79705] Guitarist::mint{value: 50000000000000000}(1)\n    │   │   ├─ emit Transfer(from: 0x0000000000000000000000000000000000000000, to: Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], tokenId: 1002)\n    │   │   ├─ [155] Attacker::onERC721Received(Attacker: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 0x0000000000000000000000000000000000000000, 1002, 0x)\n    │   │   │   └─ ← \n👉 [Revert Occurred Here]: unrecognized function selector 0x150b7a02 for contract 0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f, which has no fallback function.",
+    "failure_stage": "trace",
+    "reached_sink": false,
+    "oracle_outcome": null
+  }
+}

@@ -1,0 +1,56 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IPowabitToken {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function mint(uint256 amount) external returns (bool);
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+    function renounceOwnership() external;
+}
+
+contract ExploitTest is Test {
+    IPowabitToken constant token = IPowabitToken(0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE);
+
+    function setUp() public {
+        vm.label(address(token), "PowabitToken");
+    }
+
+    function testCentralizationRisk_OwnerCanMintUnlimited() public {
+        // Get the current owner of the token contract
+        address owner = token.owner();
+
+        // Verify that we are not already the owner (so we can simulate a malicious owner)
+        // We will prank the owner to mint tokens to itself.
+        vm.startPrank(owner);
+
+        uint256 initialSupply = token.totalSupply();
+        uint256 initialOwnerBalance = token.balanceOf(owner);
+
+        // Mint a large amount (e.g., 1000 tokens)
+        uint256 mintAmount = 1000 * 1e18; // 18 decimals
+        token.mint(mintAmount);
+
+        vm.stopPrank();
+
+        uint256 finalSupply = token.totalSupply();
+        uint256 finalOwnerBalance = token.balanceOf(owner);
+
+        // Assert that total supply increased by exactly mintAmount
+        assertEq(finalSupply - initialSupply, mintAmount, "Total supply should increase by minted amount");
+
+        // Assert that the owner's balance increased by exactly mintAmount
+        assertEq(finalOwnerBalance - initialOwnerBalance, mintAmount, "Owner balance should increase by minted amount");
+
+        // Also demonstrate that a non-owner cannot mint (optional, but emphasizes centralization)
+        address nonOwner = address(0x1234);
+        vm.prank(nonOwner);
+        vm.expectRevert("Ownable: caller is not the owner");
+        token.mint(1);
+    }
+}
+```

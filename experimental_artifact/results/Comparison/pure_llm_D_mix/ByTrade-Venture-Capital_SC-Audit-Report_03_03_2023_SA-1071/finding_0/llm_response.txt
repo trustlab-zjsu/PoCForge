@@ -1,0 +1,58 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.10;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for the Bytrade_Staking contract
+interface IBytradeStaking {
+    function Token() external view returns (address);
+    function amountStaked() external view returns (uint256);
+    function stakedAmountInterest() external view returns (uint256);
+    function month() external view returns (uint256);
+    function stake(uint256 _tenure, uint256 _amount) external;
+    function unstake(uint256 _index) external;
+    function getUserDeposits(address userAddress, uint256 start, uint256 limit) external view returns (userDeposit[] memory, uint256 total);
+    function userDeposits(address, uint256) external view returns (uint256 amount, uint256 interestAmount, uint256 endTime, uint256 depositTime);
+}
+
+struct userDeposit {
+    uint256 amount;
+    uint256 interestAmount;
+    uint256 endTime;
+    uint256 depositTime;
+}
+
+contract ExploitTest is Test {
+    // Target contract address on BSC (from report)
+    address constant STAKING_ADDRESS = 0x87a39f76d45378bf995aa89048ae015ffeff477f;
+    IBytradeStaking public staking;
+
+    function setUp() public {
+        staking = IBytradeStaking(STAKING_ADDRESS);
+    }
+
+    function testNativeCoinLock() public {
+        // Simulate a user accidentally sending native BNB to the staking contract
+        // (e.g., via selfdestruct or a failed transfer)
+        uint256 amountSent = 10 ether;
+        vm.deal(address(staking), amountSent);
+
+        // Verify the contract now holds native coins
+        assertEq(address(staking).balance, amountSent, "Contract should have received native BNB");
+
+        // Attempt to use the only withdrawal-like function (unstake) – it only processes ERC20 tokens
+        // Try to call unstake with a non‑existent index (reverts, no effect on native balance)
+        vm.prank(address(0xdead));
+        vm.expectRevert();
+        staking.unstake(0);
+
+        // There is no receive() or fallback() function, so no native coin can be withdrawn
+        // The contract's native balance remains unchanged
+        assertEq(address(staking).balance, amountSent, "Native BNB is locked and cannot be withdrawn");
+
+        // Additional proof: even legitimate users cannot retrieve the native coins
+        // (no payable withdrawal function exists)
+    }
+}
+```

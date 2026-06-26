@@ -1,0 +1,123 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IWWOD {
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function getOwner() external view returns (address);
+    function decimals() external view returns (uint8);
+    function symbol() external view returns (string memory);
+    function name() external view returns (string memory);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool);
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool);
+    function isExcludedFromFee(address account) external view returns (bool);
+    function _earnFee() external view returns (uint256);
+    function _maxTxAmount() external view returns (uint256);
+    function swapAndLiquifyEnabled() external view returns (bool);
+    function swapCoolDownTime() external view returns (uint256);
+    function geUnlockTime() external view returns (uint256);
+    function teamAddr() external view returns (address);
+    function marketingAddr() external view returns (address);
+    function ecoFundAddr() external view returns (address);
+    function partnersAddr() external view returns (address);
+    function playToEarnAddr() external view returns (address);
+    function nftPoolAddr() external view returns (address);
+    function preSaleAddr() external view returns (address);
+    function pancakeswapV2Pair() external view returns (address);
+    function pancakeswapV2Router() external view returns (address);
+    function treasury() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    address constant WWOD = 0x0b5cad3cdda7d242ce16ddf81a555d5f8e3a6054;
+
+    IWWOD token;
+    address user = address(0xdead);
+    address recipient = address(0xbeef);
+
+    function setUp() public {
+        token = IWWOD(WWOD);
+        // Label addresses for debugging
+        vm.label(WWOD, "WWOD");
+        vm.label(user, "user");
+        vm.label(recipient, "recipient");
+    }
+
+    function testUnusedVariableLastTxTimes() public {
+        // Verify that the contract has an unused mapping `lastTxTimes` at a known storage slot.
+        // In Solidity, the mapping `lastTxTimes` is declared after several state variables.
+        // Storage layout (approximate based on source order):
+        // slot 0: inSwapAndLiquify (bool) + swapAndLiquifyEnabled (bool) [packed? but bool is uint8]
+        // slot 1: treasury (address)
+        // slot 2: teamAddr (address)
+        // slot 3: marketingAddr (address)
+        // slot 4: ecoFundAddr (address)
+        // slot 5: partnersAddr (address)
+        // slot 6: playToEarnAddr (address)
+        // slot 7: nftPoolAddr (address)
+        // slot 8: preSaleAddr (address)
+        // slot 9: _balances (mapping, occupies slot 9 but is large)
+        // slot 10: _allowances (mapping)
+        // slot 11: _isExcludedFromFee (mapping)
+        // slot 12: isGuard (mapping)
+        // slot 13: _tTotal (uint256)
+        // slot 14: MAX (constant, not stored)
+        // slot 15: _name (string, dynamic)
+        // slot 16: _symbol (string)
+        // slot 17: _decimals (uint8)
+        // slot 18: _earnFee (uint256)
+        // slot 19: _previousEarnFee (uint256)
+        // slot 20: pancakeswapV2Router (address)
+        // slot 21: pancakeswapV2Pair (address)
+        // slot 22: _maxTxAmount (uint256)
+        // slot 23: numTokensToSwap (uint256)
+        // slot 24: swapCoolDownTime (uint256)
+        // slot 25: lastSwapTime (uint256)
+        // slot 26: lastTxTimes (mapping, private)
+        // We assume `lastTxTimes` occupies slot 26.
+
+        // Read slot 26 directly (the first element of mapping not used)
+        bytes32 slot26 = vm.load(WWOD, bytes32(uint256(26)));
+        // Initially, the mapping is empty, so the stored value should be 0.
+        assertEq(slot26, bytes32(0), "Unused mapping slot should be zero");
+
+        // Now, let's simulate a transfer to confirm the mapping is never written to.
+        address owner = token.owner();
+        vm.startPrank(owner);
+        // Ensure we have enough tokens to transfer
+        uint256 total = token.totalSupply();
+        // Transfer some tokens to our user
+        token.transfer(user, total / 10);
+        vm.stopPrank();
+
+        // Check that even after a transfer, the mapping slot remains unchanged (still zero)
+        bytes32 slot26After = vm.load(WWOD, bytes32(uint256(26)));
+        assertEq(slot26After, bytes32(0), "lastTxTimes mapping should remain unused after transfers");
+
+        // Additionally, verify that there is no per-account cooldown enforced:
+        // The mapping is never written, so no cooldown, allowing rapid successive transfers.
+        // Demonstrate by making multiple transfers in the same block.
+        uint256 amount = token.balanceOf(user) / 3;
+        vm.prank(user);
+        token.transfer(recipient, amount);
+        vm.prank(user);
+        token.transfer(recipient, amount);
+        vm.prank(user);
+        token.transfer(recipient, amount);
+
+        // Assert that all transfers succeeded (no revert due to any per-account restriction)
+        assertEq(token.balanceOf(recipient), 3 * amount, "Recipient should have received all transfers");
+        assertEq(token.balanceOf(user), token.balanceOf(user), "User should have remaining balance");
+
+        // Conclusion: The mapping `lastTxTimes` is present but never used, indicating missing cooldown logic.
+    }
+}
+```

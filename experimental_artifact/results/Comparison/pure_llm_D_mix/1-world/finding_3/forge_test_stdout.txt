@@ -1,0 +1,84 @@
+No files changed, compilation skipped
+2026-06-16T09:55:08.536791Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104545830"
+
+Ran 2 tests for test/Exploit.t.sol:ExploitTest
+[PASS] testFeeFreeTransferThroughInfiniteAllowance() (gas: 108415)
+2026-06-16T09:55:12.312742Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.313952Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.314043Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.314119Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.314187Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.314248Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.314314Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.316618Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.316860Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.317248Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.317496Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.317711Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [108415] ExploitTest::testFeeFreeTransferThroughInfiniteAllowance()
+    ├─ [0] VM::startPrank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [23974] WBNB::deposit{value: 10000000000000000000}()
+    │   ├─ emit Deposit(dst: Alice: [0x0000000000000000000000000000000000001111], wad: 10000000000000000000 [1e19])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [534] WBNB::balanceOf(Alice: [0x0000000000000000000000000000000000001111]) [staticcall]
+    │   └─ ← [Return] 10000000000000000000 [1e19]
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [24420] WBNB::approve(Attacker: [0x0000000000000000000000000000000000003333], 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   ├─ emit Approval(src: Alice: [0x0000000000000000000000000000000000001111], guy: Attacker: [0x0000000000000000000000000000000000003333], wad: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   └─ ← [Return] true
+    ├─ [717] WBNB::allowance(Alice: [0x0000000000000000000000000000000000001111], Attacker: [0x0000000000000000000000000000000000003333]) [staticcall]
+    │   └─ ← [Return] 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77]
+    ├─ [0] VM::startPrank(Attacker: [0x0000000000000000000000000000000000003333])
+    │   └─ ← [Return]
+    ├─ [25325] WBNB::transferFrom(Alice: [0x0000000000000000000000000000000000001111], Bob: [0x0000000000000000000000000000000000002222], 5000000000000000000 [5e18])
+    │   ├─ emit Transfer(src: Alice: [0x0000000000000000000000000000000000001111], dst: Bob: [0x0000000000000000000000000000000000002222], wad: 5000000000000000000 [5e18])
+    │   └─ ← [Return] true
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [534] WBNB::balanceOf(Alice: [0x0000000000000000000000000000000000001111]) [staticcall]
+    │   └─ ← [Return] 5000000000000000000 [5e18]
+    ├─ [534] WBNB::balanceOf(Bob: [0x0000000000000000000000000000000000002222]) [staticcall]
+    │   └─ ← [Return] 5000000000000000000 [5e18]
+    ├─ [717] WBNB::allowance(Alice: [0x0000000000000000000000000000000000001111], Attacker: [0x0000000000000000000000000000000000003333]) [staticcall]
+    │   └─ ← [Return] 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77]
+    └─ ← [Stop]
+
+[PASS] testTransferCallsTransferFrom() (gas: 73685)
+2026-06-16T09:55:12.319603Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.319733Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.319860Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.319951Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320031Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320105Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320178Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320345Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320398Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:55:12.320446Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [73685] ExploitTest::testTransferCallsTransferFrom()
+    ├─ [0] VM::startPrank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [23974] WBNB::deposit{value: 10000000000000000000}()
+    │   ├─ emit Deposit(dst: Alice: [0x0000000000000000000000000000000000001111], wad: 10000000000000000000 [1e19])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [25162] WBNB::transfer(Bob: [0x0000000000000000000000000000000000002222], 3000000000000000000 [3e18])
+    │   ├─ emit Transfer(src: Alice: [0x0000000000000000000000000000000000001111], dst: Bob: [0x0000000000000000000000000000000000002222], wad: 3000000000000000000 [3e18])
+    │   └─ ← [Return] true
+    ├─ [534] WBNB::balanceOf(Alice: [0x0000000000000000000000000000000000001111]) [staticcall]
+    │   └─ ← [Return] 7000000000000000000 [7e18]
+    ├─ [534] WBNB::balanceOf(Bob: [0x0000000000000000000000000000000000002222]) [staticcall]
+    │   └─ ← [Return] 3000000000000000000 [3e18]
+    └─ ← [Stop]
+
+Suite result: ok. 2 passed; 0 failed; 0 skipped; finished in 3.77s (1.48s CPU time)
+
+Ran 1 test suite in 5.16s (3.77s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)

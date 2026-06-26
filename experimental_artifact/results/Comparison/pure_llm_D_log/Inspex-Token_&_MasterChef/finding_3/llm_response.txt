@@ -1,0 +1,119 @@
+```solidity
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal interface to interact with the vulnerable contract
+interface ISamoyedMasterChef {
+    function owner() external view returns (address);
+    function smoy() external view returns (address);
+    function smoyPerBlock() external view returns (uint256);
+    function totalAllocPoint() external view returns (uint256);
+    function poolInfo(uint256 pid) external view returns (
+        address lpToken,
+        uint256 allocPoint,
+        uint256 lastRewardBlock,
+        uint256 accSmoyPerShare,
+        uint256 minDepositFeeRate,
+        uint256 maxDepositFeeRate,
+        bool enabled
+    );
+    function userInfo(uint256 pid, address user) external view returns (uint256 amount, uint256 rewardDebt);
+    function pendingSmoy(uint256 pid, address user) external view returns (uint256);
+    function enterStaking(uint256 amount) external;
+    function deposit(uint256 pid, uint256 amount) external;
+    function updateSmoyPerBlock(uint256 _smoyPerBlock) external;
+    function massUpdatePools() external;
+}
+
+interface ISMOY {
+    function balanceOf(address) external view returns (uint256);
+    function approve(address, uint256) external returns (bool);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract address (from report)
+    address constant MASTER_CHEF = 0x5D21D02378670119453530478288AEe67b807e2a;
+
+    ISamoyedMasterChef chef = ISamoyedMasterChef(MASTER_CHEF);
+    address user = address(0x1234);
+    address owner;
+    address smoyToken;
+
+    function setUp() public {
+        // Get on‑chain owner and SMOY token address
+        owner = chef.owner();
+        smoyToken = chef.smoy();
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+        vm.label(smoyToken, "SMOY");
+    }
+
+    function testUnfairRewardDueToMissingMassUpdate() public {
+        // ---- 1. User deposits SMOY into pool 0 (staking pool) ----
+        uint256 depositAmount = 1000 * 1e18;
+        deal(smoyToken, user, depositAmount);
+        vm.startPrank(user);
+        ISMOY(smoyToken).approve(MASTER_CHEF, depositAmount);
+        chef.enterStaking(depositAmount);
+        vm.stopPrank();
+
+        // Record the pool state before the owner acts
+        (address lpToken, uint256 allocPoint, uint256 lastRewardBlockBefore, , , , ) = chef.poolInfo(0);
+        uint256 oldSmoyPerBlock = chef.smoyPerBlock();
+        uint256 totalAlloc = chef.totalAllocPoint();
+        (uint256 userAmount, uint256 rewardDebtBefore) = chef.userInfo(0, user);
+
+        // ---- 2. Owner changes smoyPerBlock to a higher value ----
+        uint256 newSmoyPerBlock = oldSmoyPerBlock * 2;
+        vm.prank(owner);
+        chef.updateSmoyPerBlock(newSmoyPerBlock);
+
+        // ---- 3. Check if pool was updated ----
+        (, , uint256 lastRewardBlockAfter, , , , ) = chef.poolInfo(0);
+        bool bugPresent = (lastRewardBlockAfter == lastRewardBlockBefore);
+        assertTrue(bugPresent, "massUpdatePools was (unexpectedly) called – bug not present");
+
+        // ---- 4. Advance enough blocks to show the unfair calculation ----
+        vm.roll(block.number + 500);   // simulate 500 new blocks
+        uint256 blocksSinceLastUpdate = block.number - lastRewardBlockAfter;
+
+        // ---- 5. Compute user's pending reward using the buggy formula ----
+        uint256 pending = chef.pendingSmoy(0, user);
+
+        // ---- 6. Expected reward if the old smoyPerBlock had been used for the entire period ----
+        // Because massUpdatePools was NOT called, the reward for ALL blocks since last update
+        // is calculated using the new smoyPerBlock (double the old one).
+        // We can compute what the pending reward SHOULD be if the correct behavior was used:
+        // (old rate for the first part up to the change block, new rate afterwards)
+        // But since there was no update at the change block, the entire period uses the new rate.
+        // The unfair gain is: (newRate - oldRate) * blocksSinceLastUpdate * allocPoint / totalAlloc * userAmount / (total staked)
+        // Because user is the only staker, total staked = userAmount.
+        uint256 extraPerBlock = (newSmoyPerBlock - oldSmoyPerBlock) * allocPoint / totalAlloc;
+        uint256 extraReward = extraPerBlock * blocksSinceLastUpdate;
+        // (accSmoyPerShare increase = extraReward * 1e12 / userAmount)
+        // pending = userAmount * accSmoyPerShare / 1e12 - rewardDebtBefore
+        uint256 expectedPending = userAmount * extraReward / userAmount; // = extraReward (since 1e12 cancels)
+        // plus what was already earned before the change: that part is captured in rewardDebtBefore.
+        // So the pending reward should be at least extraReward, because the previous rewards were set.
+        // In reality, it might be higher because the previous accSmoyPerShare was already set at deposit time.
+        // But the key is that the reward for the 500 blocks is computed with the *new* rate instead of
+        // a mix of old and new. So we can assert that pending is significantly higher than if
+        // the old rate had been used for all 500 blocks.
+        uint256 unfairPending = pending;
+        uint256 fairPendingIfOldRate = (oldSmoyPerBlock * allocPoint / totalAlloc) * blocksSinceLastUpdate;
+        // Compare: unfairPending should be roughly double fairPendingIfOldRate (since double rate).
+        assertGt(unfairPending, fairPendingIfOldRate * 150 / 100, "Unfair reward not demonstrated clearly");
+        // The 150% threshold ensures the new rate effect is visible.
+
+        // ---- 7. Optional: show that the owner can immediately stop rewards by setting rate to 0 ----
+        // This is another dimension of the same bug.
+        vm.prank(owner);
+        chef.updateSmoyPerBlock(0);
+        vm.roll(block.number + 100);
+        // pool's lastRewardBlock still old, so future pending stays unchanged (no new rewards)
+        uint256 pendingAfterZero = chef.pendingSmoy(0, user);
+        assertEq(pendingAfterZero, pending, "Pending reward should not increase after smoyPerBlock set to 0");
+    }
+}
+```

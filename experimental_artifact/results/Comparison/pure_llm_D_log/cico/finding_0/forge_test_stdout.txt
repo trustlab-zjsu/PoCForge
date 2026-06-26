@@ -1,0 +1,46 @@
+No files changed, compilation skipped
+2026-06-16T14:47:58.559313Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104584863"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Initializable: contract is already initialized] testInitializerFrontrun() (gas: 22186)
+Logs:
+  Current router before exploit: 0x10ED43C718714eb63d5aA57B78B54704E256024E
+
+2026-06-16T14:48:03.083825Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:48:03.084484Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T14:48:03.084613Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:48:03.084648Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:48:03.085838Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T14:48:03.086373Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x000000000000000000636f6e736f6c652e6c6f67)
+Traces:
+  [537869] ExploitTest::setUp()
+    ├─ [0] VM::label(CICO_DRAGON: [0x29395D312681FCcCDA6Aa7a9ee79bC577B3700Da], "CICO_DRAGON")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(attacker: [0x0000000000000000000000000000000000001337], "attacker")
+    │   └─ ← [Return]
+    ├─ [470123] → new MaliciousRouter@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 2012 bytes of code
+    ├─ [0] VM::label(MaliciousRouter: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], "MaliciousRouter")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [22186] ExploitTest::testInitializerFrontrun()
+    ├─ [2438] CICO_DRAGON::routerV2() [staticcall]
+    │   └─ ← [Return] 0x10ED43C718714eb63d5aA57B78B54704E256024E
+    ├─ [0] console::log("Current router before exploit:", 0x10ED43C718714eb63d5aA57B78B54704E256024E) [staticcall]
+    │   └─ ← [Stop]
+    ├─ [0] VM::prank(attacker: [0x0000000000000000000000000000000000001337])
+    │   └─ ← [Return]
+    ├─ [2826] CICO_DRAGON::initialize(MaliciousRouter: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Revert] Initializable: contract is already initialized
+    └─ ← [Revert] Initializable: contract is already initialized
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.52s (1.44s CPU time)
+
+Ran 1 test suite in 6.02s (4.52s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Initializable: contract is already initialized] testInitializerFrontrun() (gas: 22186)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

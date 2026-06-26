@@ -1,0 +1,64 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+interface IStandardToken {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function owner() external view returns (address);
+}
+
+contract ExploitTest is Test {
+    address constant TOKEN = 0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20;
+    IStandardToken token = IStandardToken(TOKEN);
+
+    // Random attacker address
+    address attacker = address(0xBEEF);
+    // Recipient for transfers
+    address recipient = address(0xCAFE);
+
+    function setUp() public {
+        vm.label(TOKEN, "StandardToken");
+        vm.label(attacker, "Attacker");
+        vm.label(recipient, "Recipient");
+    }
+
+    function testLackOfAccessControlTransfer() public {
+        // Compute storage slot for _balances mapping at slot 1
+        // Balance of attacker is stored at keccak256(abi.encode(address(attacker), uint256(1)))
+        bytes32 slot = keccak256(abi.encode(attacker, uint256(1)));
+
+        // Arbitrary large balance, e.g. 1000 tokens
+        uint256 initialBalance = 1000 * 1e18;
+        vm.store(TOKEN, slot, bytes32(initialBalance));
+
+        // Verify balance was set
+        assertEq(token.balanceOf(attacker), initialBalance);
+
+        // Attacker calls transfer without any access control restriction
+        vm.prank(attacker);
+        bool success = token.transfer(recipient, 500 * 1e18);
+        assertTrue(success);
+
+        // Check balances after transfer
+        assertEq(token.balanceOf(attacker), initialBalance - 500 * 1e18);
+        assertEq(token.balanceOf(recipient), 500 * 1e18);
+    }
+
+    function testLackOfAccessControlApprove() public {
+        // Attacker can approve any spender without restriction
+        address spender = address(0x1234);
+        vm.prank(attacker);
+        bool success = token.approve(spender, 100 * 1e18);
+        assertTrue(success);
+
+        // Verify allowance set for attacker -> spender
+        assertEq(token.allowance(attacker, spender), 100 * 1e18);
+    }
+}
+```

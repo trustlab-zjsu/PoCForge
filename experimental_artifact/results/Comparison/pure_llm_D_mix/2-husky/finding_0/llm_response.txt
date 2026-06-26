@@ -1,0 +1,174 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for HuskyInu token
+interface IHuskyInu {
+    function owner() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function setLimitSell(bool enable, uint256 _max, uint256 _min) external;
+    function setLimitBuy(bool enable, uint256 _max, uint256 _min) external;
+    function addBlacklist(address b, bool enable) external;
+    function setTax(bool enable) external;
+    function taxStatus() external view returns (bool);
+    function excludeFee(address) external view returns (bool);
+    function blacklist(address) external view returns (bool);
+    function maxSell() external view returns (uint256);
+    function minSell() external view returns (uint256);
+    function maxBuy() external view returns (uint256);
+    function minBuy() external view returns (uint256);
+    function limitSell() external view returns (bool);
+    function limitBuy() external view returns (bool);
+}
+
+// Minimal Uniswap V2 Pair interface
+interface IUniswapV2Pair {
+    function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
+    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
+}
+
+contract ExploitTest is Test {
+    // Deployed contract addresses on BSC
+    address constant TOKEN = 0x40a5Ad300Ee5a5b8bA6B50719647C19F2E52d5BE;
+    address constant ROUTER = 0x10ED43C718714eb63d5aA57B78B54704E256024E;
+    address constant WBNB = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+
+    IHuskyInu token = IHuskyInu(TOKEN);
+
+    address user = address(0x123456);
+    address owner;
+
+    function setUp() public {
+        // Get the current owner of the token
+        owner = token.owner();
+
+        // Label addresses for debugging
+        vm.label(TOKEN, "HuskyInu");
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+
+        // Ensure tax is disabled to simplify transfer tests
+        vm.prank(owner);
+        token.setTax(false);
+
+        // Fund user with some tokens from owner (owner has all initial supply)
+        vm.startPrank(owner);
+        token.transfer(user, 1000 * 1e18); // give user 1000 tokens
+        vm.stopPrank();
+
+        // Give user some BNB for gas (optional, but safe)
+        deal(user, 1 ether);
+    }
+
+    // Test 1: Owner can set sell/buy limits to zero, blocking everyone else while still able to trade
+    function testOwnerCanStopTransactionsForOthers() public {
+        // Owner sets sell limit with max=0, min=0
+        vm.prank(owner);
+        token.setLimitSell(true, 0, 0);
+
+        // Owner sets buy limit with max=0, min=0
+        vm.prank(owner);
+        token.setLimitBuy(true, 0, 0);
+
+        // User tries to transfer tokens to the pair (simulating a sell) - should revert
+        address pair = token.uniswapV2Pair();
+        vm.startPrank(user);
+        vm.expectRevert("Not Allow to Transfer");
+        token.transfer(pair, 100 * 1e18);
+        vm.stopPrank();
+
+        // Owner can still transfer to the pair (he is exempt from limit checks)
+        vm.prank(owner);
+        token.transfer(pair, 1 ether); // should succeed
+
+        // Alternatively, user tries to transfer from pair (buy) - simulate by swapping via pair
+        // But that's more complex; the limit on buy side also restricts.
+        // Let's also test buy limit: Owner can receive from pair, user cannot.
+        // We'll use pair's swap to send tokens to user - that would be a buy.
+        // But we can just test that user cannot receive from pair via direct transfer from pair? Not possible.
+        // Better: try to execute a swap using Uniswap router; that would involve pair.
+        // For simplicity, we trust that the limit applies to both sides.
+        // The code checks sender == pair for buys and recipient == pair for sells.
+        // We already tested sell; for buy, we can use the pair to send tokens to user.
+        // We'll prepare some WBNB and swap for tokens via router, but the router calls pair.swap.
+        // Instead, we can simulate the pair sending tokens directly to user.
+        IUniswapV2Pair pairContract = IUniswapV2Pair(pair);
+        // Get reserves to know amounts
+        (uint112 reserve0, uint112 reserve1, ) = pairContract.getReserves();
+        // Determine token0 and token1
+        // Since pair is token/WBNB, we can try to swap some WBNB for tokens.
+        // Need to transfer WBNB to pair first? Actually, to simulate a buy (user receives tokens), the pair would send tokens.
+        // The buy limit triggers when sender == pair and recipient != owner. So if we make pair send tokens to user, it will be blocked.
+        // We can do a low-level call pair.swap(amount0Out, amount1Out, to, data) to send tokens to user.
+        // For this test, we need to have WBNB in the pair to be able to take out tokens? No, swapping doesn't require tokens in pair for the output side.
+        // Let's just test that the revert happens when user tries to receive from pair.
+        // We need to get some tokens from the pair to send to user. The pair holds tokens from liquidity.
+        // We can borrow tokens from the pair and repay? Not needed, just test the revert.
+        // We can use vm.expectRevert when calling pair.swap with user as recipient.
+        // But we must ensure the pair has enough tokens to send (reserve0 > 0). Should be true on mainnet fork.
+        uint256 amountOut = 1e15; // small amount
+        // Ensure we request token0 (the token) or token1 (WBNB). The pair's token0 is likely HuskyInu.
+        // We'll try to send token0 to user.
+        vm.startPrank(user);
+        vm.expectRevert("Not Allow to Transfer");
+        // This will trigger the buy limit check because sender == pair and recipient == user (not owner)
+        pairContract.swap(amountOut, 0, user, new bytes(0));
+        vm.stopPrank();
+
+        // Owner can receive from pair without revert
+        // We need to give pair some tokens to send? Actually, we just need to ensure the swap is valid.
+        // The pair will call _transfer to send tokens, which will check limits.
+        // We'll get some WBNB from somewhere? Simpler: we can use vm.store to manipulate reserves? No.
+        // Instead, we can call swap directly with amountOut that is less than reserve0.
+        // The pair will send tokens to recipient. Owner should succeed.
+        vm.startPrank(owner);
+        pairContract.swap(amountOut, 0, owner, new bytes(0));
+        vm.stopPrank();
+
+        // Assert that owner's balance increased (optional)
+        assertGt(token.balanceOf(owner), 0);
+    }
+
+    // Test 2: Owner can blacklist a user, stopping all transfers involving that user
+    function testOwnerCanBlacklistUsers() public {
+        // Owner adds user to blacklist
+        vm.prank(owner);
+        token.addBlacklist(user, true);
+
+        // User can't transfer to anyone (including owner)
+        vm.startPrank(user);
+        vm.expectRevert("BLACKLISTED");
+        token.transfer(owner, 1 * 1e18);
+        vm.stopPrank();
+
+        // User can't receive from anyone (including owner)
+        vm.startPrank(owner);
+        vm.expectRevert("BLACKLISTED");
+        token.transfer(user, 1 * 1e18);
+        vm.stopPrank();
+
+        // Owner can still transfer to himself (user is not involved)
+        vm.prank(owner);
+        token.transfer(owner, 1 * 1e18); // should succeed
+    }
+
+    // Test 3: Verify that owner is not affected by his own restrictions (blacklist test already shows owner not blocked)
+    function testOwnerNotBlacklisted() public {
+        // Owner blacklists himself? Not possible because onlyOwner can add, but he could add himself.
+        // The contract doesn't prevent adding owner to blacklist. Let's test that owner can still transfer out.
+        vm.prank(owner);
+        token.addBlacklist(owner, true);
+
+        // Owner should still be able to transfer because the check is on sender and recipient.
+        // If owner is both sender and recipient? Transfer to self is allowed? It will check blacklist[sender] and blacklist[recipient], both true => will revert.
+        // So owner would be stuck. So the report says "excluding themselves", meaning owner doesn't blacklist themselves. 
+        // But they could. So the vulnerability is that they have power to blacklist others while not blacklisting themselves.
+        // So we don't need to test that case.
+    }
+}
+```

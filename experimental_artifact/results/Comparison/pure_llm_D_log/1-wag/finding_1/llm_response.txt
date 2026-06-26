@@ -1,0 +1,52 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IWagon {
+    function addBlackList(address _evilUser) external;
+    function recoverBlackFunds(address _blackListedUser) external;
+    function emergencyAccount() external view returns (address);
+    function mint(address to, uint256 amount) external;
+    function balanceOf(address account) external view returns (uint256);
+    function isBlackListed(address) external view returns (bool);
+}
+
+contract ExploitTest is Test {
+    address constant WAGON = 0xd50c8a17d5c4b8e2d984933c7e37e5b92d687b8d;
+    IWagon wagon = IWagon(WAGON);
+
+    function testOwnerCanRecoverBlackFunds() public {
+        address owner = wagon.emergencyAccount();
+        vm.label(owner, "Owner");
+
+        address victim = address(0x1234);
+        vm.label(victim, "Victim");
+
+        uint256 mintAmount = 1000 * 1e18;
+
+        // Impersonate owner to mint tokens to victim
+        vm.startPrank(owner);
+        wagon.mint(victim, mintAmount);
+        vm.stopPrank();
+
+        uint256 ownerBalanceBefore = wagon.balanceOf(owner);
+        uint256 victimBalanceBefore = wagon.balanceOf(victim);
+        assertEq(victimBalanceBefore, mintAmount);
+
+        // Impersonate owner to blacklist and recover
+        vm.startPrank(owner);
+        wagon.addBlackList(victim);
+        assertTrue(wagon.isBlackListed(victim));
+        wagon.recoverBlackFunds(victim);
+        vm.stopPrank();
+
+        uint256 ownerBalanceAfter = wagon.balanceOf(owner);
+        uint256 victimBalanceAfter = wagon.balanceOf(victim);
+
+        assertEq(victimBalanceAfter, 0);
+        assertEq(ownerBalanceAfter, ownerBalanceBefore + mintAmount);
+    }
+}
+```

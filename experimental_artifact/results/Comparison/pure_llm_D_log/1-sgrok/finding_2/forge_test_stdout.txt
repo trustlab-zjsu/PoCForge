@@ -1,0 +1,61 @@
+No files changed, compilation skipped
+2026-06-16T11:33:06.876584Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104558884"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: vm.prank: cannot overwrite a prank until it is applied at least once] testReentrancy() (gas: 311539)
+2026-06-16T11:33:11.148853Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149167Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149336Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149611Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149713Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149807Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149890Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.149966Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.151628Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.151893Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T11:33:11.843065Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x4e7f59ca24dfadb1eb777fbd5841c6af4f972237)
+Traces:
+  [4839] ExploitTest::setUp()
+    ├─ [0] VM::label(SpaceGrok: [0x58718Fd4567517d9a713a1f9f3de6cbF9404E59e], "SpaceGrok")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Owner: [0x1255a2Dd54Ced55547aE826dD0C1eb6443678a38], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(UniswapV2Router: [0x10ED43C718714eb63d5aA57B78B54704E256024E], "UniswapV2Router")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [311539] ExploitTest::testReentrancy()
+    ├─ [0] VM::startPrank(Owner: [0x1255a2Dd54Ced55547aE826dD0C1eb6443678a38])
+    │   └─ ← [Return]
+    ├─ [252973] → new MaliciousReceiver@0x4E7f59CA24DfaDB1EB777FBD5841c6af4F972237
+    │   └─ ← [Return] 1040 bytes of code
+    ├─ [0] VM::label(MaliciousReceiver: [0x4E7f59CA24DfaDB1EB777FBD5841c6af4F972237], "MaliciousReceiver")
+    │   └─ ← [Return]
+    ├─ [9258] SpaceGrok::updateMarketingWallet(MaliciousReceiver: [0x4E7f59CA24DfaDB1EB777FBD5841c6af4F972237])
+    │   ├─ emit marketingWalletUpdated(newWallet: MaliciousReceiver: [0x4E7f59CA24DfaDB1EB777FBD5841c6af4F972237], oldDevWallet: 0xa62dD295690F62aCD73Ee95aD1f3A0A53b72E6dF)
+    │   └─ ← [Stop]
+    ├─ [5373] SpaceGrok::enableTrading()
+    │   └─ ← [Stop]
+    ├─ [482] SpaceGrok::removeLimits()
+    │   └─ ← [Return] true
+    ├─ [0] VM::label(User: [0x0000000000000000000000000000000000001000], "User")
+    │   └─ ← [Return]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(User: [0x0000000000000000000000000000000000001000], 1000000000000000000 [1e18])
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(User: [0x0000000000000000000000000000000000001000])
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(Owner: [0x1255a2Dd54Ced55547aE826dD0C1eb6443678a38])
+    │   └─ ← [Revert] vm.prank: cannot overwrite a prank until it is applied at least once
+    └─ ← [Revert] vm.prank: cannot overwrite a prank until it is applied at least once
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.27s (1.87s CPU time)
+
+Ran 1 test suite in 6.48s (4.27s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: vm.prank: cannot overwrite a prank until it is applied at least once] testReentrancy() (gas: 311539)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

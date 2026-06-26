@@ -1,0 +1,84 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.6.12;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for DoctorShiba
+interface IDoctorShiba {
+    function pause() external;
+    function unpause() external;
+    function paused() external view returns (bool);
+    function owner() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function totalSupply() external view returns (uint256);
+    function decimals() external view returns (uint8);
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function mint(address _to, uint256 _amount) external returns (bool);
+    function renounceOwnership() external;
+    function transferOwnership(address newOwner) external;
+}
+
+contract ExploitTest is Test {
+    IDoctorShiba constant token = IDoctorShiba(0x783e086d67670c0d85c4ef34ebbee5a8253b38ee);
+
+    // Storage slot for _balances mapping (inherited layout: Ownable slots 0,1,2; Pausable slot 3; _balances slot 4)
+    uint256 constant BALANCES_SLOT = 4;
+
+    address constant USER = address(0xdead);
+    address constant RECIPIENT = address(0xbabe);
+    address attacker; // used for profit simulation (not needed for this logic bug)
+
+    function setUp() public {
+        // Get the current owner
+        address owner = token.owner();
+        vm.label(owner, "Owner");
+        vm.label(USER, "User");
+
+        // Give USER some tokens by directly writing to storage
+        bytes32 userBalanceSlot = keccak256(abi.encode(USER, BALANCES_SLOT));
+        uint256 userBalance = 1000 * 1e9; // 1000 tokens with 9 decimals
+        vm.store(address(token), userBalanceSlot, bytes32(userBalance));
+
+        // Verify balance is set
+        assertEq(token.balanceOf(USER), userBalance, "Balance not set correctly");
+
+        // Ensure contract is not paused
+        if (token.paused()) {
+            vm.prank(owner);
+            token.unpause();
+        }
+    }
+
+    function testPauseBlocksUserTransfer() public {
+        // Get owner
+        address owner = token.owner();
+
+        // Owner pauses the contract
+        vm.prank(owner);
+        token.pause();
+        assertTrue(token.paused(), "Contract should be paused");
+
+        // User tries to transfer tokens to another address -> should revert with "paused"
+        vm.prank(USER);
+        vm.expectRevert("paused");
+        token.transfer(RECIPIENT, 100);
+
+        // Owner can still transfer (because sender == owner)
+        vm.prank(owner);
+        uint256 ownerBalance = token.balanceOf(owner);
+        vm.expectRevert(); // no revert expected, so we don't set expectRevert
+        token.transfer(USER, 1); // should succeed
+        // Actually owner can transfer, so we can assert it succeeded
+
+        // Unpause for cleanup (optional)
+        vm.prank(owner);
+        token.unpause();
+    }
+}
+```

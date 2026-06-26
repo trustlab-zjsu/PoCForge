@@ -1,0 +1,57 @@
+```solidity
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+
+import "forge-std/Test.sol";
+
+interface IAllin {
+    function getOwner() external view returns (address);
+    function setFees(uint256 _liquidityFee, uint256 _buybackFee, uint256 _reflectionFee, uint256 _marketingdevelopmentFee, uint256 _feeDenominator) external;
+    function getTotalFee(bool selling) external view returns (uint256);
+    function isAuthorized(address adr) external view returns (bool);
+    // Other functions not needed for the exploit test
+}
+
+contract ExploitTest is Test {
+    address constant TARGET = 0x05cD34A1D5dF5010F5eDb3412077B3c291dDb7A8;
+    IAllin allin = IAllin(TARGET);
+
+    function setUp() public {
+        vm.label(TARGET, "Allin Token");
+        // Fetch the owner and label for clarity
+        address owner = allin.getOwner();
+        vm.label(owner, "Owner");
+
+        // Verify owner is authorized (expected)
+        assertTrue(allin.isAuthorized(owner), "Owner should be authorized");
+    }
+
+    function test_ownerCanSetFeesExceeding25Percent() public {
+        // Owner of the contract
+        address owner = allin.getOwner();
+
+        // Initial total fee (public view getter with selling = false)
+        uint256 initialFee = allin.getTotalFee(false);
+        // The default totalFee is 400/10000 = 4%
+        assertEq(initialFee, 400, "Default total fee should be 4%");
+
+        // Set fees to 50% (5000/10000) – exceeds the reasonable 25% limit
+        uint256 excessiveLiquidityFee = 5000;
+        uint256 buybackFee = 0;
+        uint256 reflectionFee = 0;
+        uint256 marketingDevelopmentFee = 0;
+        uint256 feeDenominator = 10000;
+
+        vm.startPrank(owner);
+        allin.setFees(excessiveLiquidityFee, buybackFee, reflectionFee, marketingDevelopmentFee, feeDenominator);
+        vm.stopPrank();
+
+        // After the call, totalFee should be 5000 (50%)
+        uint256 newFee = allin.getTotalFee(false);
+        assertEq(newFee, 5000, "Owner should be able to set fee to 50%, bypassing any 25% cap");
+
+        // Demonstrate that the fee is clearly above the 25% threshold
+        assertTrue(newFee > 2500, "Fee must exceed 25% (2500 basis points)");
+    }
+}
+```

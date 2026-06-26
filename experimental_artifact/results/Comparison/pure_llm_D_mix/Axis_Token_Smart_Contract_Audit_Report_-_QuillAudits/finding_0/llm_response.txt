@@ -1,0 +1,77 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ILineAxis {
+    function owner() external view returns (address);
+    function isOwner() external view returns (bool);
+    function mint(address to, uint256 value) external;
+    function freezeTransfers() external;
+    function unfreezeTransfers() external;
+    function frozen() external view returns (bool);
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address to, uint256 value) external;
+    function transferFrom(address from, address to, uint256 value) external;
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function decimals() external view returns (uint8);
+}
+
+contract ExploitTest is Test {
+    ILineAxis constant private lineAxis = ILineAxis(0xf0c5831ec3da15f3696b4dad8b21c7ce2f007f28);
+    address owner;
+
+    function setUp() public {
+        // Get the current owner from the deployed contract
+        owner = lineAxis.owner();
+        vm.label(owner, "Owner");
+        vm.label(address(lineAxis), "LineAxis");
+    }
+
+    function test_OwnerCanMintTokens() public {
+        uint256 initialSupply = lineAxis.totalSupply();
+        uint256 initialBalance = lineAxis.balanceOf(owner);
+        uint256 mintAmount = 1000 ether;
+
+        // Impersonate the owner and mint
+        vm.prank(owner);
+        lineAxis.mint(owner, mintAmount);
+
+        // Assert supply and balance increased
+        assertEq(lineAxis.totalSupply(), initialSupply + mintAmount, "Total supply should increase");
+        assertEq(lineAxis.balanceOf(owner), initialBalance + mintAmount, "Owner balance should increase");
+    }
+
+    function test_OwnerCanFreezeTransfers() public {
+        // Initially frozen is likely false; if already true, unfreeze first
+        bool wasFrozen = lineAxis.frozen();
+        if (wasFrozen) {
+            vm.prank(owner);
+            lineAxis.unfreezeTransfers();
+        }
+
+        // Freeze
+        vm.prank(owner);
+        lineAxis.freezeTransfers();
+
+        // Assert frozen state
+        assertTrue(lineAxis.frozen(), "Transfers should be frozen");
+
+        // Verify that transfers revert when frozen (non-owner account)
+        address attacker = address(0x123);
+        vm.label(attacker, "Attacker");
+        deal(address(lineAxis), attacker, 100 ether); // give attacker some tokens via balance of token contract? Actually we can't mint without owner. So we need to have balance. We'll give the token through the test? Since we are on fork, the token might have existing holders. Better to use a random account that holds tokens? We can simulate by minting to attacker first as owner.
+        vm.prank(owner);
+        lineAxis.mint(attacker, 100 ether);
+
+        // Now try to transfer from attacker to another address
+        address recipient = address(0x456);
+        vm.expectRevert("Action temporarily paused");
+        vm.prank(attacker);
+        lineAxis.transfer(recipient, 1 ether);
+    }
+}
+```

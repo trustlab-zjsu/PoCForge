@@ -1,0 +1,117 @@
+```solidity
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.15;
+
+import "forge-std/Test.sol";
+
+// Minimal interface for EthBurn
+interface IEthBurn {
+    function owner() external view returns (address);
+    function uniswapV2Pair() external view returns (address);
+    function DEAD() external view returns (address);
+    function balanceOf(address) external view returns (uint256);
+    function totalSupply() external view returns (uint256);
+    function transfer(address to, uint256 amount) external returns (bool);
+    function setCanTransferBefore(address wallet, bool enable) external;
+    function updateFees(
+        uint256 deadBuy,
+        uint256 deadSell,
+        uint256 marketingBuy,
+        uint256 marketingSell,
+        uint256 liquidityBuy,
+        uint256 liquiditySell,
+        uint256 RewardsBuy,
+        uint256 RewardsSell,
+        uint256 devBuy,
+        uint256 devSell
+    ) external;
+    function enableSwapAndLiquify(bool enabled) external;
+    function setLimitsInEffect(bool value) external;
+}
+
+contract ExploitTest is Test {
+    // Deployed contract on BSC
+    address constant ETHBURN = 0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4;
+    address constant DEAD = 0x000000000000000000000000000000000000dEaD;
+
+    IEthBurn public ethBurn;
+    address public owner;
+    address public user;
+    address public pair;
+
+    function setUp() public {
+        // Label addresses for trace
+        vm.label(ETHBURN, "EthBurn");
+        vm.label(DEAD, "DEAD");
+
+        ethBurn = IEthBurn(ETHBURN);
+        owner = ethBurn.owner();
+        user = address(0x1234);
+
+        // Label actors
+        vm.label(owner, "Owner");
+        vm.label(user, "User");
+
+        // Get Uniswap V2 pair address from contract
+        pair = ethBurn.uniswapV2Pair();
+        vm.label(pair, "UniswapPair");
+
+        // Ensure user can transfer even before public trading is enabled
+        vm.prank(owner);
+        ethBurn.setCanTransferBefore(user, true);
+
+        // Disable auto-liquify to avoid side effects
+        vm.prank(owner);
+        ethBurn.enableSwapAndLiquify(false);
+
+        // Disable limits (cooldown, gas price) for simplicity
+        vm.prank(owner);
+        ethBurn.setLimitsInEffect(false);
+    }
+
+    function testCentralizationRisk() public {
+        // Owner transfers 1000 tokens to user (1000 * 1e18)
+        uint256 initialSupply = ethBurn.totalSupply();
+        uint256 amount = 1000 * 1e18;
+        vm.prank(owner);
+        ethBurn.transfer(user, amount);
+
+        // Verify user received tokens
+        assertEq(ethBurn.balanceOf(user), amount, "User should have 1000 tokens");
+
+        // Owner sets sellDeadFee to 100% and all other fees to 0
+        // Order: deadBuy, deadSell, marketingBuy, marketingSell, liquidityBuy, liquiditySell, RewardsBuy, RewardsSell, devBuy, devSell
+        vm.prank(owner);
+        ethBurn.updateFees(
+            0,    // deadBuy
+            100,  // deadSell (100%)
+            0,    // marketingBuy
+            0,    // marketingSell
+            0,    // liquidityBuy
+            0,    // liquiditySell
+            0,    // RewardsBuy
+            0,    // RewardsSell
+            0,    // devBuy
+            0     // devSell
+        );
+
+        // User sells his tokens by transferring them to the Uniswap pair
+        // This triggers the selling logic where deadFees = 100%
+        vm.prank(user);
+        ethBurn.transfer(pair, amount);
+
+        // After the transfer:
+        // - User's balance should be 0 (all tokens burned)
+        assertEq(ethBurn.balanceOf(user), 0, "User should have 0 tokens after sell");
+
+        // - The DEAD address should have received the tokens
+        assertEq(ethBurn.balanceOf(DEAD), amount, "DEAD should hold all sold tokens");
+
+        // - Total supply should have decreased by 'amount'
+        assertEq(ethBurn.totalSupply(), initialSupply - amount, "Total supply should be reduced by 1000 tokens");
+
+        // - The burned tokens are removed from circulation
+        // Verify no other balances changed unexpectedly (optional)
+    }
+}
+```
