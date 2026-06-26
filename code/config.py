@@ -1,5 +1,5 @@
 """
-LogicGap Configuration Module
+PoCForge Configuration Module
 Loads environment variables from .env and exposes typed configuration.
 """
 
@@ -49,7 +49,7 @@ FORGE_TIMEOUT: int = int(os.getenv("FORGE_TIMEOUT", "120"))
 # ─── Paths ────────────────────────────────────────────────────────────
 FOUNDRY_SANDBOX_DIR: Path = PROJECT_ROOT / "foundry_sandbox"
 DATA_DIR: Path = PROJECT_ROOT / "data"
-DEFAULT_OUTPUT_DIR: Path = PROJECT_ROOT / "experimental_data" / "results"
+DEFAULT_OUTPUT_DIR: Path = PROJECT_ROOT / "experimental_artifact" / "results"
 
 
 def get_rpc_url(chain: str) -> str:

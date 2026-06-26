@@ -1,21 +1,22 @@
 """
-LogicGap CLI Entry Point
+PoCForge CLI Entry Point
 Automated smart contract vulnerability PoC generation and verification.
 
 Usage:
     # Single target
-    python main.py --target data/targets/1-aibabydoge.pdf.json --output results/
+    python code/main.py --target dataset/D_log/1-vit.json --output experimental_artifact/results/local_run
 
     # Batch processing
-    python main.py --batch data/targets/ --output results/
+    python code/main.py --batch dataset/D_mix --output experimental_artifact/results/local_batch
 
     # With specific finding ID
-    python main.py --target data/targets/sample.json --finding-id 10 --output results/
+    python code/main.py --target dataset/D_log/1-vit.json --finding-id 0 --output experimental_artifact/results/local_run
 """
 
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from pathlib import Path
@@ -32,7 +33,7 @@ from core.tools.source_fetcher import fetch_contract_source
 from core.agent_loop import run_agent
 
 
-logger = logging.getLogger("logicgap")
+logger = logging.getLogger("pocforge")
 
 
 def setup_logging(verbose: bool = False):
@@ -128,15 +129,20 @@ def run_single_target(
     
     # Fallback to FORGE-Artifacts dataset search
     if not local_sol_files and target_input.project_info.project_path:
-        base_dataset = Path("/Users/carl/论文中的工具/FORGE-Artifacts/dataset")
-        for contract, rel_path in target_input.project_info.project_path.items():
-            parts = rel_path.split("/")
-            if len(parts) >= 2:
-                folder_name = parts[-2]
-                found = list(base_dataset.glob(f"**/{folder_name}/*.sol"))
-                if found:
-                    local_sol_files.extend(found)
-                    break
+        forge_artifacts_dataset = os.getenv("FORGE_ARTIFACTS_DATASET", "").strip()
+        if forge_artifacts_dataset:
+            base_dataset = Path(forge_artifacts_dataset)
+            if base_dataset.exists():
+                for contract, rel_path in target_input.project_info.project_path.items():
+                    parts = rel_path.split("/")
+                    if len(parts) >= 2:
+                        folder_name = parts[-2]
+                        found = list(base_dataset.glob(f"**/{folder_name}/*.sol"))
+                        if found:
+                            local_sol_files.extend(found)
+                            break
+            else:
+                logger.warning(f"FORGE_ARTIFACTS_DATASET does not exist: {base_dataset}")
     
     if local_sol_files:
         logger.info(f"Found local source files: {[f.name for f in local_sol_files]}")
@@ -338,21 +344,21 @@ def run_batch(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="LogicGap: Automated Smart Contract Vulnerability PoC Generator",
+        description="PoCForge: Automated Smart Contract Vulnerability PoC Generator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Single target
-  python main.py --target data/targets/1-aibabydoge.pdf.json
+  python code/main.py --target dataset/D_log/1-vit.json
 
   # Batch processing
-  python main.py --batch data/targets/
+  python code/main.py --batch dataset/D_mix
 
   # With specific finding ID and output directory
-  python main.py --target data/targets/sample.json --finding-id 10 --output results/experiment1/
+  python code/main.py --target dataset/D_log/1-vit.json --finding-id 0 --output experimental_artifact/results/local_run
 
   # Custom severity filter
-  python main.py --batch data/targets/ --severity high medium critical
+  python code/main.py --batch dataset/D_mix --severity high medium critical
         """,
     )
 

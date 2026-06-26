@@ -1,81 +1,40 @@
-# PoCForge: From Bug Report to Exploit for Smart Contract via Trace-Guided Agentic Generation
+# PoCForge Code
 
-PoCForge is an agent-driven automated exploit generation framework for smart contracts. Instead of direct text-to-code transformation, PoCForge engages in a trace-guided agentic generation paradigm.
+This directory contains the PoCForge implementation used by the supplementary artifact.
 
-## Repository Structure
+## Main Modules
 
-- **`main.py`**: The core CLI entry point. Handles target parsing, AST extraction, and initiates the agent loop.
-- **`code/`**: Contains the main engine.
-  - `agent_loop.py`: The iterative prompt generation and fix loop.
-  - `executor/`: Local Foundry testing and execution trace parsing.
-  - `tools/`: Extractor for Slither AST, code writers, and source fetchers.
-- **`data/`**: Standardized datasets (`D_log_dataset` and `D_mix_dataset`).
-- **`scripts/`**: Utilities for benchmarking, plotting, and evaluating success metrics.
-- **`experiment/`**: Contains all raw PoC execution logs (`results/`) and compiled statistical tables (`Statistical Results/`).
-- **`foundry_sandbox/`**: The isolated environment where generated exploits are compiled and run natively.
+- `main.py`: CLI entry point for single-target and batch runs.
+- `formalizer.py`: Converts audit findings and program facts into a structured VES.
+- `agent_loop.py`: Runs the trace-guided ReAct loop for PoC generation and repair.
+- `edg.py`: Builds the Exploit Dependency Graph used by the main method.
+- `executor/`: Runs Foundry and parses compile/runtime/oracle feedback.
+- `tools/`: Source fetching, Slither analysis, interface generation, and PoC file writing.
+- `pure_llm_baseline.py`: Direct text-to-PoC baseline without VES, EDG, dependency tools, or repair loops.
 
-## Prerequisites
+## Running
 
-1. **Python 3.10+**
-2. **[Foundry](https://book.getfoundry.sh/)**: Must be installed and accessible in your system `PATH` (provides `forge` and `cast`).
-3. **Slither**: Required for AST extraction.
+From the repository root:
 
-## Installation
-
-1. Install Python dependencies:
-   ```bash
-   pip install -r code/requirements.txt
-   ```
-
-2. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Fill in your `.env` file with the necessary API keys. The default LLM provider is DeepSeek:
-   ```bash
-   LLM_API_URL=https://api.deepseek.com
-   LLM_MODEL=deepseek-reasoner
-   LLM_API_KEY=<your-deepseek-api-key>
-   ```
-
-3. Set up Foundry:
-   The `foundry_sandbox` folder automatically manages the execution of PoCs. Ensure `remappings.txt` is correctly set up inside the sandbox to link standard libraries like OpenZeppelin.
-
-## Usage
-
-### 1. Run a Single Target
-Execute the pipeline against a specific vulnerability target JSON:
 ```bash
-python main.py --target data/D_log_dataset/your_target.pdf.json --output experiment/results/single_run
-```
-Add `--finding-id <ID>` if you only want to test a specific finding from the dataset.
-
-### 2. Run Batch Benchmarks
-You can process entire directories of vulnerabilities using the built-in batch mode, or use the provided script:
-```bash
-bash scripts/run_benchmark.sh
+.venv/bin/python code/main.py \
+  --target dataset/D_log/1-vit.json \
+  --finding-id 0 \
+  --output experimental_artifact/results/local_run
 ```
 
-### 3. Evaluate Metrics
-To parse the output directories and calculate CSR (Compilation Success Rate), ERR (EVM Revert Rate), and VPR (Verification Pass Rate):
-```bash
-python scripts/evaluate_results.py experiment/results/your_run_name
-```
-Metrics will be output directly to the console.
+Batch run:
 
-### 4. Run the Pure LLM Baseline
-The paper compares PoCForge with a direct text-to-PoC baseline. This mode sends the report, ABI, and source code directly to the LLM and runs the generated Foundry test once, without VES, EDG, dependency tools, or feedback repair:
 ```bash
-python code/pure_llm_baseline.py --target dataset/D_log/your_target.json --output experimental_artifact/results/Pure_LLM
+.venv/bin/python code/main.py \
+  --batch dataset/D_mix \
+  --output experimental_artifact/results/local_batch
 ```
 
-## Datasets and Experimental Results
+Pure LLM baseline:
 
-This repository contains the exact datasets and artifacts used to evaluate LogicGap against baselines (Quimera, AdvScanner) and multiple LLMs (DeepSeek, Qwen).
-
-- Raw execution data and generated `Exploit.t.sol` files can be found in `experiment/results/`.
-- Aggregated CSV and Markdown reports are available in `experiment/Statistical Results/`.
-
-## License
-
-[MIT License](LICENSE)
+```bash
+.venv/bin/python code/pure_llm_baseline.py \
+  --target dataset/D_log/1-vit.json \
+  --output experimental_artifact/results/Pure_LLM
+```

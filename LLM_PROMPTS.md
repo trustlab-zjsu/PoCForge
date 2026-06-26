@@ -23,7 +23,7 @@ The main PoCForge prompts align with the paper pipeline as follows:
 - Feedback-driven composable verification: P5, P6, and P7 instantiate compile/runtime/oracle feedback and repair messages.
 - Pure LLM baseline: P8 and P9 instantiate the direct generation baseline without VES, EDG, dependency tools, or repair loops.
 
-Two ablation labels need care when comparing the artifact to paper wording. In the current code, `ABLATION_MODE=m1` hides preconditions and the exploit hint but still includes other VES fields in the initial prompt. `ABLATION_MODE=m2` disables the `analyze_deps` tool but still includes the rendered EDG block. If the paper describes these as full `w/o-VES` and full `w/o-EDG` variants, either the code should be changed and rerun, or the paper wording should be narrowed to match the implemented ablations.
+The ablation implementations follow the paper wording. `ABLATION_MODE=m1` is the `w/o-VES` setting: the generation prompt omits VES fields, VES preconditions, exploit hints, the VES-derived EDG block, and CHECKREACH sink-marker feedback. `ABLATION_MODE=m2` is the `w/o-EDG` setting: the prompt keeps VES fields but omits the EDG block and disables the `analyze_deps` action.
 
 ## Prompt Map
 
@@ -32,6 +32,7 @@ Two ablation labels need care when comparing the artifact to paper wording. In t
 | P1 | VES formalization | `code/formalizer.py` | `SystemMessage(FORMALIZATION_SYSTEM_PROMPT)` |
 | P2 | VES formalization user message | `code/formalizer.py` | `HumanMessage(user_prompt)` |
 | P3 | ReAct agent system prompt | `code/agent_loop.py` | `SystemMessage(AGENT_SYSTEM_PROMPT)` |
+| P3a | ReAct ablation system prompts | `code/agent_loop.py` | `SystemMessage(NO_VES_AGENT_SYSTEM_PROMPT)` or `SystemMessage(NO_EDG_AGENT_SYSTEM_PROMPT)` |
 | P4 | ReAct initial target prompt | `code/agent_loop.py` | `HumanMessage(initial_prompt)` |
 | P5 | Syntax repair prompt | `code/agent_loop.py` | `HumanMessage(syntax_prompt)` |
 | P6 | Verification feedback prompts | `code/agent_loop.py`, `code/models.py` | Appended `HumanMessage(...)` before next ReAct step |
@@ -356,27 +357,54 @@ Start by outputting a `write_poc` action with `trace_init`, `trace_prepare`, and
 
 ## P4a. Ablation Variants
 
-The ablation study changes the initial target prompt by configuration, not by a separate system prompt.
+The ablation study changes both the system prompt and the initial target prompt by configuration.
 
-### `ABLATION_MODE=m1`, current VES ablation
+### `ABLATION_MODE=m1`, `w/o-VES`
+
+System prompt differences:
+
+````text
+Given only target metadata, oracle verification, contract source code, ABI summary, and fork context, generate Solidity trace fragments that:
+1. Reach the reported vulnerable behavior.
+2. Build the required setup, resources, call sequence, and assertions directly from the source and available target metadata.
+3. Pass the automated oracle: asset/profit assertions for ECONOMIC findings or state assertions for LOGIC findings.
+````
+
+Initial target prompt omits all of the following blocks:
 
 ````text
 ### Preconditions
-  [ABLATED] Preconditions hidden in M1.
-
+### VES Fields
 ### Exploit Hint
-No hint provided (M1 ablation).
+## Exploit Dependency Graph (EDG)
 ````
 
-Current implementation note: other VES fields, including vulnerable sink, intended impact, trigger context, code/environment preconditions, and evidence, are still included in P4.
+CHECKREACH sink-marker feedback is also disabled in this setting because the marker list is derived from VES fields.
 
-### `ABLATION_MODE=m2`, current EDG/tool ablation
+### `ABLATION_MODE=m2`, `w/o-EDG`
+
+System prompt differences:
 
 ````text
-In this run, `analyze_deps` is disabled. Do NOT call it. Generate PoC directly via `write_poc`/`modify_poc`.
+Given a PoCForge VES, contract source code, ABI summary, and fork context, generate Solidity trace fragments that:
+1. Reach the VES vulnerable sink.
+2. Satisfy the VES preconditions and impact target directly from the supplied context.
+3. Pass the automated oracle: asset/profit assertions for ECONOMIC findings or state assertions for LOGIC findings.
+
+Do not call `analyze_deps`.
 ````
 
-Current implementation note: the EDG prompt block is still included in P4; only the dependency-analysis tool route is disabled.
+The initial target prompt keeps the VES blocks but omits:
+
+````text
+## Exploit Dependency Graph (EDG)
+````
+
+It also appends:
+
+````text
+The `analyze_deps` action is unavailable. Do NOT call it. Generate PoC directly via `write_poc`/`modify_poc`.
+````
 
 Default runs use:
 
@@ -435,7 +463,7 @@ Attempt {{attempt_num}} failed.
 {{error.raw_snippet}}
 ```
 
-Repair policy: compile failures should only change syntax/interfaces; trace/core failures should revise preparation traces, action parameters, resources, or environment state; oracle failures should preserve the reached sink and modify only validation instrumentation unless execution evidence contradicts the VES.
+Repair policy: compile failures should only change syntax/interfaces; trace/core failures should revise preparation traces, action parameters, resources, or environment state; oracle failures should preserve the reached sink and modify only validation instrumentation unless execution evidence contradicts the {{target_reference}}.
 
 Please output a `modify_poc` action with corrected phase code. You have {{remaining_attempts}} attempts remaining.
 ````
@@ -451,8 +479,10 @@ Relevant trace:
 ```
 {{evidence.call_trace_excerpt}}
 ```
-Repair the trace so the VES vulnerable sink is reached, while preserving the oracle.
+Repair the trace so the {{target_reference}} is reached, while preserving the oracle.
 ````
+
+`{{target_reference}}` is `VES vulnerable sink` in the main and `w/o-EDG` configurations. The CHECKREACH message is not emitted in the `w/o-VES` configuration.
 
 ### `TraceError.to_feedback()` strings
 
@@ -487,19 +517,21 @@ These prompts are not initial prompts, but they can become the latest user messa
 ### Invalid JSON/action response
 
 ````text
-I couldn't parse your response. Please respond with a valid JSON object containing 'vulnerability_analysis', 'attack_strategy', 'step_by_step_plan', 'action', and the relevant fields. Valid actions are: 'write_poc', 'modify_poc', 'analyze_deps', 'fetch_interface'.
+I couldn't parse your response. Please respond with a valid JSON object containing 'vulnerability_analysis', 'attack_strategy', 'step_by_step_plan', 'action', and the relevant fields. Valid actions are: {{valid_actions}}.
 ````
 
 ### Unknown action
 
 ````text
-Unknown action: '{{action}}'. Valid actions are: 'write_poc', 'modify_poc', 'analyze_deps', 'fetch_interface'.
+Unknown action: '{{action}}'. Valid actions are: {{valid_actions}}.
 ````
 
-### `analyze_deps` disabled in M2
+`{{valid_actions}}` is `'write_poc', 'modify_poc', 'analyze_deps', 'fetch_interface'` by default and in `w/o-VES`; it is `'write_poc', 'modify_poc', 'fetch_interface'` in `w/o-EDG`.
+
+### `analyze_deps` disabled in `w/o-EDG`
 
 ````text
-Dependency analysis tool is disabled in M2 ablation. Please proceed directly with `write_poc` or `modify_poc`.
+Dependency analysis tool is disabled in this configuration. Please proceed directly with `write_poc` or `modify_poc`.
 ````
 
 ### Missing dependency target

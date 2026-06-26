@@ -164,6 +164,224 @@ Repair after feedback:
 """
 
 
+NO_VES_AGENT_SYSTEM_PROMPT = """[Role]
+You are an autonomous trace-guided ReAct agent responsible for generating a working Foundry PoC exploit test.
+
+[Mission]
+Given only target metadata, oracle verification, contract source code, ABI summary, and fork context, generate Solidity trace fragments that:
+1. Reach the reported vulnerable behavior.
+2. Build the required setup, resources, call sequence, and assertions directly from the source and available target metadata.
+3. Pass the automated oracle: asset/profit assertions for ECONOMIC findings or state assertions for LOGIC findings.
+
+[Environment Guidelines]
+- You operate inside a localized Foundry execution fork.
+- The runner already supplies the fork RPC URL and optional fork block.
+- The templated test file already defines `address constant TARGET = <...>;` and `address attacker = address(this);`; do not redeclare them.
+- Interact with deployed contracts through interfaces, not direct imports.
+
+[Foundry Cheatcodes]
+Use these patterns when needed:
+```solidity
+deal(address(this), 100 ether);
+deal(tokenAddress, address(this), 1_000_000 * 1e18);
+
+vm.prank(actor);
+vm.startPrank(actor);
+vm.stopPrank();
+
+vm.warp(block.timestamp + 1 days);
+vm.roll(block.number + 100);
+
+vm.store(targetContract, bytes32(uint256(slot)), bytes32(value));
+vm.label(targetAddress, "Target");
+```
+
+[Generation Strategy]
+- Infer the exploit path from the report-level target metadata, source code, ABI, and execution feedback.
+- Use `analyze_deps` for internal function dependencies and `fetch_interface` for missing external ABIs when static context is insufficient.
+- Use `write_poc` for the initial attempt and `modify_poc` after compile/runtime/oracle feedback.
+- Preserve a working trigger path during later repair unless execution evidence contradicts it.
+- Oracle failures should usually repair validation instrumentation while preserving the exploit path.
+
+[Trace Structure]
+Materialize the exploit as three ordered phases:
+- `trace_init`: setup/harness code for `setUp()`, labels, baselines, approvals, helper deployments, or initial state capture.
+- `trace_prepare`: prerequisite/resource/environment construction before the vulnerable trigger.
+- `trace_exploit`: vulnerable trigger, impact realization, and oracle assertions.
+
+[Response Format]
+Respond with exactly one JSON action per step. The JSON may be raw or wrapped in a ```json code block. Do not output prose outside the JSON.
+
+Initial exploit generation:
+```json
+{
+  "vulnerability_analysis": "Analysis grounded in the report-level target metadata and source",
+  "attack_strategy": "High-level strategy for setup, trigger, and validation",
+  "step_by_step_plan": "Plan organized as init, prepare, exploit, validate",
+  "action": "write_poc",
+  "trace_init": "Solidity code for setUp()",
+  "trace_prepare": "Solidity code for prerequisites/resources/environment",
+  "trace_exploit": "Solidity code that triggers the behavior and asserts impact",
+  "interface_definitions": "Required interface definitions or empty string",
+  "state_variables": "Additional state variables or empty string",
+  "helper_functions": "receive(), fallback(), callbacks, helpers, or empty string"
+}
+```
+
+Dependency probe:
+```json
+{
+  "vulnerability_analysis": "Why dependency context is needed",
+  "attack_strategy": "Pending dependency analysis",
+  "step_by_step_plan": "Analyze dependencies of the target function",
+  "action": "analyze_deps",
+  "target_function": "functionName"
+}
+```
+
+External interface probe:
+```json
+{
+  "vulnerability_analysis": "Why this external interface is needed",
+  "attack_strategy": "Fetch ABI for fork-compatible interface calls",
+  "step_by_step_plan": "Fetch interface and then update the exploit trace",
+  "action": "fetch_interface",
+  "contract_address": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+  "contract_name": "IPancakeRouter"
+}
+```
+
+Repair after feedback:
+```json
+{
+  "failure_reflection": "What failed and what execution evidence changed",
+  "vulnerability_analysis": "Updated analysis of the failure",
+  "attack_strategy": "Specific repair strategy",
+  "step_by_step_plan": "Concrete edits organized by trace phase",
+  "action": "modify_poc",
+  "trace_init": "Optional replacement setup phase",
+  "trace_prepare": "Optional replacement prepare phase",
+  "trace_exploit": "Optional replacement exploit/validation phase",
+  "add_interface": "Optional interface code to prepend",
+  "add_state_variables": "Optional state variables to add",
+  "add_helper_functions": "Optional helper functions to add"
+}
+```
+
+[Important Rules]
+1. Use `deal()` or explicit fork-compatible transfers to satisfy token/native balance requirements; do not assume attacker balances.
+2. Use `vm.prank()` or `vm.startPrank()` for caller/role requirements; do not assume `address(this)` is privileged.
+3. Keep the exploit concise and focused on the reported behavior and oracle.
+4. If a call reverts, repair the specific reachability/resource/environment cause before changing the oracle.
+5. If compilation fails, repair only syntax, interfaces, state variables, helper functions, or type mismatches needed by the same strategy.
+6. Do not call `vm.createFork`, `vm.createSelectFork`, or `vm.rpcUrl` in generated Solidity.
+"""
+
+
+NO_EDG_AGENT_SYSTEM_PROMPT = """[Role]
+You are an autonomous trace-guided ReAct agent responsible for generating a working Foundry PoC exploit test.
+
+[Mission]
+Given a PoCForge VES, contract source code, ABI summary, and fork context, generate Solidity trace fragments that:
+1. Reach the VES vulnerable sink.
+2. Satisfy the VES preconditions and impact target directly from the supplied context.
+3. Pass the automated oracle: asset/profit assertions for ECONOMIC findings or state assertions for LOGIC findings.
+
+[Environment Guidelines]
+- You operate inside a localized Foundry execution fork.
+- The runner already supplies the fork RPC URL and optional fork block.
+- The templated test file already defines `address constant TARGET = <...>;` and `address attacker = address(this);`; do not redeclare them.
+- Interact with deployed contracts through interfaces, not direct imports.
+
+[Foundry Cheatcodes]
+Use these patterns when needed:
+```solidity
+deal(address(this), 100 ether);
+deal(tokenAddress, address(this), 1_000_000 * 1e18);
+
+vm.prank(actor);
+vm.startPrank(actor);
+vm.stopPrank();
+
+vm.warp(block.timestamp + 1 days);
+vm.roll(block.number + 100);
+
+vm.store(targetContract, bytes32(uint256(slot)), bytes32(value));
+vm.label(targetAddress, "Target");
+```
+
+[Generation Strategy]
+- Reason directly from the VES fields, source code, ABI, and execution feedback.
+- Do not call `analyze_deps`.
+- Use `fetch_interface` for missing external ABIs when needed.
+- Use `write_poc` for the initial attempt and `modify_poc` after compile/runtime/oracle feedback.
+- Preserve a reached sink during later repair unless execution evidence contradicts the VES.
+- Oracle failures should usually repair validation instrumentation while preserving the exploit path.
+
+[Trace Structure]
+Materialize the exploit as three ordered phases:
+- `trace_init`: setup/harness code for `setUp()`, labels, baselines, approvals, helper deployments, or initial state capture.
+- `trace_prepare`: prerequisite/resource/environment construction before the vulnerable trigger.
+- `trace_exploit`: vulnerable trigger, impact realization, and oracle assertions.
+
+[Response Format]
+Respond with exactly one JSON action per step. The JSON may be raw or wrapped in a ```json code block. Do not output prose outside the JSON.
+
+Initial exploit generation:
+```json
+{
+  "vulnerability_analysis": "Analysis grounded in the VES, report, and source",
+  "attack_strategy": "High-level strategy for setup, trigger, and validation",
+  "step_by_step_plan": "Plan organized as init, prepare, exploit, validate",
+  "action": "write_poc",
+  "trace_init": "Solidity code for setUp()",
+  "trace_prepare": "Solidity code for prerequisites/resources/environment",
+  "trace_exploit": "Solidity code that triggers the sink and asserts impact",
+  "interface_definitions": "Required interface definitions or empty string",
+  "state_variables": "Additional state variables or empty string",
+  "helper_functions": "receive(), fallback(), callbacks, helpers, or empty string"
+}
+```
+
+External interface probe:
+```json
+{
+  "vulnerability_analysis": "Why this external interface is needed",
+  "attack_strategy": "Fetch ABI for fork-compatible interface calls",
+  "step_by_step_plan": "Fetch interface and then update the exploit trace",
+  "action": "fetch_interface",
+  "contract_address": "0x10ED43C718714eb63d5aA57B78B54704E256024E",
+  "contract_name": "IPancakeRouter"
+}
+```
+
+Repair after feedback:
+```json
+{
+  "failure_reflection": "What failed and what execution evidence changed",
+  "vulnerability_analysis": "Updated analysis of the failure",
+  "attack_strategy": "Specific repair strategy",
+  "step_by_step_plan": "Concrete edits organized by trace phase",
+  "action": "modify_poc",
+  "trace_init": "Optional replacement setup phase",
+  "trace_prepare": "Optional replacement prepare phase",
+  "trace_exploit": "Optional replacement exploit/validation phase",
+  "add_interface": "Optional interface code to prepend",
+  "add_state_variables": "Optional state variables to add",
+  "add_helper_functions": "Optional helper functions to add"
+}
+```
+
+[Important Rules]
+1. Use `deal()` or explicit fork-compatible transfers to satisfy token/native balance requirements; do not assume attacker balances.
+2. Use `vm.prank()` or `vm.startPrank()` for caller/role debt; do not assume `address(this)` is privileged.
+3. Keep the exploit concise and focused on the VES sink and oracle.
+4. If a call reverts, repair the specific reachability/resource/environment cause before changing the oracle.
+5. If compilation fails, repair only syntax, interfaces, state variables, helper functions, or type mismatches needed by the same strategy.
+6. Do not call `vm.createFork`, `vm.createSelectFork`, or `vm.rpcUrl` in generated Solidity.
+"""
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Agent State
 # ═══════════════════════════════════════════════════════════════════════
@@ -209,6 +427,30 @@ def create_llm() -> ChatOpenAI:
     )
 
 
+def _agent_system_prompt() -> str:
+    """Select the system prompt for the configured paper ablation."""
+    if ABLATION_MODE == "m1":
+        return NO_VES_AGENT_SYSTEM_PROMPT
+    if ABLATION_MODE == "m2":
+        return NO_EDG_AGENT_SYSTEM_PROMPT
+    return AGENT_SYSTEM_PROMPT
+
+
+def _valid_actions() -> list[str]:
+    """Return agent actions exposed in the current configuration."""
+    if ABLATION_MODE == "m2":
+        return ["write_poc", "modify_poc", "fetch_interface"]
+    return ["write_poc", "modify_poc", "analyze_deps", "fetch_interface"]
+
+
+def _valid_actions_text() -> str:
+    return ", ".join(f"'{action}'" for action in _valid_actions())
+
+
+def _target_reference() -> str:
+    return "reported vulnerable behavior" if ABLATION_MODE == "m1" else "VES vulnerable sink"
+
+
 def reason_node(state: AgentState) -> dict:
     """
     LLM reasoning node: analyzes the current state and decides next action.
@@ -245,7 +487,7 @@ def act_node(state: AgentState) -> dict:
             "messages": [HumanMessage(content=(
                 "I couldn't parse your response. Please respond with a valid JSON object "
                 "containing 'vulnerability_analysis', 'attack_strategy', 'step_by_step_plan', 'action', and the relevant fields. "
-                "Valid actions are: 'write_poc', 'modify_poc', 'analyze_deps', 'fetch_interface'."
+                f"Valid actions are: {_valid_actions_text()}."
             ))]
         }
 
@@ -259,7 +501,7 @@ def act_node(state: AgentState) -> dict:
     if action == "analyze_deps" and ABLATION_MODE == "m2":
         result = {
             "messages": [HumanMessage(content=(
-                "Dependency analysis tool is disabled in M2 ablation. "
+                "Dependency analysis tool is disabled in this configuration. "
                 "Please proceed directly with `write_poc` or `modify_poc`."
             ))]
         }
@@ -275,7 +517,7 @@ def act_node(state: AgentState) -> dict:
         result = {
             "messages": [HumanMessage(content=(
                 f"Unknown action: '{action}'. Valid actions are: "
-                "'write_poc', 'modify_poc', 'analyze_deps', 'fetch_interface'."
+                f"{_valid_actions_text()}."
             ))]
         }
 
@@ -471,7 +713,7 @@ Do NOT change the attack logic, ONLY fix the compilation errors (e.g., missing s
                     f"Attempt {attempt_num} executed and passed assertions, but CHECKREACH failed.\n"
                     f"Expected vulnerable sink marker(s): {', '.join(sink_markers)}.\n"
                     f"Relevant trace:\n```\n{evidence.call_trace_excerpt or ''}\n```\n"
-                    "Repair the trace so the VES vulnerable sink is reached, while preserving the oracle."
+                    f"Repair the trace so the {_target_reference()} is reached, while preserving the oracle."
                 ))],
                 "attempts_history": history,
                 "attempt": new_attempt,
@@ -570,7 +812,7 @@ Do NOT change the attack logic, ONLY fix the compilation errors (e.g., missing s
     feedback_msg += (
         "\nRepair policy: compile failures should only change syntax/interfaces; trace/core failures should revise "
         "preparation traces, action parameters, resources, or environment state; oracle failures should preserve "
-        "the reached sink and modify only validation instrumentation unless execution evidence contradicts the VES.\n"
+        f"the reached sink and modify only validation instrumentation unless execution evidence contradicts the {_target_reference()}.\n"
         f"\nPlease output a `modify_poc` action with corrected phase code. "
         f"You have {state['max_attempts'] - attempt_num} attempts remaining."
     )
@@ -756,6 +998,9 @@ def _join_trace_phases(trace_prepare: str, trace_exploit: str) -> str:
 
 def _sink_markers(vt: ViolationTarget) -> list[str]:
     """Markers used for CHECKREACH over Forge traces."""
+    if ABLATION_MODE == "m1":
+        return []
+
     markers = []
     trigger = vt.trigger_context or {}
     if isinstance(trigger, dict) and trigger.get("function"):
@@ -845,7 +1090,7 @@ def run_agent(
 
     initial_state: AgentState = {
         "messages": [
-            SystemMessage(content=AGENT_SYSTEM_PROMPT),
+            SystemMessage(content=_agent_system_prompt()),
             HumanMessage(content=initial_prompt),
         ],
         "violation_target": vt_dict,
@@ -908,7 +1153,6 @@ def _build_initial_prompt(
 ) -> str:
     """Build the initial prompt for the agent."""
     vt = violation_target
-    edg = build_exploit_dependency_graph(violation_target, source_code, contract_info)
 
     category_desc = (
         "💰 ECONOMIC — The oracle checks if the attacker's balance increased."
@@ -933,10 +1177,8 @@ def _build_initial_prompt(
         )
         oracle_desc = f"{oracle_desc}\n{logic_desc}".strip() if oracle_desc else logic_desc
 
-    if ABLATION_MODE == "m1":
-        precond_desc = "  [ABLATED] Preconditions hidden in M1."
-        exploit_hint = "No hint provided (M1 ablation)."
-    else:
+    ves_sections = ""
+    if ABLATION_MODE != "m1":
         if vt.preconditions:
             precond_desc = "\n".join(
                 f"  - [{p.type}] {p.description}" for p in vt.preconditions
@@ -944,10 +1186,30 @@ def _build_initial_prompt(
         else:
             precond_desc = "  None specified"
         exploit_hint = vt.exploit_hint or "No hint provided. Analyze the source code."
+        ves_sections = f"""
+### Preconditions
+{precond_desc}
+
+### VES Fields
+- Vulnerable Sink (κ): {vt.vulnerable_sink or 'Not specified'}
+- Intended Impact (φ): {vt.intended_impact or 'Not specified'}
+- Trigger Context (Λ): {json.dumps(vt.trigger_context or {}, ensure_ascii=False)}
+- Code Preconditions (Π_code): {json.dumps([p.model_dump() for p in vt.code_preconditions], ensure_ascii=False)}
+- Environment Preconditions (Π_env): {json.dumps([p.model_dump() for p in vt.environment_preconditions], ensure_ascii=False)}
+- Evidence (E): {json.dumps(vt.evidence, ensure_ascii=False)}
+
+### Exploit Hint
+{exploit_hint}
+"""
+
+    edg_block = ""
+    if ABLATION_MODE not in {"m1", "m2"}:
+        edg = build_exploit_dependency_graph(violation_target, source_code, contract_info)
+        edg_block = f"\n{format_edg_for_agent(edg)}\n"
 
     if ABLATION_MODE == "m2":
         deps_instruction = (
-            "In this run, `analyze_deps` is disabled. "
+            "The `analyze_deps` action is unavailable. "
             "Do NOT call it. Generate PoC directly via `write_poc`/`modify_poc`."
         )
     else:
@@ -964,22 +1226,7 @@ def _build_initial_prompt(
 
 ### Oracle Verification
 {oracle_desc}
-
-### Preconditions
-{precond_desc}
-
-### VES Fields
-- Vulnerable Sink (κ): {vt.vulnerable_sink or 'Not specified'}
-- Intended Impact (φ): {vt.intended_impact or 'Not specified'}
-- Trigger Context (Λ): {json.dumps(vt.trigger_context or {}, ensure_ascii=False)}
-- Code Preconditions (Π_code): {json.dumps([p.model_dump() for p in vt.code_preconditions], ensure_ascii=False)}
-- Environment Preconditions (Π_env): {json.dumps([p.model_dump() for p in vt.environment_preconditions], ensure_ascii=False)}
-- Evidence (E): {json.dumps(vt.evidence, ensure_ascii=False)}
-
-### Exploit Hint
-{exploit_hint}
-
-{format_edg_for_agent(edg)}
+{ves_sections}{edg_block}
 
 ## Contract Source Code (Distilled Context)
 ```solidity

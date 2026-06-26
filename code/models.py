@@ -1,5 +1,5 @@
 """
-LogicGap Data Models
+PoCForge Data Models
 Pydantic models for all data structures used across the pipeline.
 """
 
