@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBC570B260c52A032DE9eF06087e91b2C5104C76B",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Must be the contract owner to call changeFees() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be in swap state (inSwap == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalFeeBuy == 0 || totalFeeSell == 0",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "Call changeFees() with parameters that set totalFeeBuy or totalFeeSell to zero, then trigger a transfer that calls takeFeeInProportions() where division by totalFeeBuy or totalFeeSell will occur. Specifically, set reflectionFeeBuy, marketingFeeBuy, and teamFeeBuy all to zero to make totalFeeBuy = 0, or set reflectionFeeSell, marketingFeeSell, and teamFeeSell all to zero to make totalFeeSell = 0. Then execute a buy or sell transaction to trigger the division by zero in the fee calculation."
+}

@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the StandardToken to initiate transfer",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Victim contract must have a balance of StandardToken tokens (or another ERC20 token if the contract holds any)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "<victim contract address that holds tokens>",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a fallback/receive function that re-enters the StandardToken's transfer or transferFrom function. First, approve the malicious contract to spend tokens. Then call transfer or transferFrom from the malicious contract, which will trigger the reentrancy during the balance update. The malicious contract should recursively call transfer/transferFrom before the sender's balance is fully deducted, allowing double-spending or draining funds from other users who have approved the attacker."
+}

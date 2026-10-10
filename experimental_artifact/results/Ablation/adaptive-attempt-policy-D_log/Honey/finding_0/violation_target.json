@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+  "vulnerability_type": "Incorrect Value Conversion in Mint/Burn",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership) to call mint() and burn() functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some initial token balance to perform burn operation",
+      "token_address": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "victim_contract": "0x5CB9B847FbA8aAdb8a943fE19C1cc8439d7e00C5",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability lies in the mint() and burn() functions incorrectly using raw amounts instead of reflection amounts. As owner, call mint() to create tokens for yourself using reflection amounts, then call burn() to destroy tokens using raw amounts, creating an imbalance. The exploit involves: 1. Ensure you're the contract owner. 2. Call mint() with a large amount to inflate your balance. 3. Optionally call burn() with a smaller amount to manipulate the total supply. The incorrect conversion between reflection space and token space allows minting excessive tokens."
+}

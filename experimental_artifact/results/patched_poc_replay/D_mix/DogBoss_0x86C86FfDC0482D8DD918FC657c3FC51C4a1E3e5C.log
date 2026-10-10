@@ -1,0 +1,66 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 419.62ms
+Compiler run successful!
+2026-10-09T13:14:19.795473Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641954"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 52661)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.51s (1.23s CPU time)
+
+Ran 1 test for test/Original_6.t.sol:ExploitOriginal_6
+[PASS] testExploit() (gas: 53454)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.51s (1.23s CPU time)
+
+Ran 2 test suites in 14.01s (19.01s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 390.02ms
+Compiler run successful!
+2026-10-09T13:14:36.683985Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641992"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 21752)
+Traces:
+  [21752] ExploitPatched_0::testExploit()
+    ├─ [2674] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2667] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::owner() [staticcall]
+    │   └─ ← [Return] 0x218706B997e9b91Db9166875f5E66BD427Ce6274
+    ├─ [2377] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::decimals() [staticcall]
+    │   └─ ← [Return] 18
+    ├─ [0] VM::startPrank(0x218706B997e9b91Db9166875f5E66BD427Ce6274)
+    │   └─ ← [Return]
+    ├─ [639] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] CoinToken: fixed supply
+    └─ ← [Revert] CoinToken: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.19s (1.47s CPU time)
+
+Ran 1 test for test/Patched_6.t.sol:ExploitPatched_6
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 22549)
+Traces:
+  [22549] ExploitPatched_6::testExploit()
+    ├─ [2674] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::balanceOf(ExploitPatched_6: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2377] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::decimals() [staticcall]
+    │   └─ ← [Return] 18
+    ├─ [0] VM::startPrank(0x218706B997e9b91Db9166875f5E66BD427Ce6274)
+    │   └─ ← [Return]
+    ├─ [2639] 0x86C86FfDC0482D8DD918FC657c3FC51C4a1E3e5C::mint(ExploitPatched_6: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] CoinToken: fixed supply
+    └─ ← [Revert] CoinToken: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.19s (1.47s CPU time)
+
+Ran 2 test suites in 9.64s (10.37s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 21752)
+
+Encountered 1 failing test in test/Patched_6.t.sol:ExploitPatched_6
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 22549)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

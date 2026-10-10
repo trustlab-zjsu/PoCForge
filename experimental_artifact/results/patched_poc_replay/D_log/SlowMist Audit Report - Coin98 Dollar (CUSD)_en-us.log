@@ -1,0 +1,80 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 431.05ms
+Compiler run successful!
+2026-10-09T13:55:22.226419Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155287"
+
+Ran 1 test for test/Original_4.t.sol:ExploitOriginal_4
+[PASS] testExploit() (gas: 66742)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.86s (591.33ms CPU time)
+
+Ran 1 test for test/Original_3.t.sol:ExploitOriginal_3
+[PASS] testExploit() (gas: 29612)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.63s (1.37s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 54717)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.93s (1.67s CPU time)
+
+Ran 3 test suites in 7.16s (16.43s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 409.13ms
+Compiler run successful!
+2026-10-09T13:55:35.017477Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155288"
+
+Ran 1 test for test/Patched_4.t.sol:ExploitPatched_4
+[FAIL: Withdrawable: NFT withdrawal disabled] testExploit() (gas: 59188)
+Traces:
+  [59188] ExploitPatched_4::testExploit()
+    ├─ [2873] MockNFT::balanceOf(ExploitPatched_4: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000414141)
+    │   └─ ← [Return]
+    ├─ [33860] MockNFT::transferFrom(0x0000000000000000000000000000000000414141, 0xC285B7E09A4584D027E5BC36571785B515898246, 1)
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [874] MockNFT::ownerOf(1) [staticcall]
+    │   └─ ← [Return] 0xC285B7E09A4584D027E5BC36571785B515898246
+    ├─ [2560] 0xC285B7E09A4584D027E5BC36571785B515898246::owner() [staticcall]
+    │   └─ ← [Return] 0x1db6Ad727aE60d7b4dBee81f79C4bCbCfF8759F8
+    ├─ [0] VM::startPrank(0x1db6Ad727aE60d7b4dBee81f79C4bCbCfF8759F8)
+    │   └─ ← [Return]
+    ├─ [1414] 0xC285B7E09A4584D027E5BC36571785B515898246::withdrawNft(MockNFT: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], ExploitPatched_4: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1)
+    │   └─ ← [Revert] Withdrawable: NFT withdrawal disabled
+    └─ ← [Revert] Withdrawable: NFT withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.38s (1.32s CPU time)
+
+Ran 1 test for test/Patched_3.t.sol:ExploitPatched_3
+[PASS] testExploit() (gas: 29612)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.66s (1.60s CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CUSD: supply cap exceeded] testExploit() (gas: 25682)
+Traces:
+  [25682] ExploitPatched_0::testExploit()
+    ├─ [2897] 0xC285B7E09A4584D027E5BC36571785B515898246::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2560] 0xC285B7E09A4584D027E5BC36571785B515898246::owner() [staticcall]
+    │   └─ ← [Return] 0x1db6Ad727aE60d7b4dBee81f79C4bCbCfF8759F8
+    ├─ [0] VM::prank(0x1db6Ad727aE60d7b4dBee81f79C4bCbCfF8759F8)
+    │   └─ ← [Return]
+    ├─ [8153] 0xC285B7E09A4584D027E5BC36571785B515898246::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000000 [1e27])
+    │   └─ ← [Revert] CUSD: supply cap exceeded
+    └─ ← [Revert] CUSD: supply cap exceeded
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.72s (2.66s CPU time)
+
+Ran 3 test suites in 10.61s (20.76s CPU time): 1 tests passed, 2 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CUSD: supply cap exceeded] testExploit() (gas: 25682)
+
+Encountered 1 failing test in test/Patched_4.t.sol:ExploitPatched_4
+[FAIL: Withdrawable: NFT withdrawal disabled] testExploit() (gas: 59188)
+
+Encountered a total of 2 failing tests, 1 tests succeeded

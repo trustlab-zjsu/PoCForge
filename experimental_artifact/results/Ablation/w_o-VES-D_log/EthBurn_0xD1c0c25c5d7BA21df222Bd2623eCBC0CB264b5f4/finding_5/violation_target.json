@@ -1,0 +1,35 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to initiate the attack",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled = true) and the attacker must not be excluded from fees",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract must have accumulated ETH from fees in the dividend tracker to be stolen",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The reentrancy vulnerability exists in the dividend distribution mechanism. When dividends are distributed via the receive() function in DividendPayingToken, it calls distributeDividends() which updates magnifiedDividendPerShare. An attacker can create a malicious contract that receives dividends and reenters the distribution mechanism during the dividend payout. The key is to trigger dividend distribution while a payout is in progress, causing the contract to send more ETH than intended. Call the dividend tracker's processAccount or claim functions repeatedly during the reentrant callback to drain ETH from the contract."
+}

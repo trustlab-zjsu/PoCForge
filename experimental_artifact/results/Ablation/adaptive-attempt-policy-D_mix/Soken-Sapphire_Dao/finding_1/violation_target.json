@@ -1,0 +1,29 @@
+{
+  "target_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+  "vulnerability_type": "Cross-Chain Replay Attack",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have a valid signed permit from a token owner on another chain (e.g., Ethereum mainnet)",
+      "token_address": "0x039639Ed22A7654f74C1B0017C9d0DF85C26B63B",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The DOMAIN_SEPARATOR must be computed without proper chainId validation (using chainid() opcode which returns the current chain's ID)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "SapToken.nonces(attacker)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "Obtain a signed permit (v, r, s) for token transfer on a different chain (e.g., Ethereum mainnet) where the DOMAIN_SEPARATOR was computed with that chain's chainId. Replay the same signature on BSC by calling permit() with the same parameters. The signature will validate because DOMAIN_SEPARATOR uses chainid() which returns BSC's chainId (56) instead of being hardcoded to prevent cross-chain replay. This allows unauthorized token transfers via permit."
+}

@@ -1,0 +1,60 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 607.69ms
+Compiler run successful!
+2026-10-09T13:11:55.934749Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641639"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 29135)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.15s (1.13s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 48016)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.15s (1.13s CPU time)
+
+Ran 2 test suites in 6.23s (10.30s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 412.03ms
+Compiler run successful!
+2026-10-09T13:12:09.532782Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641669"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: BabyApe: fixed supply] testExploit() (gas: 16626)
+Traces:
+  [16626] ExploitPatched_0::testExploit()
+    ├─ [2563] 0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(Original Owner: [0x0000000000000000000000000000000000000000])
+    │   └─ ← [Return]
+    ├─ [2674] 0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] BabyApe: fixed supply
+    └─ ← [Revert] BabyApe: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.54s (507.59ms CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: BabyApe: owner burn disabled] testExploit() (gas: 19145)
+Traces:
+  [19145] ExploitPatched_1::testExploit()
+    ├─ [2563] 0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86::balanceOf(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF]) [staticcall]
+    │   └─ ← [Return] 1000000000000000000000 [1e21]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [2695] 0xf8aA749821852bc54Ea5Dd84dd3842D28523fC86::burn(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], 1000000000000000000000 [1e21])
+    │   └─ ← [Revert] BabyApe: owner burn disabled
+    └─ ← [Revert] BabyApe: owner burn disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.54s (505.01ms CPU time)
+
+Ran 2 test suites in 5.62s (9.07s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: BabyApe: fixed supply] testExploit() (gas: 16626)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: BabyApe: owner burn disabled] testExploit() (gas: 19145)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

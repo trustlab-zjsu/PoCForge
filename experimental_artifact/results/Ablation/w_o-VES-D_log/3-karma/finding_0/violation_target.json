@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Trading Disablement",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through privilege escalation)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be currently enabled (tradingEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "tradingEnabled",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the enableTrading() function. This function has a flawed require statement that only checks if trading is already enabled, but doesn't prevent re-disabling. After calling, trading will be disabled for all non-excluded users, effectively freezing the token."
+}

@@ -1,0 +1,61 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 412.55ms
+Compiler run successful!
+2026-10-09T13:55:46.737991Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155289"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 281884)
+Logs:
+  WBTC Balance Before:  0
+  WBTC Balance After:   3960185654
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 17.36s (10.69s CPU time)
+
+Ran 1 test suite in 19.37s (17.36s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 399.95ms
+Compiler run successful!
+2026-10-09T13:56:09.363893Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155291"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: UniswapV2: TRANSFER_FAILED] testExploit() (gas: 219198)
+Traces:
+  [219198] ExploitPatched_0::testExploit()
+    ├─ [2534] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 1000000000000000000 [1e18]
+    ├─ [0] VM::load(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 0x1da434b76eba4736d6e760bfd78cbf883a0776ee1666a9157f99ab1b97923a3c) [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000de0b6b3a7640000
+    ├─ [0] VM::store(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 0x1da434b76eba4736d6e760bfd78cbf883a0776ee1666a9157f99ab1b97923a3c, 0x00000000000000000000000000000000000000000000010f1ad11b9100840000)
+    │   └─ ← [Return]
+    ├─ [534] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 5001000000000000000000 [5.001e21]
+    ├─ [2740] 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [24420] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::approve(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, 5000000000000000000000 [5e21])
+    │   ├─ emit Approval(owner: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], spender: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, value: 5000000000000000000000 [5e21])
+    │   └─ ← [Return] true
+    ├─ [35516] 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D::swapExactTokensForTokens(5000000000000000000000 [5e21], 0, [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599], ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1791554159 [1.791e9])
+    │   ├─ [2504] 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940::getReserves() [staticcall]
+    │   │   └─ ← [Return] 5376599808 [5.376e9], 1783309839129649731934 [1.783e21], 1791553007 [1.791e9]
+    │   ├─ [8948] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::transferFrom(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940, 5000000000000000000000 [5e21])
+    │   │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940, value: 5000000000000000000000 [5e21])
+    │   │   └─ ← [Return] true
+    │   ├─ [14153] 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940::swap(3959976815 [3.959e9], 0, ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x)
+    │   │   ├─ [3002] 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599::transfer(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 3959976815 [3.959e9])
+    │   │   │   └─ ← [Revert] patched: EOA-only entry point
+    │   │   └─ ← [Revert] UniswapV2: TRANSFER_FAILED
+    │   └─ ← [Revert] UniswapV2: TRANSFER_FAILED
+    └─ ← [Revert] UniswapV2: TRANSFER_FAILED
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 13.50s (4.46s CPU time)
+
+Ran 1 test suite in 14.96s (13.50s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: UniswapV2: TRANSFER_FAILED] testExploit() (gas: 219198)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

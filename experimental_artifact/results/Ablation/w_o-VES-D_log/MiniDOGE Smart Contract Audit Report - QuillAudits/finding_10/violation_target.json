@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Unsafe Native Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have control over the marketingAddress",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have BNB balance (from accumulated fees or buybacks)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract uses .transfer() to send BNB to marketingAddress. If the marketingAddress is a contract with a fallback function that consumes more than 2300 gas or reverts, the transfer will fail. As owner, set marketingAddress to a malicious contract that reverts on .transfer() calls, causing BNB to accumulate in the contract. Then use Sweep() function (owner-only) to drain all accumulated BNB to owner address. Alternatively, if you control marketingAddress, make it a contract that reverts on .transfer() to block fee distribution and force BNB accumulation."
+}

@@ -1,0 +1,23 @@
+{
+  "target_address": "0xa79C1D3A0F0a21eC5B0Ee2f96685aaCfaCc95dFb",
+  "vulnerability_type": "Missing Address Validation",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CoinToken(0xa79c1d3a0f0a21ec5b0ee2f96685aacfacc95dfb).uniswapV2Pair()",
+      "operator": "==",
+      "expected_value": "<attacker_controlled_address>"
+    }
+  },
+  "exploit_hint": "As the contract owner, call updateUniswapV2Router() with a malicious router address that returns a fake WETH address and factory. Then call setAutomatedMarketMakerPair() with a malicious pair address that you control. This bypasses validation and allows you to manipulate trading fees and token transfers."
+}

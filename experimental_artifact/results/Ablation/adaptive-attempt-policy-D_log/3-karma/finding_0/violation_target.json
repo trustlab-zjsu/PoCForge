@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Trading Disablement",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be currently enabled (tradingEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "tradingEnabled",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the enableTrading() function. This will fail because the function has a require statement that checks if tradingEnabled == false, but trading is already enabled. This permanently prevents any new trading transactions since the function cannot be called again to re-enable trading if it gets disabled. The exploit demonstrates that once trading is enabled, it cannot be disabled and re-enabled due to the flawed logic in enableTrading()."
+}

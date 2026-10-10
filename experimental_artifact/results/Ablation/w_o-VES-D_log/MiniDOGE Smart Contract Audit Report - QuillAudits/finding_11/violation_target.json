@@ -1,0 +1,41 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 11,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MiniDOGE tokens to initiate the attack",
+      "token_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "min_amount": "1000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default is false, but owner may enable it)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens (minimumTokensBeforeSwap = 200000 * 10**6 * 10**9) from fees to trigger swap",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Interval for swap must have passed (_intervalMinutesForSwap = 1 minute)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. First, ensure the target contract has accumulated enough tokens from fees. Then call transfer() or transferFrom() to sell tokens to the uniswapV2Pair, which will trigger the swapTokens() function. The swapTokensForEth() function uses swapExactTokensForETHSupportingFeeOnTransferTokens() which transfers ETH to the contract before completing. In the malicious contract's receive() function, re-enter the contract by calling another function that transfers value (like transferToAddressETH) before the state is updated. The key is that the contract's balance check (address(this).balance) is performed before state updates, allowing multiple withdrawals."
+}

@@ -1,8 +1,10 @@
 # Quimera vs PoCForge (Complex Dataset)
 
-- Total findings: 57
-- PoCForge success: 40/57 (70.2%)
-- Quimera executed: 57/57 (100.0%)
-- Quimera Compile Pass (CSR-like): 23/57 (40.4%)
-- Quimera EVM Pass (ERR-like): 15/57 (26.3%)
-- Quimera Oracle Pass (VPR-like): 15/57 (26.3%)
+- Total unique findings: 52
+- PoCForge success: 38/52
+- Quimera executed: 52/52
+- Quimera Compile Pass: 22/52 (42.3%)
+- Quimera EVM Pass: 14/52 (26.9%)
+- Quimera Oracle Pass: 14/52 (26.9%)
+
+Alias duplicates are excluded by target address and finding identity.

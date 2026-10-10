@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens to initiate the attack",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (>= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. First, ensure the target contract has accumulated tokens. Then call transfer/transferFrom to trigger _transfer, which will call swapAndLiquify when conditions are met. During swapTokensForEth, the router will send ETH to the contract, triggering the malicious contract's fallback. In the fallback, recursively call transfer again before state updates complete, allowing multiple swaps before balance updates. Focus on the swapAndLiquify function which lacks reentrancy guards on the swapTokensForEth call that sends ETH to address(this)."
+}

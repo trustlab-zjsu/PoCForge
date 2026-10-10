@@ -1,0 +1,41 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Liquidity Addition Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (owner must have called setSwapAndLiquifyEnabled(true) or activateContract())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees (balanceOf(address(this)) >= minTokenNumberToSell)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have some BNB balance from previous swaps or transfers",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some PUPPY tokens to trigger a transfer that calls swapAndLiquify",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in swapAndLiquify() function where liquidity is added with wrong token/BNB proportions. The function calculates: pooledBNB = contractTokenBalance/2, piece = (contractTokenBalance - pooledBNB)/2, otherPiece = contractTokenBalance - piece, tokenAmountToBeSwapped = pooledBNB + piece. After swapping tokenAmountToBeSwapped for BNB, it adds liquidity with otherPiece tokens and deltaBalance/3 BNB. This creates an imbalance where too many tokens are swapped for BNB, leaving insufficient tokens to pair with the received BNB for liquidity addition. Attack by triggering swapAndLiquify through a transfer when conditions are met (from != pancakePair, contract has enough tokens). The contract will lose value by adding liquidity at unfavorable ratios, which can be exploited through arbitrage or by being the recipient of the newly minted liquidity tokens (if owner is not careful)."
+}

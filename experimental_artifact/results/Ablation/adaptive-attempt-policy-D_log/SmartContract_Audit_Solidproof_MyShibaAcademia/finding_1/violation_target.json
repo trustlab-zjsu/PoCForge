@@ -1,0 +1,35 @@
+{
+  "target_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (deployer)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some MSA tokens to perform a transfer",
+      "token_address": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "min_amount": "1000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled should be true (default is false, but owner can enable it)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x93a20a5f1709659005e1610D1a022d5f1e2D0DF7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, first call setTaxFeePercent() and setLiquidityFeePercent() to set both fees to high values (e.g., 49 each, totaling 98%). Then enable swapAndLiquifyEnabled via setSwapAndLiquifyEnabled(true). Transfer MSA tokens to the Uniswap pair (or any address that triggers the fee mechanism). The high fees will cause most of the transferred amount to be taken as fees and potentially converted to BNB for the contract. As owner, you can then drain the contract's BNB balance via transferToAddressBNB or similar mechanisms (though not explicitly shown, owner typically has withdrawal capabilities)."
+}

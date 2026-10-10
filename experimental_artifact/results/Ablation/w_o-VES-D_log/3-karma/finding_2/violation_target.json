@@ -1,0 +1,29 @@
+{
+  "target_address": "0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "state",
+      "description": "The contract must have liquidityFeeonBuy + liquidityFeeonSell + burnFeeOnBuy + burnFeeOnSell = 0 (all zero)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "role",
+      "description": "Attacker must be able to call setBuyFeePercentages and setSellFeePercentages functions (requires owner privilege)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "KARMA(0x8f9ba08cbf014ab233a33067b21bedf3876c6605)._takeLiquidity(1)",
+      "operator": "==",
+      "expected_value": "revert"
+    }
+  },
+  "exploit_hint": "As owner, set all fee parameters (liquidityFeeonBuy, liquidityFeeonSell, burnFeeOnBuy, burnFeeOnSell) to zero using setBuyFeePercentages and setSellFeePercentages functions. Then trigger a transfer that calls _takeLiquidity function, which will attempt division by zero at line 639: 'uint256 liquidityAmount = tLiquidity * (liquidityFeeonBuy + liquidityFeeonSell) / (liquidityFeeonBuy + liquidityFeeonSell + burnFeeOnBuy + burnFeeOnSell);'. This will cause transaction revert, potentially blocking fee processing and disrupting contract functionality."
+}

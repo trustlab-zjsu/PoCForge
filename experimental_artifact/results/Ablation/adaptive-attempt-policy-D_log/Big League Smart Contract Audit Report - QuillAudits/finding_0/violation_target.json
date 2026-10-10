@@ -1,0 +1,41 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Infinite Allowance Bypass",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Victim (token holder) must have a non-zero balance of BGLG tokens",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Victim must have approved the attacker's address with allowance equal to uint256 max value (~uint256(0))",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "victim_contract": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "If a victim has approved your address with the maximum uint256 allowance (~uint256(0)), you can repeatedly call transferFrom to drain their entire token balance without the allowance being decremented. The check 'if (allowance[_from][msg.sender] < ~uint256(0))' will be false for max allowance, skipping the deduction. Call transferFrom multiple times with the victim's address as '_from' and your address as '_to', transferring their entire balance each time until it's depleted."
+}

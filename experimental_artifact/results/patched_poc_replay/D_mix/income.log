@@ -1,0 +1,69 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 446.43ms
+Compiler run successful!
+2026-10-09T13:52:27.161184Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647037"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 16469)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.12s (785.83ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 69574)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.02s (2.69s CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 42397)
+Logs:
+  New totalFees: 60
+
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.31s (2.98s CPU time)
+
+Ran 3 test suites in 10.05s (22.46s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 419.36ms
+Compiler run successful!
+2026-10-09T13:52:39.871176Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647066"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 14441)
+Traces:
+  [14441] Attacker::testExploit()
+    ├─ [0] VM::startPrank(Contract Owner: [0x0000000000000000000000000000000000000000])
+    │   └─ ← [Return]
+    ├─ [3377] INCOME Contract::setFee(20, 20, 20)
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.20s (503.46ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 10089)
+Traces:
+  [10089] ExploitPatched_0::testExploit()
+    ├─ [2649] 0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b::owner() [staticcall]
+    │   └─ ← [Return] 0x0000000000000000000000000000000000000000
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [829] 0x3a91A88Ef4bB813BB99EF5a745bcb56e3A3b403b::closeTrade()
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.20s (503.49ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[PASS] testExploit() (gas: 69574)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.25s (3.05s CPU time)
+
+Ran 3 test suites in 9.47s (18.65s CPU time): 1 tests passed, 2 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 10089)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 14441)
+
+Encountered a total of 2 failing tests, 1 tests succeeded

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have been authorized by owner)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "At least 2 minutes must have passed since last lunaburn call (lastSync + 2 minutes < block.timestamp)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Liquidity pool must contain tokens (balanceOf[pair] > 0)",
+      "token_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "victim_contract": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the lunaburn() function with percent_base1000 parameter set to 50 (maximum 5% of LP tokens). This will transfer LP tokens from the pair contract directly to the owner's wallet, bypassing normal transfer restrictions. Ensure at least 2 minutes have passed since the last call. The attack can be repeated every 2 minutes to drain up to 5% of LP tokens each time."
+}

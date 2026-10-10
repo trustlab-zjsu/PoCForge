@@ -1,0 +1,35 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 5,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the LiquidityGeneratorToken to initiate transfer",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (contractTokenBalance >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a reentrancy attack in its fallback/receive function. The attack should: 1) Transfer tokens to trigger swapAndLiquify when contract has accumulated fees. 2) During the swapTokensForEth call, the router will send ETH to the contract, which will trigger the malicious contract's fallback. 3) In the fallback, call transfer again to re-enter before state updates complete. 4) Exploit the incorrect state accounting to drain ETH from the contract. The key is that swapAndLiquify is called within _transfer before token balances are fully updated."
+}

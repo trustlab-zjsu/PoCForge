@@ -1,0 +1,89 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 460.14ms
+Compiler run successful!
+2026-10-09T13:12:43.395166Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155074"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 41603)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.54s (987.51ms CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 48842)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.54s (800.80ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 311410)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.13s (2.57s CPU time)
+
+Ran 3 test suites in 8.25s (18.21s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 420.34ms
+Compiler run successful!
+2026-10-09T13:12:54.894599Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155075"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: LineAxis: fixed supply] testExploit() (gas: 19406)
+Traces:
+  [19406] ExploitPatched_1::testExploit()
+    ├─ [2696] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::startPrank(Contract Owner: [0xaBdCaB3Fc8e28fFcB329CeBfEf7525D27D3A1D5C])
+    │   └─ ← [Return]
+    ├─ [2740] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::mint(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] LineAxis: fixed supply
+    └─ ← [Revert] LineAxis: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.64s (993.35ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: LineAxis: fixed supply] testExploit() (gas: 12455)
+Traces:
+  [12455] ExploitPatched_0::testExploit()
+    ├─ [2609] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::owner() [staticcall]
+    │   └─ ← [Return] 0xaBdCaB3Fc8e28fFcB329CeBfEf7525D27D3A1D5C
+    ├─ [0] VM::prank(0xaBdCaB3Fc8e28fFcB329CeBfEf7525D27D3A1D5C)
+    │   └─ ← [Return]
+    ├─ [740] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] LineAxis: fixed supply
+    └─ ← [Revert] LineAxis: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.64s (1.00s CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: next call did not revert as expected] testExploit() (gas: 307204)
+Traces:
+  [307204] ExploitPatched_2::testExploit()
+    ├─ [173218] → new Spender@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 865 bytes of code
+    ├─ [27008] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::approve(Spender: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], 10000000000000000000 [1e19])
+    │   ├─ emit Approval(owner: ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], spender: Spender: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], value: 10000000000000000000 [1e19])
+    │   └─ ← [Stop]
+    ├─ [975] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::allowance(ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], Spender: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]) [staticcall]
+    │   └─ ← [Return] 10000000000000000000 [1e19]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [16008] Spender::doTransferFrom(0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28, ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x000000000000000000000000000000000000dEaD, 1000000000000000000 [1e18])
+    │   ├─ [14003] 0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28::transferFrom(ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x000000000000000000000000000000000000dEaD, 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(from: ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x000000000000000000000000000000000000dEaD, value: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   └─ ← [Stop]
+    └─ ← [Revert] next call did not revert as expected
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 8.89s (1.41s CPU time)
+
+Ran 3 test suites in 10.12s (24.18s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: LineAxis: fixed supply] testExploit() (gas: 12455)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: LineAxis: fixed supply] testExploit() (gas: 19406)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: next call did not revert as expected] testExploit() (gas: 307204)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

@@ -1,0 +1,62 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 393.37ms
+Compiler run successful!
+2026-10-10T05:20:41.151237Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126770779"
+
+Ran 1 test for test/Original_11.t.sol:ExploitOriginal_11
+[PASS] testExploit() (gas: 29331)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.51s (278.50ms CPU time)
+
+Ran 1 test for test/Original_10.t.sol:ExploitOriginal_10
+[PASS] testExploit() (gas: 105845)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.52s (281.14ms CPU time)
+
+Ran 2 test suites in 5.70s (9.03s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 371.29ms
+Compiler run successful!
+2026-10-10T05:20:51.452484Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126770801"
+
+Ran 1 test for test/Patched_11.t.sol:ExploitPatched_11
+[PASS] testExploit() (gas: 29418)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.78s (276.48ms CPU time)
+
+Ran 1 test for test/Patched_10.t.sol:ExploitPatched_10
+[FAIL: Error != expected error: MiniDOGE: ETH transfer failed != Funds are now trapped forever!] testExploit() (gas: 106285)
+Traces:
+  [106285] ExploitPatched_10::testExploit()
+    ├─ [47497] → new Malicious Receiver@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 237 bytes of code
+    ├─ [0] VM::label(Malicious Receiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f], "Malicious Receiver")
+    │   └─ ← [Return]
+    ├─ [2605] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::owner() [staticcall]
+    │   └─ ← [Return] 0x5E0115e727484BFE523B32E96c060d0FDD30097A
+    ├─ [0] VM::prank(0x5E0115e727484BFE523B32E96c060d0FDD30097A)
+    │   └─ ← [Return]
+    ├─ [5558] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::transferOwnership(Malicious Receiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x5E0115e727484BFE523B32E96c060d0FDD30097A, newOwner: Malicious Receiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Stop]
+    ├─ [605] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::owner() [staticcall]
+    │   └─ ← [Return] Malicious Receiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f]
+    ├─ [0] VM::prank(Malicious Receiver: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Return]
+    ├─ [0] VM::expectRevert(custom error 0xf28dceb3:  Funds are now trapped forever!)
+    │   └─ ← [Return]
+    ├─ [8272] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::Sweep()
+    │   ├─ [327] Malicious Receiver::receive{value: 10000000000000000000}()
+    │   │   └─ ← [Revert] Funds are now trapped forever!
+    │   └─ ← [Revert] MiniDOGE: ETH transfer failed
+    └─ ← [Revert] Error != expected error: MiniDOGE: ETH transfer failed != Funds are now trapped forever!
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.32s (819.65ms CPU time)
+
+Ran 2 test suites in 6.77s (8.10s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_10.t.sol:ExploitPatched_10
+[FAIL: Error != expected error: MiniDOGE: ETH transfer failed != Funds are now trapped forever!] testExploit() (gas: 106285)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

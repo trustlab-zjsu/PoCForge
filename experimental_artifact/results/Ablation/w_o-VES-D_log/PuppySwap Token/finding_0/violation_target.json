@@ -1,0 +1,35 @@
+{
+  "target_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+  "vulnerability_type": "Liquidity Addition Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some PUPPY tokens to trigger swapAndLiquify",
+      "token_address": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "min_amount": "1000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (owner must have activated contract)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees (>= minTokenNumberToSell)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xeFfAb18108124C2b6280C62abA70a03c79cc4327",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The swapAndLiquify function incorrectly calculates token amounts for liquidity addition. It splits contractTokenBalance into pooledBNB (50%), piece (25%), and otherPiece (25%). However, it swaps pooledBNB + piece (75% of tokens) for BNB, but only uses deltaBalance/3 of the received BNB to add liquidity with otherPiece (25% of tokens). This creates an imbalance where too many tokens are swapped relative to the BNB used for liquidity. Attack by accumulating tokens in the contract (via normal transfers with fees), then trigger swapAndLiquify by making a transfer that meets the conditions (from != pancakePair, contract balance >= minTokenNumberToSell). The contract will add liquidity with wrong proportions, potentially creating arbitrage opportunities or reducing LP value."
+}

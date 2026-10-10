@@ -1,0 +1,49 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 538.06ms
+Compiler run successful!
+2026-10-09T13:15:58.281501Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642177"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 46881)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.63s (2.88s CPU time)
+
+Ran 1 test suite in 10.22s (8.63s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 381.30ms
+Compiler run successful!
+2026-10-09T13:16:14.195605Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642211"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: OukaInu: fee recipients locked after launch] testExploit() (gas: 34493)
+Traces:
+  [34493] ExploitPatched_0::testExploit()
+    ├─ [2584] 0x4A33D3ea4B30228C363222746939562FbAba2f01::getOwner() [staticcall]
+    │   └─ ← [Return] 0x5Cf2FaD657cfD67AbF2843fae1CAb56DD31B2399
+    ├─ [0] VM::startPrank(0x5Cf2FaD657cfD67AbF2843fae1CAb56DD31B2399)
+    │   └─ ← [Return]
+    ├─ [2575] 0x4A33D3ea4B30228C363222746939562FbAba2f01::autoLiquidityReceiver() [staticcall]
+    │   └─ ← [Return] 0xe1e7703841b16d61c23Fdf61d5F5Be6a88c293BB
+    ├─ [2576] 0x4A33D3ea4B30228C363222746939562FbAba2f01::buyBackFeeReceiver() [staticcall]
+    │   └─ ← [Return] 0x7B607249675C40733E13db4221386822f94B46aa
+    ├─ [2620] 0x4A33D3ea4B30228C363222746939562FbAba2f01::developmentFeeReceiver() [staticcall]
+    │   └─ ← [Return] 0x0BdFc49D8F691f0d993d013e74F83405b77387b4
+    ├─ [2598] 0x4A33D3ea4B30228C363222746939562FbAba2f01::charityFeeReceiver() [staticcall]
+    │   └─ ← [Return] 0xeeC03165D878e6634A1Fa2e242760d4fB5711849
+    ├─ [2642] 0x4A33D3ea4B30228C363222746939562FbAba2f01::stakingFeeReceiver() [staticcall]
+    │   └─ ← [Return] 0x8B543639C657ADf1a5e2F4D839a9F680107faeA6
+    ├─ [6399] 0x4A33D3ea4B30228C363222746939562FbAba2f01::setFeeReceivers(0xe1e7703841b16d61c23Fdf61d5F5Be6a88c293BB, ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x7B607249675C40733E13db4221386822f94B46aa, 0x0BdFc49D8F691f0d993d013e74F83405b77387b4, 0xeeC03165D878e6634A1Fa2e242760d4fB5711849, 0x8B543639C657ADf1a5e2F4D839a9F680107faeA6)
+    │   └─ ← [Revert] OukaInu: fee recipients locked after launch
+    └─ ← [Revert] OukaInu: fee recipients locked after launch
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 8.02s (4.35s CPU time)
+
+Ran 1 test suite in 9.88s (8.02s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: OukaInu: fee recipients locked after launch] testExploit() (gas: 34493)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

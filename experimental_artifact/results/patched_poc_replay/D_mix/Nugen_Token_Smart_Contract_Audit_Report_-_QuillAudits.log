@@ -1,0 +1,45 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 439.06ms
+Compiler run successful!
+2026-10-09T13:51:58.631775Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126646973"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 11941)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.86s (603.28ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 19418)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.40s (544.62ms CPU time)
+
+Ran 2 test suites in 7.49s (10.26s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 384.67ms
+Compiler run successful!
+2026-10-09T13:52:09.891583Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126646999"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[PASS] testExploit() (gas: 11941)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.19s (571.88µs CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 13201)
+Traces:
+  [13201] ExploitPatched_2::testExploit()
+    ├─ [0] VM::startPrank(Original Owner: [0x8979e225103e75F29A3C76b2df5552616b903cdA])
+    │   └─ ← [Return]
+    ├─ [2671] 0xA62a8a65013F789367bE37e5C0afc83445F77Cc2::transferOwnership(New Owner (Attacker): [0x430Bf62923fA09DAC0Ae271a1E298194EDcc3588])
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.49s (295.40ms CPU time)
+
+Ran 2 test suites in 6.07s (8.68s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 13201)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

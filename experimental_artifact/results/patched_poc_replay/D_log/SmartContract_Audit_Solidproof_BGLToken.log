@@ -1,0 +1,44 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 397.82ms
+Compiler run successful!
+2026-10-09T13:23:52.511952Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643230"
+
+Ran 1 test for test/Original_15.t.sol:ExploitOriginal_15
+[PASS] testExploit() (gas: 27733)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.90s (1.70s CPU time)
+
+Ran 1 test suite in 7.58s (5.90s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 380.33ms
+Compiler run successful!
+2026-10-09T13:24:05.178491Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643259"
+
+Ran 1 test for test/Patched_15.t.sol:ExploitPatched_15
+[FAIL: BGL: owner withdrawal disabled] testExploit() (gas: 19339)
+Traces:
+  [19339] ExploitPatched_15::testExploit()
+    ├─ [2671] 0x225d0236Ce8C9d753dFAe9CD0265dA2d2699Ba4F::owner() [staticcall]
+    │   └─ ← [Return] 0x20770Ee8fD8dDBD4039ADa52d74F123aDfb2c804
+    ├─ [0] VM::startPrank(0x20770Ee8fD8dDBD4039ADa52d74F123aDfb2c804)
+    │   └─ ← [Return]
+    ├─ [5564] 0x225d0236Ce8C9d753dFAe9CD0265dA2d2699Ba4F::transferOwnership(ExploitPatched_15: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x20770Ee8fD8dDBD4039ADa52d74F123aDfb2c804, newOwner: ExploitPatched_15: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [976] 0x225d0236Ce8C9d753dFAe9CD0265dA2d2699Ba4F::claimBNBOverflow(99999999999999999999 [9.999e19])
+    │   └─ ← [Revert] BGL: owner withdrawal disabled
+    └─ ← [Revert] BGL: owner withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.83s (682.41ms CPU time)
+
+Ran 1 test suite in 10.43s (7.83s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_15.t.sol:ExploitPatched_15
+[FAIL: BGL: owner withdrawal disabled] testExploit() (gas: 19339)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

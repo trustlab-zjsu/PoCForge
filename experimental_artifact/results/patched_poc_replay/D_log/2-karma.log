@@ -1,0 +1,39 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 458.86ms
+Compiler run successful!
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 48790)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.27s (3.93s CPU time)
+
+Ran 1 test suite in 7.27s (6.27s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 377.55ms
+Compiler run successful!
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 38632)
+Traces:
+  [38632] ExploitPatched_0::testExploit()
+    ├─ [11338] Karma::viewFeesBuy() [staticcall]
+    │   └─ ← [Return] 1, 1, 2, 4, 100
+    ├─ [9338] Karma::viewFeesSell() [staticcall]
+    │   └─ ← [Return] 2, 1, 2, 5, 100
+    ├─ [0] VM::startPrank(Owner: [0x0000000000000000000000000000000000000000])
+    │   └─ ← [Return]
+    ├─ [3891] Karma::changeFees(1, 1, 2, 2, 0, 0)
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 1.84ms (291.42µs CPU time)
+
+Ran 1 test suite in 811.82ms (1.84ms CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 38632)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

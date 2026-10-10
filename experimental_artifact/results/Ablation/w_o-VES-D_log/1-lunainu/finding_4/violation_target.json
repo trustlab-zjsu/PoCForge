@@ -1,0 +1,35 @@
+{
+  "target_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call setMultipliers function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LUNAINU tokens to execute trades",
+      "token_address": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "min_amount": "1000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "victim_contract": "0xf05A8a840F09aC83B79875B4275CEC1e60C2aBDf",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As an authorized address, call setMultipliers with buyMultiplier = 0 to trigger division by zero in takeFee function. This will cause feeAmount calculation to revert, allowing tax-free trading. Then execute buy/sell trades to profit from the tax bypass while other users still pay fees. The division occurs in: feeAmount = amount.mul(totalFee).mul(multiplier).div(feeDenominator * 100) where multiplier can be zero."
+}

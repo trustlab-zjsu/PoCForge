@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+  "vulnerability_type": "Incorrect ERC20 Implementation",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the LineAxis token to demonstrate the issue",
+      "token_address": "0xF0c5831EC3Da15f3696B4DAd8B21c7Ce2f007f28",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be frozen (frozen == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "LineAxis(0xf0c5831ec3da15f3696b4dad8b21c7ce2f007f28).approve(address,uint256).success",
+      "operator": "==",
+      "expected_value": "false"
+    }
+  },
+  "exploit_hint": "The ERC20 approve() function incorrectly checks that the approval value is less than or equal to the caller's balance instead of checking the spender's allowance. Call approve() with a value greater than your token balance to trigger the revert, demonstrating the incorrect implementation. This violates ERC20 specification where approve() should set allowance regardless of the caller's balance."
+}

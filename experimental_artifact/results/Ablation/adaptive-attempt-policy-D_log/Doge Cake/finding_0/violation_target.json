@@ -1,0 +1,29 @@
+{
+  "target_address": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+  "vulnerability_type": "Unauthorized Dividend Distribution",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the dividend token (CAKE or DOGE) to transfer to the dividend tracker contract",
+      "token_address": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The dividend tracker contracts (CakeDividendTracker and DogeDividendTracker) must have been deployed and be operational",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+      "victim_contract": "0x88b9BBdaF00770Ba398c9A2e0d3C02D45Dcb9820",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Call the vulnerable distributeDividends(uint256 amount) function on either CakeDividendTracker or DogeDividendTracker contract with a fake amount. First, transfer some dividend tokens (CAKE/DOGE) to the tracker contract, then call distributeDividends with that amount. This will artificially inflate magnifiedDividendPerShare, allowing you to withdraw more dividends than you're entitled to. The attack path: 1. Transfer small amount of dividend token to tracker contract, 2. Call distributeDividends with that amount, 3. Withdraw dividends using claim() to receive inflated payout."
+}

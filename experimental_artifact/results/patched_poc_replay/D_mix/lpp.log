@@ -1,0 +1,79 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 438.28ms
+Compiler run successful!
+2026-10-09T13:17:42.879721Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642409"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 16242)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.89s (826.04ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 39132)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.89s (826.05ms CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 22488)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.20s (1.13s CPU time)
+
+Ran 3 test suites in 14.04s (14.97s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 426.37ms
+Compiler run successful!
+2026-10-09T13:17:53.435538Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642433"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: owner action disabled] testExploit() (gas: 14168)
+Traces:
+  [14168] ExploitPatched_1::testExploit()
+    ├─ [0] VM::startPrank(0x1632126499fbc081fF5810e3ceaA76d080F6dEBa)
+    │   └─ ← [Return]
+    ├─ [3354] 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112::changeBurnFee(30000 [3e4], 1000)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.79s (523.74ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 10222)
+Traces:
+  [10222] ExploitPatched_0::testExploit()
+    ├─ [2612] 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112::owner() [staticcall]
+    │   └─ ← [Return] 0x1632126499fbc081fF5810e3ceaA76d080F6dEBa
+    ├─ [0] VM::prank(0x1632126499fbc081fF5810e3ceaA76d080F6dEBa)
+    │   └─ ← [Return]
+    ├─ [989] 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112::setPause()
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.79s (523.98ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16772)
+Traces:
+  [16772] ExploitPatched_2::testExploit()
+    ├─ [2612] 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112::owner() [staticcall]
+    │   └─ ← [Return] 0x1632126499fbc081fF5810e3ceaA76d080F6dEBa
+    ├─ [0] VM::startPrank(0x1632126499fbc081fF5810e3ceaA76d080F6dEBa)
+    │   └─ ← [Return]
+    ├─ [2144] 0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112::addBots([0x131f15F1fD1024551542390614B6c7e210A911AF], true)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.79s (523.85ms CPU time)
+
+Ran 3 test suites in 7.14s (14.36s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 10222)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: owner action disabled] testExploit() (gas: 14168)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16772)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

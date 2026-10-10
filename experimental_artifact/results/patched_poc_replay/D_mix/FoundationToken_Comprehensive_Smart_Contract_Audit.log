@@ -1,0 +1,77 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 394.19ms
+Compiler run successful!
+2026-10-09T13:14:14.411228Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641946"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 474312)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 27.63s (7.59s CPU time)
+
+Ran 1 test suite in 29.53s (27.63s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 375.03ms
+Compiler run successful!
+2026-10-09T13:14:46.998816Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642017"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Foundation: operations address locked after launch] testExploit() (gas: 261237)
+Traces:
+  [261237] ExploitPatched_0::testExploit()
+    ├─ [0] VM::addr(<pk>) [staticcall]
+    │   └─ ← [Return] buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02]
+    ├─ [0] VM::label(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], "buyer")
+    │   └─ ← [Return]
+    ├─ [0] VM::deal(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], 5000000000000000000 [5e18])
+    │   └─ ← [Return]
+    ├─ [275] 0x10ED43C718714eb63d5aA57B78B54704E256024E::WETH() [staticcall]
+    │   └─ ← [Return] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c
+    ├─ [0] VM::startPrank(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02])
+    │   └─ ← [Return]
+    ├─ [229701] 0x10ED43C718714eb63d5aA57B78B54704E256024E::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 1000000000000000000}(0, [0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c, 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384], buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], 1791551683 [1.791e9])
+    │   ├─ [23974] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c::deposit{value: 1000000000000000000}()
+    │   │   ├─ emit Deposit(dst: 0x10ED43C718714eb63d5aA57B78B54704E256024E, wad: 1000000000000000000 [1e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c::transfer(0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C, 1000000000000000000 [1e18])
+    │   │   ├─ emit Transfer(from: 0x10ED43C718714eb63d5aA57B78B54704E256024E, to: 0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C, value: 1000000000000000000 [1e18])
+    │   │   └─ ← [Return] true
+    │   ├─ [2930] 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384::balanceOf(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2893] 0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C::getReserves() [staticcall]
+    │   │   └─ ← [Return] 0x0000000000000000000000000000000000000015d182c8e4106d3a8ab9ce0000000000000000000000000000000000000000000000000002b5e3af16b1880000000000000000000000000000000000000000000000000000000000006ac8e8c3
+    │   ├─ [534] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c::balanceOf(0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C) [staticcall]
+    │   │   └─ ← [Return] 51000000000000000000 [5.1e19]
+    │   ├─ [169279] 0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C::swap(33811663496580758860728467081 [3.381e28], 0, buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], 0x)
+    │   │   ├─ [144987] 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384::transfer(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], 33811663496580758860728467081 [3.381e28])
+    │   │   │   ├─ emit Transfer(from: 0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C, to: 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384, value: 2637309752733299191136820432 [2.637e27])
+    │   │   │   ├─ emit Transfer(from: 0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C, to: buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02], value: 31174353743847459669591646649 [3.117e28])
+    │   │   │   └─ ← [Return] true
+    │   │   ├─ [930] 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384::balanceOf(0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C) [staticcall]
+    │   │   │   └─ ← [Return] 1694820225392519241139271532919 [1.694e30]
+    │   │   ├─ [534] 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c::balanceOf(0x397363265FC0Fe4d83d264ABE6868c0F08C72C0C) [staticcall]
+    │   │   │   └─ ← [Return] 51000000000000000000 [5.1e19]
+    │   │   ├─ emit Sync(reserve0: 1694820225392519241139271532919 [1.694e30], reserve1: 51000000000000000000 [5.1e19])
+    │   │   ├─ emit Swap(sender: 0x10ED43C718714eb63d5aA57B78B54704E256024E, amount0In: 0, amount1In: 1000000000000000000 [1e18], amount0Out: 33811663496580758860728467081 [3.381e28], amount1Out: 0, to: buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02])
+    │   │   └─ ← [Stop]
+    │   ├─ [930] 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384::balanceOf(buyer: [0x0fF93eDfa7FB7Ad5E962E4C0EdB9207C03a0fe02]) [staticcall]
+    │   │   └─ ← [Return] 31174353743847459669591646649 [3.117e28]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0xcF4ED56D86E052e2dd15757197ff337e110eBC16)
+    │   └─ ← [Return]
+    ├─ [3239] 0x9c771503a42f9b6e498d89c43e99F2e58CB8B384::setOperationsAddress(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] Foundation: operations address locked after launch
+    └─ ← [Revert] Foundation: operations address locked after launch
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 113.12s (28.56s CPU time)
+
+Ran 1 test suite in 115.19s (113.12s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Foundation: operations address locked after launch] testExploit() (gas: 261237)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,35 @@
+{
+  "target_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some NOMOS tokens to initiate the attack",
+      "token_address": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default after presale)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in marketingAccumulator to trigger swapTokens()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a fallback/receive function to reenter during swapTokensForEth. First, accumulate marketing fees by making token transfers to trigger swapAndLiquify. When swapTokens() is called, it will call swapTokensForEth which uses Uniswap router. The router will call the attacker's contract with ETH. In the receive() function, reenter the contract by calling transfer() or another function that modifies state before the contract updates its internal accounting (marketingAccumulator = 0). This allows multiple withdrawals of the same marketingAccumulator balance."
+}

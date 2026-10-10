@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some LPP tokens to demonstrate the fee impact",
+      "token_address": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+      "victim_contract": "0xF14fE8ea9D35cCEA2545985d7541CcAd02cb6112",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call changeBurnFee() with parameters that set the burn fee above 25% (e.g., _newburnFee = 5000, _newburnDivisor = 1000). Then transfer tokens to another address to trigger the excessive burn fee, effectively stealing value from users by burning an unreasonable percentage of their transfers. The owner can also exclude themselves from fees using excludeFromFee() to avoid paying the high burn fee."
+}

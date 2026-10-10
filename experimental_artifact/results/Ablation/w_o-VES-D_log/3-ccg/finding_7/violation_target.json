@@ -1,0 +1,29 @@
+{
+  "target_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+  "vulnerability_type": "Lack of Input Validation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token to initiate transfers",
+      "token_address": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance to trigger swapAndLiquify (balanceOf(address(this)) >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xE2C9C976337357369845c761DD851E2B6942D69f",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the _transfer function's input validation. The function requires amount > 0 but doesn't validate that sender has sufficient balance. However, the actual economic exploit comes from manipulating the swapAndLiquify mechanism. First, ensure the contract has accumulated enough tokens (from fees). Then, trigger swapAndLiquify by making a transfer from a non-pair address when contract balance >= numTokensSellToAddToLiquidity. The swapTokensForEth function uses swapExactTokensForETHSupportingFeeOnTransferTokens with amountOutMin = 0, allowing front-running with sandwich attacks to extract value. Alternatively, manipulate the charity address or fee settings if you gain ownership."
+}

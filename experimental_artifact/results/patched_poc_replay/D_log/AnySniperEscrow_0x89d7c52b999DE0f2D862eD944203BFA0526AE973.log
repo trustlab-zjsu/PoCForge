@@ -1,0 +1,60 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 387.24ms
+Compiler run successful!
+2026-10-09T13:22:38.284383Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26155124"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[FAIL: Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000] testExploit() (gas: 40646)
+Traces:
+  [40646] ExploitOriginal_0::testExploit()
+    ├─ [25626] 0x89d7c52b999DE0f2D862eD944203BFA0526AE973::multiSendETH{value: 1000000000000000000}([0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [1000000000000000000 [1e18]])
+    │   ├─ [16875] ExploitOriginal_0::receive{value: 1000000000000000000}()
+    │   │   ├─ [9290] 0x89d7c52b999DE0f2D862eD944203BFA0526AE973::multiSendETH([0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [10000000000000000000 [1e19]])
+    │   │   │   ├─ [258] ExploitOriginal_0::receive{value: 10000000000000000000}()
+    │   │   │   │   └─ ← [Stop]
+    │   │   │   └─ ← [Revert] Insufficient amount
+    │   │   └─ ← [Revert] Insufficient amount
+    │   └─ ← [Revert] Address: unable to send value, recipient may have reverted
+    ├─ [0] VM::assertGt(1000000000000000000 [1e18], 1000000000000000000 [1e18], "Economic Exploit Failed: No profit") [staticcall]
+    │   └─ ← [Revert] Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000
+    └─ ← [Revert] Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.60s (2.02ms CPU time)
+
+Ran 1 test suite in 6.37s (3.60s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Original_0.t.sol:ExploitOriginal_0
+[FAIL: Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000] testExploit() (gas: 40646)
+
+Encountered a total of 1 failing tests, 0 tests succeeded
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 365.91ms
+Compiler run successful!
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000] testExploit() (gas: 38376)
+Traces:
+  [38376] ExploitPatched_0::testExploit()
+    ├─ [23356] 0x89d7c52b999DE0f2D862eD944203BFA0526AE973::multiSendETH{value: 1000000000000000000}([0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [1000000000000000000 [1e18]])
+    │   ├─ [8861] ExploitPatched_0::receive{value: 1000000000000000000}()
+    │   │   ├─ [1276] 0x89d7c52b999DE0f2D862eD944203BFA0526AE973::multiSendETH([0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [10000000000000000000 [1e19]])
+    │   │   │   └─ ← [Revert] Escrow: reentrant call
+    │   │   └─ ← [Revert] Escrow: reentrant call
+    │   └─ ← [Revert] Address: unable to send value, recipient may have reverted
+    ├─ [0] VM::assertGt(1000000000000000000 [1e18], 1000000000000000000 [1e18], "Economic Exploit Failed: No profit") [staticcall]
+    │   └─ ← [Revert] Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000
+    └─ ← [Revert] Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 970.53ms (970.09ms CPU time)
+
+Ran 1 test suite in 2.99s (970.53ms CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Economic Exploit Failed: No profit: 1000000000000000000 <= 1000000000000000000] testExploit() (gas: 38376)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

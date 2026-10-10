@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "Accounting Error",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call the issue() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some USDT tokens to demonstrate the accounting issue",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the issue() function with an arbitrary amount to mint new tokens to the owner's balance without proper collateral tracking. This demonstrates the accounting error where token issuance isn't properly tracked against collateral, potentially leading to incorrect accounting and loss of user funds when multiple collateral tokens are involved."
+}

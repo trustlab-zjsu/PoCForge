@@ -1,0 +1,29 @@
+{
+  "target_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership through transferAdmin)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BURNING tokens to execute the exploit",
+      "token_address": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD1c0c25c5d7BA21df222Bd2623eCBC0CB264b5f4",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As owner, call forceSwapAndSendDividends with a large token amount to drain contract's BNB balance. First ensure contract has accumulated fees (buyAmount/sellAmount) by making trades. Then call forceSwapAndSendDividends with tokens equal to contract's balance, which will swap tokens for BNB and send dividends to marketing/dev wallets (controlled by owner). Alternatively, use airdropToWallets to transfer tokens to attacker-controlled wallets without fees."
+}

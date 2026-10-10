@@ -1,0 +1,23 @@
+{
+  "target_address": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setTaxFeePercent() and setLiquidityFeePercent() to increase fees to a high percentage (e.g., 99%). Then execute token transfers through the contract to collect excessive fees in BNB via the swapAndLiquify mechanism. The increased fees will result in more BNB being sent to the marketing address (which the owner controls) and more tokens being collected as liquidity fees."
+}

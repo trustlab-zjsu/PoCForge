@@ -1,0 +1,81 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 446.93ms
+Compiler run successful!
+2026-10-09T13:17:06.932599Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642330"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 44750)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 13.85s (3.91s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 37453)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 13.85s (3.91s CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 21986)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 13.85s (3.91s CPU time)
+
+Ran 3 test suites in 14.88s (41.54s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 460.51ms
+Compiler run successful!
+2026-10-09T13:17:28.825399Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642375"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: DoctorShiba: fixed supply] testExploit() (gas: 15381)
+Traces:
+  [15381] ExploitPatched_1::testExploit()
+    ├─ [2607] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2444] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::owner() [staticcall]
+    │   └─ ← [Return] 0xB0534853cc4A3E967669337EF02024F269b1B949
+    ├─ [0] VM::startPrank(0xB0534853cc4A3E967669337EF02024F269b1B949)
+    │   └─ ← [Return]
+    ├─ [645] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::mint(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000 [1e15])
+    │   └─ ← [Revert] DoctorShiba: fixed supply
+    └─ ← [Revert] DoctorShiba: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.23s (301.45ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: DoctorShiba: recipient lock disabled] testExploit() (gas: 13124)
+Traces:
+  [13124] ExploitPatched_2::testExploit()
+    ├─ [0] VM::startPrank(Contract Owner: [0xB0534853cc4A3E967669337EF02024F269b1B949])
+    │   └─ ← [Return]
+    ├─ [2581] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::transfernewun(0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF)
+    │   └─ ← [Revert] DoctorShiba: recipient lock disabled
+    └─ ← [Revert] DoctorShiba: recipient lock disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.23s (301.41ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: DoctorShiba: owner pause disabled] testExploit() (gas: 13977)
+Traces:
+  [13977] ExploitPatched_0::testExploit()
+    ├─ [2444] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::owner() [staticcall]
+    │   └─ ← [Return] 0xB0534853cc4A3E967669337EF02024F269b1B949
+    ├─ [0] VM::startPrank(0xB0534853cc4A3E967669337EF02024F269b1B949)
+    │   └─ ← [Return]
+    ├─ [2671] 0x783e086d67670C0d85C4eF34ebBEe5A8253B38EE::pause()
+    │   └─ ← [Revert] DoctorShiba: owner pause disabled
+    └─ ← [Revert] DoctorShiba: owner pause disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.11s (1.18s CPU time)
+
+Ran 3 test suites in 8.51s (13.57s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: DoctorShiba: owner pause disabled] testExploit() (gas: 13977)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: DoctorShiba: fixed supply] testExploit() (gas: 15381)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: DoctorShiba: recipient lock disabled] testExploit() (gas: 13124)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

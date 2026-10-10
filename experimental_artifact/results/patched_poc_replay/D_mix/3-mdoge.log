@@ -1,0 +1,65 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 406.84ms
+Compiler run successful!
+2026-10-09T13:12:17.885440Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641687"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 26482)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.42s (883.28ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 39684)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.98s (321.13µs CPU time)
+
+Ran 2 test suites in 11.34s (17.39s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 384.40ms
+Compiler run successful!
+2026-10-09T13:12:33.074064Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641719"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: MartianDoge: treasury withdrawal disabled] testExploit() (gas: 19383)
+Traces:
+  [19383] ExploitPatched_1::testExploit()
+    ├─ [2488] 0x0Ea9790b1385ce5efAfc273623A013D007e50254::owner() [staticcall]
+    │   └─ ← [Return] 0x417f5f135760E23944ECFa21B2A304B0486C7D4a
+    ├─ [0] VM::startPrank(0x417f5f135760E23944ECFa21B2A304B0486C7D4a)
+    │   └─ ← [Return]
+    ├─ [5373] 0x0Ea9790b1385ce5efAfc273623A013D007e50254::transferOwnership(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x417f5f135760E23944ECFa21B2A304B0486C7D4a, newOwner: ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [488] 0x0Ea9790b1385ce5efAfc273623A013D007e50254::owner() [staticcall]
+    │   └─ ← [Return] ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]
+    ├─ [515] 0x0Ea9790b1385ce5efAfc273623A013D007e50254::claimTokens()
+    │   └─ ← [Revert] MartianDoge: treasury withdrawal disabled
+    └─ ← [Revert] MartianDoge: treasury withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.62s (884.33ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: MDOGE: blacklist administration disabled] testExploit() (gas: 15480)
+Traces:
+  [15480] ExploitPatched_2::testExploit()
+    ├─ [0] VM::startPrank(0x417f5f135760E23944ECFa21B2A304B0486C7D4a)
+    │   └─ ← [Return]
+    ├─ [2704] 0x0Ea9790b1385ce5efAfc273623A013D007e50254::setBlacklist(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], true)
+    │   └─ ← [Revert] MDOGE: blacklist administration disabled
+    └─ ← [Revert] MDOGE: blacklist administration disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.93s (63.00µs CPU time)
+
+Ran 2 test suites in 7.02s (9.55s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: MartianDoge: treasury withdrawal disabled] testExploit() (gas: 19383)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: MDOGE: blacklist administration disabled] testExploit() (gas: 15480)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

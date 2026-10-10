@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained owner privileges)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "The contract must have passed the bonus time (bounsTime) so users can call receiveBounsToken()",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "dayPoolBounsPiece[yesToday]",
+      "operator": ">",
+      "expected_value": "dayPoolBouns[yesToday]"
+    }
+  },
+  "exploit_hint": "As the contract owner, call sumBounsPiece() with a very large number (e.g., type(uint256).max) for the current day's date string (yesToday). This will set dayPoolBounsPiece[yesToday] to an extremely high value. When users later call receiveBounsToken(), the _sumCanGetToken() function will attempt to subtract dayPoolBounsPiece[yesToday].mul(balancePiece) from dayPoolBouns[yesToday], causing an arithmetic underflow that will revert all bonus distribution transactions, effectively locking user rewards."
+}

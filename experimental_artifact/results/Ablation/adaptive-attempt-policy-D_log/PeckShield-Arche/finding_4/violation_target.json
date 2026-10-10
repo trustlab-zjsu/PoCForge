@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the token being swapped in the D_Swap contract",
+      "token_address": "0x...",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The D_Swap contract must have sufficient liquidity of the target token for the swap",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The Impl_Delivery() function violates checks-effects-interactions pattern by making external calls before updating state. Create a malicious contract that calls back into the vulnerable function during the token transfer to drain funds. The attack should involve: 1) Deploy attack contract with reentrancy callback, 2) Initiate swap via Impl_Delivery(), 3) During token transfer to attacker, re-enter the function to execute multiple swaps before balances are updated, 4) Withdraw stolen funds."
+}

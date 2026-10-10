@@ -1,0 +1,23 @@
+{
+  "target_address": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+      "victim_contract": "0xe8bd1CA97F8a0582335407B40B0576Df641fA94C",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call the _mint() function (inherited from ERC20) to mint additional tokens to your address. The contract lacks proper access control on the _mint() function, allowing the owner to arbitrarily inflate the token supply and increase their balance. No other functions need to be called - simply call _mint(attacker_address, arbitrary_amount)."
+}

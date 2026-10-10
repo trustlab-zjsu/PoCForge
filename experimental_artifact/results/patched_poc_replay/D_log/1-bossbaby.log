@@ -1,0 +1,79 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 452.47ms
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Original_0.t.sol:19:5:
+   |
+19 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Original_1.t.sol:28:5:
+   |
+28 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+2026-10-09T13:53:33.989189Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647184"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 8096)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.52s (2.00ms CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 8185)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.95s (2.42s CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 98720)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.79s (3.27s CPU time)
+
+Ran 3 test suites in 8.96s (16.26s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 399.41ms
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Patched_0.t.sol:19:5:
+   |
+19 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Patched_1.t.sol:28:5:
+   |
+28 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+2026-10-09T13:53:46.478311Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647214"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[PASS] testExploit() (gas: 8096)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.18s (421.47ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 91165)
+Traces:
+  [91165] ExploitPatched_2::testExploit()
+    ├─ [47497] → new RevertingContract@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 237 bytes of code
+    ├─ [0] VM::prank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [3088] 0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F::changeMarketingWallet(RevertingContract: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.76s (999.37ms CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[PASS] testExploit() (gas: 8185)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.05s (868.90ms CPU time)
+
+Ran 3 test suites in 8.15s (20.00s CPU time): 2 tests passed, 1 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 91165)
+
+Encountered a total of 1 failing tests, 2 tests succeeded

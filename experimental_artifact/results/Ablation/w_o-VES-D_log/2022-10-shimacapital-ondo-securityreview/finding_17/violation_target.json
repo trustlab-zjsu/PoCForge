@@ -1,0 +1,35 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC20 Non-Conformity",
+  "violation_category": "ECONOMIC",
+  "finding_id": 17,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the target token to initiate transfer",
+      "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be paused (paused == false)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Attacker must not be blacklisted (isBlackListed[attacker] == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract's transfer function has a critical ERC20 non-conformity: it subtracts the full _value from sender's balance but only adds (value - fee) to recipient's balance. This creates a discrepancy where the fee amount disappears from total supply. Exploit by transferring tokens to yourself or another address you control - the contract will burn the fee amount from total supply while your balance increases by the full sendAmount. Repeated transfers will gradually reduce total supply while increasing your relative share of tokens."
+}

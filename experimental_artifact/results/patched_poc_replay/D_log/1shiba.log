@@ -1,0 +1,56 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 408.65ms
+Compiler run successful!
+2026-10-09T13:21:53.938719Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642967"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 19899)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.36s (1.23s CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 17146)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.83s (1.70s CPU time)
+
+Ran 2 test suites in 8.97s (13.18s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 391.79ms
+Compiler run successful!
+2026-10-09T13:22:05.878565Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642992"
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: 1SHIBA: zero transaction limit] testExploit() (gas: 13215)
+Traces:
+  [13215] ExploitPatched_2::testExploit()
+    ├─ [0] VM::startPrank(0xa046Ffd040A0681CF818aDb203C1119Bd808EaeB)
+    │   └─ ← [Return]
+    ├─ [2608] 0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d::setMaxTxPercent(0)
+    │   └─ ← [Revert] 1SHIBA: zero transaction limit
+    └─ ← [Revert] 1SHIBA: zero transaction limit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.59s (279.79ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: 1SHIBA: tax exceeds 25%] testExploit() (gas: 13222)
+Traces:
+  [13222] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(Contract Owner: [0xa046Ffd040A0681CF818aDb203C1119Bd808EaeB])
+    │   └─ ← [Return]
+    ├─ [2614] 0xcc21ec2C6867AC6EFD9cE158996fF47AB5743B2d::setTaxFeePercent(100)
+    │   └─ ← [Revert] 1SHIBA: tax exceeds 25%
+    └─ ← [Revert] 1SHIBA: tax exceeds 25%
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.59s (279.80ms CPU time)
+
+Ran 2 test suites in 7.76s (11.17s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: 1SHIBA: tax exceeds 25%] testExploit() (gas: 13222)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: 1SHIBA: zero transaction limit] testExploit() (gas: 13215)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

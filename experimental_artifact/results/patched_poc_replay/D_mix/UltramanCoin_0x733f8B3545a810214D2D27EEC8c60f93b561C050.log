@@ -1,0 +1,41 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 436.33ms
+Compiler run successful!
+2026-10-09T13:16:46.204834Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642284"
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 22517)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.03s (1.74s CPU time)
+
+Ran 1 test suite in 9.28s (8.03s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 389.98ms
+Compiler run successful!
+2026-10-09T13:17:00.004395Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642314"
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16095)
+Traces:
+  [16095] ExploitPatched_2::testExploit()
+    ├─ [2627] 0x733f8B3545a810214D2D27EEC8c60f93b561C050::owner() [staticcall]
+    │   └─ ← [Return] 0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b
+    ├─ [2589] 0x733f8B3545a810214D2D27EEC8c60f93b561C050::totalSupply() [staticcall]
+    │   └─ ← [Return] 1000000000000000000 [1e18]
+    ├─ [0] VM::startPrank(0x29776670B80a8d0b6D0f4b81Fc7697489AC89A8b)
+    │   └─ ← [Return]
+    ├─ [1214] 0x733f8B3545a810214D2D27EEC8c60f93b561C050::setMaxWalletAmount(1000000000000000000 [1e18])
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.38s (1.25s CPU time)
+
+Ran 1 test suite in 6.69s (5.38s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16095)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

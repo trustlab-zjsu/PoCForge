@@ -1,0 +1,23 @@
+{
+  "target_address": "0xCA1E6F584E0d7EEc74F553E9a7B64a4DeD8A4b61",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "FLOV._isExcludedFromFees[owner()]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call excludeFromFees() to exclude yourself from transaction fees, then call setExcludeFromAll() to exclude yourself from dividends. This allows you to bypass the 1% additional fee when selling to automated market maker pairs and avoid dividend distribution fees that other users must pay."
+}

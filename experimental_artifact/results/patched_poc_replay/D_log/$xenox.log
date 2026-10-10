@@ -1,0 +1,39 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 542.38ms
+Compiler run successful!
+2026-10-09T13:21:28.964285Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642912"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 17369)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.61s (1.51s CPU time)
+
+Ran 1 test suite in 9.80s (8.61s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 374.15ms
+Compiler run successful!
+2026-10-09T13:21:43.286073Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642944"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: xenoX: sell tax exceeds 25%] testExploit() (gas: 12669)
+Traces:
+  [12669] ExploitPatched_0::testExploit()
+    ├─ [2560] 0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51::owner() [staticcall]
+    │   └─ ← [Return] 0x0e0074B60dd9892543bC8A7f3F633a4601bBF868
+    ├─ [0] VM::prank(0x0e0074B60dd9892543bC8A7f3F633a4601bBF868)
+    │   └─ ← [Return]
+    ├─ [975] 0xcb9fD3784e9F369C4AD3BD4CB0d3a21aCbF23a51::setSellTaxFeePercent(99)
+    │   └─ ← [Revert] xenoX: sell tax exceeds 25%
+    └─ ← [Revert] xenoX: sell tax exceeds 25%
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.67s (759.59ms CPU time)
+
+Ran 1 test suite in 6.19s (4.67s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: xenoX: sell tax exceeds 25%] testExploit() (gas: 12669)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

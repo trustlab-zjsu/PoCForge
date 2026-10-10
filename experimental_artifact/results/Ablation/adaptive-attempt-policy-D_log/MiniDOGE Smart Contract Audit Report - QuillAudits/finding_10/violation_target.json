@@ -1,0 +1,29 @@
+{
+  "target_address": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+  "vulnerability_type": "Unsafe Native Transfer",
+  "violation_category": "ECONOMIC",
+  "finding_id": 10,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or have control over the marketing address (0x17d782117bf626150c109c25e8bCfe9FBb212090)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have a non-zero BNB balance (accumulated from fees or buybacks)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract uses .transfer() in transferToAddressETH() which has a fixed 2300 gas stipend. If the marketing address is a contract with complex fallback/receive logic, it may fail, locking BNB in the contract. As owner, call Sweep() to drain all BNB to owner address, or if you control marketing address, make it a contract that consumes >2300 gas when receiving BNB to block transfers and accumulate BNB for later owner sweep."
+}

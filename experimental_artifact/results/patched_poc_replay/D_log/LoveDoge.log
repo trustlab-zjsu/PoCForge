@@ -1,0 +1,92 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 459.66ms
+Compiler run successful!
+2026-10-09T13:23:14.438514Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643146"
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 71398)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.99s (959.98ms CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 94967)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.63s (3.59s CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 193076)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 10.62s (5.63s CPU time)
+
+Ran 3 test suites in 12.48s (23.24s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 437.42ms
+Compiler run successful!
+2026-10-09T13:23:29.913315Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643181"
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: LoveDoge: bonus override bounded] testExploit() (gas: 48322)
+Traces:
+  [48322] ExploitPatched_2::testExploit()
+    ├─ [2489] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::owner() [staticcall]
+    │   └─ ← [Return] 0x797E29e44ECC4384296eea351aA1e690b1349C2D
+    ├─ [0] VM::warp(1791638606 [1.791e9])
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(0x797E29e44ECC4384296eea351aA1e690b1349C2D)
+    │   └─ ← [Return]
+    ├─ [35433] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::getDays() [staticcall]
+    │   └─ ← [Return] "20261009", "20261008"
+    ├─ [968] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::sumBounsPiece("20261009", 100000000000000000000000000000000000000000000000000 [1e50])
+    │   └─ ← [Revert] LoveDoge: bonus override bounded
+    └─ ← [Revert] LoveDoge: bonus override bounded
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.08s (483.64ms CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: LoveDoge: manual bonus pool override disabled] testExploit() (gas: 58760)
+Traces:
+  [58760] ExploitPatched_1::testExploit()
+    ├─ [2607] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 100000000000000000000 [1e20]
+    ├─ [7512] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::setBounsTime(1)
+    │   └─ ← [Stop]
+    ├─ [34619] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::getDays() [staticcall]
+    │   └─ ← [Return] "20261008", "20261007"
+    ├─ [2607] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::balanceOf(0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A) [staticcall]
+    │   └─ ← [Return] 1000000000000000 [1e15]
+    ├─ [1319] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::sumTheBounsPool("20261008", "20261007")
+    │   └─ ← [Revert] LoveDoge: manual bonus pool override disabled
+    └─ ← [Revert] LoveDoge: manual bonus pool override disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.79s (433.50ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: SafeMath: subtraction overflow] testExploit() (gas: 97196)
+Traces:
+  [97196] ExploitPatched_0::testExploit()
+    ├─ [331] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::decimals() [staticcall]
+    │   └─ ← [Return] 9
+    ├─ [2461] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::totalBurn() [staticcall]
+    │   └─ ← [Return] 47923720792485087008854 [4.792e22]
+    ├─ [89465] 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A::transfer(0x000000000000000000000000000000000000dEaD, 1000000000000 [1e12])
+    │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0xb4a9193D9Badcd9C22e22870eCA791EA0822f6C3, value: 20000000000 [2e10])
+    │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x0000000000000000000000000000000000000000, value: 20000000000 [2e10])
+    │   ├─ emit Transfer(from: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A, value: 60000000000 [6e10])
+    │   └─ ← [Revert] SafeMath: subtraction overflow
+    └─ ← [Revert] SafeMath: subtraction overflow
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 8.57s (3.98s CPU time)
+
+Ran 3 test suites in 9.96s (19.45s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: SafeMath: subtraction overflow] testExploit() (gas: 97196)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: LoveDoge: manual bonus pool override disabled] testExploit() (gas: 58760)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: LoveDoge: bonus override bounded] testExploit() (gas: 48322)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

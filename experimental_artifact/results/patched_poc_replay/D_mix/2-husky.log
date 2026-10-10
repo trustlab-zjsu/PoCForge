@@ -1,0 +1,37 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 417.82ms
+Compiler run successful!
+2026-10-09T13:12:16.089798Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641682"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 39989)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.58s (938.71ms CPU time)
+
+Ran 1 test suite in 10.27s (7.58s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 383.41ms
+Compiler run successful!
+2026-10-09T13:12:30.102016Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641713"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: owner action disabled] testExploit() (gas: 14092)
+Traces:
+  [14092] ExploitPatched_1::testExploit()
+    ├─ [0] VM::startPrank(Contract Owner: [0x0000000000000000000000000000000000000000])
+    │   └─ ← [Return]
+    ├─ [3454] 0x40a5Ad300Ee5a5b8bA6B50719647C19F2E52d5BE::addBlacklist(Victim: [0x00000000000000000000000000000000DeaDBeef], true)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.32s (543.43ms CPU time)
+
+Ran 1 test suite in 9.49s (7.32s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: patched: owner action disabled] testExploit() (gas: 14092)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

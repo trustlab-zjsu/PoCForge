@@ -1,0 +1,78 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 425.92ms
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Original_1.t.sol:14:5:
+   |
+14 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+2026-10-09T13:54:00.997837Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647246"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 2910)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.68s (61.96µs CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 9664)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.54s (857.57ms CPU time)
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 90874)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 10.15s (6.46s CPU time)
+
+Ran 3 test suites in 11.52s (18.37s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 424.36ms
+Compiler run successful with warnings:
+Warning (2018): Function state mutability can be restricted to view
+  --> test/Patched_1.t.sol:14:5:
+   |
+14 |     function testExploit() public {
+   |     ^ (Relevant source part starts here and spans across multiple lines).
+
+2026-10-09T13:54:17.453499Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126647281"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[PASS] testExploit() (gas: 2910)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.60s (290.46µs CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 10047)
+Traces:
+  [10047] ExploitPatched_0::testExploit()
+    ├─ [2634] 0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605::owner() [staticcall]
+    │   └─ ← [Return] 0x0d72ce27B74B1da641502ed70baF87247Ef3e3AD
+    ├─ [0] VM::prank(0x0d72ce27B74B1da641502ed70baF87247Ef3e3AD)
+    │   └─ ← [Return]
+    ├─ [802] 0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605::renounceOwnership()
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.27s (671.79ms CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 13732)
+Traces:
+  [13732] ExploitPatched_2::testExploit()
+    ├─ [0] VM::prank(0x0d72ce27B74B1da641502ed70baF87247Ef3e3AD)
+    │   └─ ← [Return]
+    ├─ [3067] 0x8F9bA08Cbf014aB233A33067B21bEdF3876c6605::excludeFromReward(0x0d72ce27B74B1da641502ed70baF87247Ef3e3AD)
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.27s (671.85ms CPU time)
+
+Ran 3 test suites in 7.30s (15.14s CPU time): 1 tests passed, 2 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 10047)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 13732)
+
+Encountered a total of 2 failing tests, 1 tests succeeded

@@ -1,0 +1,39 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 388.58ms
+Compiler run successful!
+2026-10-09T13:14:24.308212Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641960"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 186680)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.52s (1.04s CPU time)
+
+Ran 1 test suite in 15.46s (9.52s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 365.61ms
+Compiler run successful!
+2026-10-09T13:14:45.825578Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642016"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 170334)
+Traces:
+  [170334] ExploitPatched_0::testExploit()
+    ├─ [124369] → new MaliciousImplementation@0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f
+    │   └─ ← [Return] 621 bytes of code
+    ├─ [0] VM::startPrank(0xba70a5e478815273a5269A8c4a5FD18fe6F6ca8d)
+    │   └─ ← [Return]
+    ├─ [2996] 0xe4D810feb232eA08373a79A826b4955D72732f10::upgradeTo(MaliciousImplementation: [0x5615dEB798BB3E4dFa0139dFa1b3D433Cc23b72f])
+    │   └─ ← [Revert] patched: EOA-only entry point
+    └─ ← [Revert] patched: EOA-only entry point
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.27s (595.62ms CPU time)
+
+Ran 1 test suite in 6.71s (5.27s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: EOA-only entry point] testExploit() (gas: 170334)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

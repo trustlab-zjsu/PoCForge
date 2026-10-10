@@ -1,0 +1,86 @@
+===== original batch =====
+Compiling 22 files with Solc 0.8.26
+Solc 0.8.26 finished in 454.86ms
+Compiler run successful!
+2026-10-09T13:23:26.107922Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643167"
+
+Ran 1 test for test/Original_7.t.sol:ExploitOriginal_7
+[PASS] testExploit() (gas: 12634)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.99s (152.17µs CPU time)
+
+Ran 1 test for test/Original_4.t.sol:ExploitOriginal_4
+[PASS] testExploit() (gas: 57797)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.21s (1.22s CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 52969)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.21s (1.22s CPU time)
+
+Ran 3 test suites in 11.25s (20.41s CPU time): 3 tests passed, 0 failed, 0 skipped (3 total tests)
+
+===== patched batch =====
+Compiling 3 files with Solc 0.8.26
+Solc 0.8.26 finished in 484.88ms
+Compiler run successful!
+2026-10-09T13:23:39.528557Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643202"
+
+Ran 1 test for test/Patched_7.t.sol:ExploitPatched_7
+[FAIL: Nomos: treasury withdrawal disabled] testExploit() (gas: 5805)
+Traces:
+  [5805] ExploitPatched_7::testExploit()
+    ├─ [2758] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::withdraw()
+    │   └─ ← [Revert] Nomos: treasury withdrawal disabled
+    └─ ← [Revert] Nomos: treasury withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.83s (68.46µs CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: Nomos: marketing address is immutable] testExploit() (gas: 39876)
+Traces:
+  [39876] ExploitPatched_1::testExploit()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [24658] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::transferOwnership(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [1017] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::setMarketingAddress(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] Nomos: marketing address is immutable
+    └─ ← [Revert] Nomos: marketing address is immutable
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.60s (777.33ms CPU time)
+
+Ran 1 test for test/Patched_4.t.sol:ExploitPatched_4
+[FAIL: Nomos: marketing address is immutable] testExploit() (gas: 44704)
+Traces:
+  [44704] ExploitPatched_4::testExploit()
+    ├─ [0] VM::startPrank(0x0000000000000000000000000000000000000000)
+    │   └─ ← [Return]
+    ├─ [24658] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::transferOwnership(ExploitPatched_4: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x0000000000000000000000000000000000000000, newOwner: ExploitPatched_4: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4207] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::setSwapAndLiquifyEnabled(true)
+    │   ├─ emit SwapAndLiquifyEnabledUpdated(enabled: true)
+    │   └─ ← [Stop]
+    ├─ [1017] 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc::setMarketingAddress(ExploitPatched_4: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] Nomos: marketing address is immutable
+    └─ ← [Revert] Nomos: marketing address is immutable
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.92s (1.09s CPU time)
+
+Ran 3 test suites in 9.61s (22.35s CPU time): 0 tests passed, 3 failed, 0 skipped (3 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: Nomos: marketing address is immutable] testExploit() (gas: 39876)
+
+Encountered 1 failing test in test/Patched_4.t.sol:ExploitPatched_4
+[FAIL: Nomos: marketing address is immutable] testExploit() (gas: 44704)
+
+Encountered 1 failing test in test/Patched_7.t.sol:ExploitPatched_7
+[FAIL: Nomos: treasury withdrawal disabled] testExploit() (gas: 5805)
+
+Encountered a total of 3 failing tests, 0 tests succeeded

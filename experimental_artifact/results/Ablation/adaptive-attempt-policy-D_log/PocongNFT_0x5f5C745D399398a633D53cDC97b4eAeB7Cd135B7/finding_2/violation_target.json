@@ -1,0 +1,23 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Missing Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 wei of the PocongNFT token to initiate a transfer",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The functions setMaxTxPercent() and setMaxWalletPercent() are missing the onlyOwner modifier, allowing any caller to set transaction limits to 0. First, call setMaxTxPercent(1) to set _maxTxAmount to 1% of total supply, then call setMaxWalletPercent(1) to set _maxWalletToken to 1% of total supply. This will effectively freeze all transfers except for tiny amounts, allowing the attacker to manipulate the token's liquidity and potentially profit from the resulting market conditions. The attacker can also call setDevWallet() to redirect dev fees to their own address, capturing a portion of all future transactions."
+}

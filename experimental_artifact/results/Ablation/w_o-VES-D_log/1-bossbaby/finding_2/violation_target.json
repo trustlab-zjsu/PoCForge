@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Transfer Revert Propagation",
+  "violation_category": "ECONOMIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BossBaby tokens to trigger the swap mechanism",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated marketing fees (contract token balance >= swapTokensAtAmount)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (tradingEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Swap must be enabled (swapEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Set up a malicious contract as the marketingWallet that reverts on receiving BNB. Then trigger a sell transaction to the uniswapV2Pair when contract has accumulated marketing fees. This will cause swapAndSendMarketing to revert, blocking all subsequent swaps and fee processing. The attacker can then buy tokens at lower prices due to blocked fee mechanisms, and later sell when marketingWallet is fixed or fees are disabled."
+}

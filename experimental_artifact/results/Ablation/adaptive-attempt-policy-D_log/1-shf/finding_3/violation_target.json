@@ -1,0 +1,35 @@
+{
+  "target_address": "0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f",
+  "vulnerability_type": "Zero Division",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be authorized (owner or authorized address) to call setFees_base1000 function",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true) for swapBack to be triggered",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have swapEnabled = true and balanceOf[address(this)] >= swapThreshold",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "totalETHFee",
+      "operator": "==",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As an authorized address, call setFees_base1000 to set burnFee equal to totalFee, making totalETHFee = totalFee - burnFee = 0. Then trigger swapBack() by having sufficient contract token balance and swap enabled, causing division by zero at line 376 where (swapThreshold * liquidityFee)/(totalETHFee * 2) will revert due to division by zero."
+}

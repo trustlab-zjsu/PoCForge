@@ -1,0 +1,29 @@
+{
+  "target_address": "0xaba9Ecc06b23d688CB353FC57919D416eedFA095",
+  "vulnerability_type": "Constructor Initialization Vulnerability",
+  "violation_category": "LOGIC",
+  "finding_id": 2,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract deployer/owner",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not have been initialized yet (fresh deployment)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "token",
+      "operator": "!=",
+      "expected_value": "address(0)"
+    }
+  },
+  "exploit_hint": "The contract uses a constructor instead of an initializer function, making it vulnerable to front-running attacks. As the deployer, call the constructor with malicious parameters to set the token address to a controlled token, claimPeriod to 0, and subsequentClaim to a high value. This allows immediate and excessive token claims. Then add your address as a distribution wallet with a large balance and immediately call claim() to drain tokens."
+}

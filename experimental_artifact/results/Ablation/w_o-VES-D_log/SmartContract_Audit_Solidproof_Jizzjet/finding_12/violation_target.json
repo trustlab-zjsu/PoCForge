@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Integer Overflow and Underflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 12,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 JizzJet token to initiate transfer",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have sufficient token balance in its own address to trigger swapAndLiquify",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability exists in the _getCurrentSupply() function where integer overflow can occur when subtracting excluded balances from rSupply and tSupply. Trigger swapAndLiquify by transferring tokens to the contract to increase its balance above numTokensSellToAddToLiquidity, then perform a transfer that causes the overflow in supply calculations. This will manipulate token balances and allow the attacker to receive excessive tokens or ETH during the swap process. Focus on manipulating rSupply/tSupply calculations to bypass fee deductions or create incorrect token amounts."
+}

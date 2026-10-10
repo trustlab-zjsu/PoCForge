@@ -1,0 +1,35 @@
+{
+  "target_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+  "vulnerability_type": "Incorrect Transfer Sender",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least numTokensSellToAddToLiquidity (500,000 * 10^6 * 10^18) of the PLENTYCOIN token",
+      "token_address": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "min_amount": "500000000000000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to trigger swapAndLiquify (balanceOf(address(this)) - _lockedAmount >= numTokensSellToAddToLiquidity)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "victim_contract": "0xa5e8A886B6BAB60E1A2273b79CaA72143eD8B418",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Trigger the swapAndLiquify function by making a transfer that causes contractTokenBalance >= numTokensSellToAddToLiquidity. The vulnerable transfer(_buyBackAddress, rest) call in swapAndLiquify() will use msg.sender (attacker) as the from address instead of the contract address, transferring rest tokens from the attacker's balance to _buyBackAddress. To exploit, ensure you have sufficient token balance, then make a transfer that triggers the automatic swapAndLiquify execution (from != uniswapV2Pair, to any address). The attacker will lose tokens to _buyBackAddress, but this demonstrates the vulnerability where user funds are incorrectly used instead of contract funds."
+}

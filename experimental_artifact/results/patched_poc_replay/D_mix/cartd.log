@@ -1,0 +1,41 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 395.43ms
+Compiler run successful!
+2026-10-09T13:16:45.887753Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642281"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 33427)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.30s (1.12s CPU time)
+
+Ran 1 test suite in 8.18s (6.30s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 390.39ms
+Compiler run successful!
+2026-10-09T13:16:57.339895Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642308"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 22709)
+Traces:
+  [22709] ExploitPatched_0::testExploit()
+    ├─ [2649] 0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF::owner() [staticcall]
+    │   └─ ← [Return] 0xb9072Ea7B1A58a74E32cfCD7c86aC5Cb114e2d60
+    ├─ [0] VM::startPrank(0xb9072Ea7B1A58a74E32cfCD7c86aC5Cb114e2d60)
+    │   └─ ← [Return]
+    ├─ [5047] 0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF::getTaxes() [staticcall]
+    │   └─ ← [Return] 10, 0, 40, 40, 10, 0, 10, 20, 0
+    ├─ [2634] 0xeb58B47404F386286b0BF09cAE3C14d8b82F65CF::UpdateTaxes(10, 0, 40, 40, 10, 0, 10, 20, 50)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.14s (1.04s CPU time)
+
+Ran 1 test suite in 6.69s (5.14s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 22709)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,65 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 443.25ms
+Compiler run successful!
+2026-10-10T07:22:19.300236Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26160506"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 49771)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.79s (1.60ms CPU time)
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 87804)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.79s (856.16ms CPU time)
+
+Ran 2 test suites in 9.30s (15.58s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 411.85ms
+Compiler run successful!
+2026-10-10T07:22:33.595512Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/mainnet/26160507"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: TOUCH: delegated transfers disabled] testExploit() (gas: 46815)
+Traces:
+  [46815] ExploitPatched_1::testExploit()
+    ├─ [2674] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [674] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [0] VM::prank(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF])
+    │   └─ ← [Return]
+    ├─ [26940] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::approve(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 100000000000000000000 [1e20])
+    │   ├─ emit Approval(owner: victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], spender: ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 100000000000000000000 [1e20])
+    │   └─ ← [Return] true
+    ├─ [716] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::transferFrom(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 100000000000000000000 [1e20])
+    │   └─ ← [Revert] TOUCH: delegated transfers disabled
+    └─ ← [Revert] TOUCH: delegated transfers disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.52s (936.58µs CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: TOUCH: delegated transfers disabled] testExploit() (gas: 19750)
+Traces:
+  [19750] ExploitPatched_0::testExploit()
+    ├─ [2674] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [674] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::balanceOf(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2716] 0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953::transferFrom(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 1000000000000000000000 [1e21])
+    │   └─ ← [Revert] TOUCH: delegated transfers disabled
+    └─ ← [Revert] TOUCH: delegated transfers disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.52s (934.75µs CPU time)
+
+Ran 2 test suites in 8.61s (13.04s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: TOUCH: delegated transfers disabled] testExploit() (gas: 19750)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: TOUCH: delegated transfers disabled] testExploit() (gas: 46815)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

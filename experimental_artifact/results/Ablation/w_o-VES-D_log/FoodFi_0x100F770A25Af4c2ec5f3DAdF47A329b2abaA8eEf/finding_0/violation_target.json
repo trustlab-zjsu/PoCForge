@@ -1,0 +1,23 @@
+{
+  "target_address": "0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf",
+  "vulnerability_type": "Unauthorized Ownership Transfer",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Food_Fi_Token(0x100F770A25Af4c2ec5f3DAdF47A329b2abaA8eEf).owner()",
+      "operator": "==",
+      "expected_value": "<attacker_address>"
+    }
+  },
+  "exploit_hint": "As the current owner, call transferOwnership() to transfer ownership to a new address. The vulnerability is that the previous owner remains in the authorizations mapping, allowing them to continue calling authorized functions. After transferring ownership, the previous owner can still call functions like setBuyFees(), setSellFees(), setFeeReceivers(), etc., effectively maintaining control over critical contract parameters."
+}

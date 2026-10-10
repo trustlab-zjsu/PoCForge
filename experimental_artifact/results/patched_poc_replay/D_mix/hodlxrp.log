@@ -1,0 +1,135 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 405.43ms
+Compiler run successful with warnings:
+Warning (2519): This declaration shadows an existing declaration.
+  --> test/Original_0.t.sol:62:9:
+   |
+62 |         address owner = hodlxrp.getOwner();
+   |         ^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> test/Original_0.t.sol:48:5:
+   |
+48 |     address internal owner;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+  --> test/Original_0.t.sol:63:9:
+   |
+63 |         address victim = owner;
+   |         ^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> test/Original_0.t.sol:49:5:
+   |
+49 |     address internal victim = makeAddr("victim");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Original_0.t.sol:119:5:
+    |
+119 |     function getTotalDistributed() external view returns(uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Original_0.t.sol:120:5:
+    |
+120 |     function getUserInfo(address) external view returns(string memory, string memory, string memory, string memory) { return ('', '', '', ''); }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Original_0.t.sol:121:5:
+    |
+121 |     function getUserRealizedRewards(address) external view returns (uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Original_0.t.sol:122:5:
+    |
+122 |     function getPendingRewards(address) external view returns (uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+2026-10-09T13:20:03.930269Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642723"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 76140)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 13.35s (8.89s CPU time)
+
+Ran 1 test suite in 14.86s (13.35s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 381.19ms
+Compiler run successful with warnings:
+Warning (2519): This declaration shadows an existing declaration.
+  --> test/Patched_0.t.sol:62:9:
+   |
+62 |         address owner = hodlxrp.getOwner();
+   |         ^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> test/Patched_0.t.sol:48:5:
+   |
+48 |     address internal owner;
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2519): This declaration shadows an existing declaration.
+  --> test/Patched_0.t.sol:63:9:
+   |
+63 |         address victim = owner;
+   |         ^^^^^^^^^^^^^^
+Note: The shadowed declaration is here:
+  --> test/Patched_0.t.sol:49:5:
+   |
+49 |     address internal victim = makeAddr("victim");
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Patched_0.t.sol:119:5:
+    |
+119 |     function getTotalDistributed() external view returns(uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Patched_0.t.sol:120:5:
+    |
+120 |     function getUserInfo(address) external view returns(string memory, string memory, string memory, string memory) { return ('', '', '', ''); }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Patched_0.t.sol:121:5:
+    |
+121 |     function getUserRealizedRewards(address) external view returns (uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Warning (2018): Function state mutability can be restricted to pure
+   --> test/Patched_0.t.sol:122:5:
+    |
+122 |     function getPendingRewards(address) external view returns (uint256) { return 0; }
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+2026-10-09T13:20:21.664721Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642763"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 14548)
+Traces:
+  [14548] ExploitPatched_0::testExploit()
+    ├─ [2583] 0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06::getOwner() [staticcall]
+    │   └─ ← [Return] Victim: [0xD297653Ba2cD96565529245D9651315D13524AE3]
+    ├─ [0] VM::label(Victim: [0xD297653Ba2cD96565529245D9651315D13524AE3], "Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::label(Victim: [0xD297653Ba2cD96565529245D9651315D13524AE3], "Victim")
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(Victim: [0xD297653Ba2cD96565529245D9651315D13524AE3])
+    │   └─ ← [Return]
+    ├─ [1327] 0x32Ef0cE6078cfdEF67f3E21D40d3eE9D437A7B06::setBlacklistEnabled(Victim: [0xD297653Ba2cD96565529245D9651315D13524AE3], true)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 7.34s (802.65ms CPU time)
+
+Ran 1 test suite in 8.79s (7.34s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 14548)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

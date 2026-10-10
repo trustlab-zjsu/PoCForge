@@ -1,0 +1,29 @@
+{
+  "target_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some JizzJet tokens (at least numTokensSellToAddToLiquidity = 100000000 * 10**1 * 10**9 tokens) to trigger swapAndLiquify",
+      "token_address": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "min_amount": "1000000000000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "swapAndLiquifyEnabled must be true (default) and contract token balance must be >= numTokensSellToAddToLiquidity",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xF2A7429641d1b49a13dCB7E23b67a1a5101231F2",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract that implements a fallback/receive function. Transfer enough tokens to trigger swapAndLiquify (from != uniswapV2Pair). The contract will call swapTokensForEth which sends ETH to the attacker contract. In the receive() function, re-enter the transfer function before state updates complete, potentially allowing multiple ETH withdrawals or bypassing fee logic. Focus on reentering during the swapTokensForEth call when ETH is sent to the contract."
+}

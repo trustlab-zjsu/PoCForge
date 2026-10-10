@@ -1,0 +1,55 @@
+{
+  "source_dataset": "D_log",
+  "project": "LoveDoge",
+  "target_address": "0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A",
+  "chain": "bsc",
+  "source_origin": "experimental_artifact/results/Comparison/quimera_D_log/runs/LoveDoge/finding_1/quimera_foundry_sessions/0x7144E379C827fA71A7ecAA01d00607cBb7eB1b7A/1/prompt.txt",
+  "selection": "Gemini baseline Final Status == SUCCESS",
+  "patch_status": "patched",
+  "findings": [
+    {
+      "project": "LoveDoge",
+      "finding_id": 0,
+      "vulnerability_type": "Wrong burning",
+      "title": "Wrong burning",
+      "description": "The function _userTransfer() does not transfer burn amount anywhere or decrease totalSupply, it just increases totalBurn value and takes burn amount from transferring amount.",
+      "location": "_userTransfer()",
+      "pocforge_status": "BASELINE_SUCCESS",
+      "quimera_oracle_pass": false,
+      "dataset_json": "dataset/D_log/LoveDoge.json",
+      "patch_status": "patched"
+    },
+    {
+      "project": "LoveDoge",
+      "finding_id": 1,
+      "vulnerability_type": "Owner Privilege Abuse",
+      "title": "Unattached bonus rewards",
+      "description": "Owner can call sumTheBounsPool() function, that distributes half of the token balance in dayPoolBouns storage. Until users gain their rewards, this balance stay unaccounted.",
+      "location": "sumTheBounsPool()",
+      "pocforge_status": "SUCCESS",
+      "quimera_oracle_pass": true,
+      "dataset_json": "dataset/D_log/LoveDoge.json",
+      "patch_status": "patched"
+    },
+    {
+      "project": "LoveDoge",
+      "finding_id": 2,
+      "vulnerability_type": "Owner Privilege Abuse",
+      "title": "Abuse of authority",
+      "description": "Owner can call sumBounsPiece() function with very big amount and record it to dayPoolBounsPiece storage. And function _sumCanGetToken() will always revert because of too high value subtracting from dayPoolBouns[yesToday].",
+      "location": "sumBounsPiece()",
+      "pocforge_status": "BASELINE_SUCCESS",
+      "quimera_oracle_pass": false,
+      "dataset_json": "dataset/D_log/LoveDoge.json",
+      "patch_status": "patched"
+    }
+  ],
+  "patch_summary": "Reflected burn in balances and total supply; bounded manual bonus overrides.",
+  "validation": {
+    "compile_status": "pending",
+    "compiler": "forge build (pragma-selected solc)",
+    "poc_regression": "pending"
+  },
+  "original_source_sha256": "e666773c3f496dc4932db04765013fb186a7449f13ba805a0ab623c382ac64dc",
+  "patched_source_sha256": "8fa5e43163ac2c7bcb34cdfcee4b304e9b013754910ef1ef5dfa330f261f12fb"
+}

@@ -1,0 +1,58 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 405.07ms
+Compiler run successful!
+2026-10-09T13:21:56.481852Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642973"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 63690)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.01s (2.04s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 48599)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 9.01s (1.72s CPU time)
+
+Ran 2 test suites in 10.25s (18.01s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 389.36ms
+Compiler run successful!
+2026-10-09T13:22:10.829284Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126643005"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: GoldHunt: rewards pool immutable after deployment] testExploit() (gas: 20192)
+Traces:
+  [20192] ExploitPatched_1::testExploit()
+    ├─ [2583] 0x6D3dd96f97b10fc86A7F8607704BBe9936083b89::owner() [staticcall]
+    │   └─ ← [Return] 0x05F572ee8cdAAd5d28CDd1f274e3884Aa0cAf325
+    ├─ [0] VM::prank(0x05F572ee8cdAAd5d28CDd1f274e3884Aa0cAf325)
+    │   └─ ← [Return]
+    ├─ [1122] 0x6D3dd96f97b10fc86A7F8607704BBe9936083b89::setRewardsPool(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] GoldHunt: rewards pool immutable after deployment
+    └─ ← [Revert] GoldHunt: rewards pool immutable after deployment
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.48s (829.61ms CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: GoldHunt: rewards pool immutable after deployment] testExploit() (gas: 13654)
+Traces:
+  [13654] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(0x05F572ee8cdAAd5d28CDd1f274e3884Aa0cAf325)
+    │   └─ ← [Return]
+    ├─ [3122] 0x6D3dd96f97b10fc86A7F8607704BBe9936083b89::setRewardsPool(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Revert] GoldHunt: rewards pool immutable after deployment
+    └─ ← [Revert] GoldHunt: rewards pool immutable after deployment
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.48s (74.63µs CPU time)
+
+Ran 2 test suites in 7.09s (10.96s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: GoldHunt: rewards pool immutable after deployment] testExploit() (gas: 13654)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: GoldHunt: rewards pool immutable after deployment] testExploit() (gas: 20192)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

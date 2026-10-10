@@ -1,0 +1,44 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 390.50ms
+Compiler run successful!
+2026-10-09T13:16:09.492332Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642202"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 49530)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.50s (2.31s CPU time)
+
+Ran 1 test suite in 8.00s (6.50s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 433.44ms
+Compiler run successful!
+2026-10-09T13:16:21.310795Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642228"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: ShibZilla: sender withdrawal disabled] testExploit() (gas: 42520)
+Traces:
+  [42520] ExploitPatched_0::testExploit()
+    ├─ [2467] 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E::getOwner() [staticcall]
+    │   └─ ← [Return] 0xca07Df2Cbe0d98073e870b4325E969256924dd0f
+    ├─ [0] VM::startPrank(0xca07Df2Cbe0d98073e870b4325E969256924dd0f)
+    │   └─ ← [Return]
+    ├─ [26933] 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E::transferOwnership(ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(owner: ExploitPatched_0: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [769] 0xD00A7EdD637B776eC5a6461F5e7ac055F14a0C1E::clearStuckBalance_sender(100)
+    │   └─ ← [Revert] ShibZilla: sender withdrawal disabled
+    └─ ← [Revert] ShibZilla: sender withdrawal disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 9.81s (861.70ms CPU time)
+
+Ran 1 test suite in 11.22s (9.81s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: ShibZilla: sender withdrawal disabled] testExploit() (gas: 42520)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

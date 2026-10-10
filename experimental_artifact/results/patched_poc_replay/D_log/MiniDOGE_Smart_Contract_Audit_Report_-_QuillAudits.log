@@ -1,0 +1,49 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 398.77ms
+Compiler run successful!
+2026-10-10T05:21:23.340982Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126770872"
+
+Ran 1 test for test/Original_11.t.sol:ExploitOriginal_11
+[PASS] testExploit() (gas: 29331)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.31s (263.60ms CPU time)
+
+Ran 1 test for test/Original_10.t.sol:ExploitOriginal_10
+[PASS] testExploit() (gas: 21134)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.31s (87.21µs CPU time)
+
+Ran 2 test suites in 7.99s (12.63s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 398.63ms
+Compiler run successful!
+2026-10-10T05:21:36.579678Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126770902"
+
+Ran 1 test for test/Patched_10.t.sol:ExploitPatched_10
+[FAIL: next call did not revert as expected] testExploit() (gas: 41269)
+Traces:
+  [41269] ExploitPatched_10::testExploit()
+    ├─ [2605] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::owner() [staticcall]
+    │   └─ ← [Return] ExploitPatched_10: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]
+    ├─ [0] VM::expectRevert(custom error 0xf4844814)
+    │   └─ ← [Return]
+    ├─ [29922] 0xBa07EED3d09055d60CAEf2bDfCa1c05792f2dFad::Sweep()
+    │   ├─ [22167] ExploitPatched_10::receive{value: 1000000000000000000}()
+    │   │   └─ ← [Stop]
+    │   └─ ← [Stop]
+    └─ ← [Revert] next call did not revert as expected
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.63s (225.25µs CPU time)
+
+Ran 1 test for test/Patched_11.t.sol:ExploitPatched_11
+[PASS] testExploit() (gas: 29588)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 3.63s (1.33ms CPU time)
+
+Ran 2 test suites in 4.80s (7.26s CPU time): 1 tests passed, 1 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_10.t.sol:ExploitPatched_10
+[FAIL: next call did not revert as expected] testExploit() (gas: 41269)
+
+Encountered a total of 1 failing tests, 1 tests succeeded

@@ -1,0 +1,56 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 559.85ms
+Compiler run successful!
+2026-10-09T13:11:53.472723Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641633"
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 4998)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.56s (281.96ms CPU time)
+
+Ran 1 test for test/Original_7.t.sol:ExploitOriginal_7
+[PASS] testExploit() (gas: 15180)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.57s (281.63ms CPU time)
+
+Ran 2 test suites in 6.02s (9.14s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 418.09ms
+Compiler run successful!
+2026-10-09T13:12:16.925000Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126641685"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 5277)
+Traces:
+  [5277] ExploitPatched_0::testExploit()
+    ├─ [0] VM::store(0x134C857757308AEeC4c20CA2A583F560a906ed28, 0x0000000000000000000000000000000000000000000000000000000000000000, 0x0000000000000000000000007fa9385be102ac3eac297483dd6233d62b3e1496)
+    │   └─ ← [Return]
+    ├─ [1221] 0x134C857757308AEeC4c20CA2A583F560a906ed28::setMaxWalletTokens(0)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 3.72s (422.71µs CPU time)
+
+Ran 1 test for test/Patched_7.t.sol:ExploitPatched_7
+[FAIL: patched: owner action disabled] testExploit() (gas: 13828)
+Traces:
+  [13828] ExploitPatched_7::testExploit()
+    ├─ [0] VM::startPrank(0xc1a102abA7cE9Ffc3f95Bc38912B25DfF97a85A1)
+    │   └─ ← [Return]
+    ├─ [3221] 0x134C857757308AEeC4c20CA2A583F560a906ed28::setMaxWalletTokens(0)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.42s (699.75ms CPU time)
+
+Ran 2 test suites in 5.87s (8.13s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 5277)
+
+Encountered 1 failing test in test/Patched_7.t.sol:ExploitPatched_7
+[FAIL: patched: owner action disabled] testExploit() (gas: 13828)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

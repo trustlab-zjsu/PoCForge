@@ -1,0 +1,29 @@
+{
+  "target_address": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+  "vulnerability_type": "Reordering Attack",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have sufficient balance of the input token for the swap",
+      "token_address": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "A Uniswap V2 pair must exist for the token swap path with sufficient liquidity",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Perform a reordering attack by front-running a victim's swap transaction. First, use swapExactTokensForTokens or similar function to manipulate the pool reserves in your favor, then allow the victim's transaction to execute at unfavorable rates, and finally reverse your position to profit from the price difference. The attack exploits the lack of atomicity between price calculation and execution in Uniswap V2."
+}

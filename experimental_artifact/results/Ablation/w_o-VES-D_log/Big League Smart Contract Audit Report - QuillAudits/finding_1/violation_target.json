@@ -1,0 +1,35 @@
+{
+  "target_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+  "vulnerability_type": "Denial of Service via Liquidity Addition",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the token (BGLG) to initiate transfer to pair",
+      "token_address": "0xEa01D8D9EaCCa9996Db6Bb3377c1Fe64308e7328",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated fee tokens in its balance (balanceOf[address(this)] >= _amount threshold)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have zero or insufficient BNB balance when _sellAndDistributeAccumulatedTKNFee is triggered",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "StandardToken(0xea01d8d9eacca9996db6bb3377c1fe64308e7328).paused()",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "Trigger the fee distribution mechanism when the contract has insufficient BNB balance, causing the addLiquidityETH call to revert and lock the contract in the 'inSwap' state. First, ensure the contract has accumulated fee tokens by making transfers to the pair address. Then, when the contract's BNB balance is zero or very low, make another transfer to the pair to trigger _sellAndDistributeAccumulatedTKNFee. The router.addLiquidityETH call will revert due to insufficient BNB, but the contract will remain stuck with inSwap = true, blocking all future transfers."
+}

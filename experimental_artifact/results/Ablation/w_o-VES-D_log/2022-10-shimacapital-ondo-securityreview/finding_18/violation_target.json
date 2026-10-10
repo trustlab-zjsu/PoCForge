@@ -1,0 +1,29 @@
+{
+  "target_address": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+  "vulnerability_type": "ERC721 Non-Conformity",
+  "violation_category": "LOGIC",
+  "finding_id": 18,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner to call privileged functions",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must not be deprecated (deprecated == false)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "TetherToken(0xdac17f958d2ee523a2206206994597c13d831ec7).balanceOf(attacker_address)",
+      "operator": ">",
+      "expected_value": "0"
+    }
+  },
+  "exploit_hint": "As the contract owner, call the issue() function to mint new tokens to the owner's balance without proper ERC721 compliance checks. This allows unlimited token creation beyond the intended supply cap, violating the ERC721 standard's fixed supply requirement. The attack demonstrates the contract's non-conformity with ERC721 standards by showing arbitrary balance increase through owner privilege."
+}

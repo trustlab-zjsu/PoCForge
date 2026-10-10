@@ -1,0 +1,29 @@
+{
+  "target_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+  "vulnerability_type": "Unprotected Functions",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some PocongNFT tokens to initiate the attack",
+      "token_address": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "min_amount": "1000000000"
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens in its balance from fees (at least numTokensSellToAddToLiquidity = 2154 * 10^3 * 10^9)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x5f5C745D399398a633D53cDC97b4eAeB7Cd135B7",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract has private functions (_takeLiquidity, swapAndLiquify, addLiquidity) that should not be publicly accessible but are exposed. Call swapAndLiquify() directly when the contract has accumulated enough fee tokens. This will trigger token swaps for ETH and add liquidity, but since you're calling it directly, you can potentially manipulate the timing or parameters to extract value. First ensure the contract has sufficient token balance from accumulated fees, then call swapAndLiquify() with the appropriate amount to trigger the swap and liquidity addition, potentially capturing ETH in the process."
+}

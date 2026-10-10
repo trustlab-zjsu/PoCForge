@@ -1,0 +1,39 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 386.40ms
+Compiler run successful!
+2026-10-09T13:15:35.617499Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642115"
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 11105)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.05s (1.01s CPU time)
+
+Ran 1 test suite in 17.23s (7.05s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 361.98ms
+Compiler run successful!
+2026-10-09T13:15:48.715092Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642152"
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 10105)
+Traces:
+  [10105] ExploitPatched_2::testExploit()
+    ├─ [2567] 0xaba9Ecc06b23d688CB353FC57919D416eedFA095::owner() [staticcall]
+    │   └─ ← [Return] 0xbDd181287a02aa92AF7dA4830FDa04Dcf5966876
+    ├─ [0] VM::startPrank(0xbDd181287a02aa92AF7dA4830FDa04Dcf5966876)
+    │   └─ ← [Return]
+    ├─ [927] 0xaba9Ecc06b23d688CB353FC57919D416eedFA095::renounceOwnership()
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.71s (581.68ms CPU time)
+
+Ran 1 test suite in 7.71s (4.71s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 10105)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

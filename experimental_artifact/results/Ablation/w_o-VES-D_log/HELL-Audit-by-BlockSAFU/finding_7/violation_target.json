@@ -1,0 +1,29 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 7,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some amount of the StandardToken to initiate transfer",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "Victim contract must have a balance of StandardToken tokens",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "<victim contract address>",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "Deploy a malicious contract with a fallback/receive function that re-enters the StandardToken's transfer function. First, approve the malicious contract to spend tokens. Then call transfer to the malicious contract, which during its fallback will call transfer again before balances are updated, allowing double-spending of tokens. The malicious contract should recursively call transferFrom or transfer to drain funds."
+}

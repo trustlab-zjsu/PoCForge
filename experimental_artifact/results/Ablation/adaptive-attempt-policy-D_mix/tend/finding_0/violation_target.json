@@ -1,0 +1,23 @@
+{
+  "target_address": "0x222f737285D0B60d8D4f27fA22cE8884c9F119F8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "Token(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8)._taxFee() + Token(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8)._liquidityFee() + Token(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8)._burnFee() + Token(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8)._walletFee() + Token(0x222f737285d0b60d8d4f27fa22ce8884c9f119f8)._buybackFee()",
+      "operator": ">",
+      "expected_value": "25"
+    }
+  },
+  "exploit_hint": "As the contract owner, call setAllFeePercent() with values that sum to more than 25% (e.g., taxFee=10, liquidityFee=10, burnFee=10, walletFee=10, buybackFee=10 for a total of 50%). This bypasses the intended reasonable limit of 25% total fees mentioned in the vulnerability description. The function only checks individual fee caps (maxTaxFee=10, maxLiqFee=10, etc.) but doesn't enforce a total fee cap."
+}

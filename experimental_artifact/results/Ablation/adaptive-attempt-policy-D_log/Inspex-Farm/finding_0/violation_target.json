@@ -1,0 +1,29 @@
+{
+  "target_address": "0x4B6c8959a41475347226d51f37eC9a1E09F39a92",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the owner/admin of the MasterChef contract",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "MasterChef contract must have lpToken balance > 0",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x4B6c8959a41475347226d51f37eC9a1E09F39a92",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, first deploy a malicious migrator contract that implements the required interface. Then call setMigrator() to set the migrator address to your malicious contract. Finally, call migrate() with the target lpToken address, which will trigger the malicious migrator to transfer all lpTokens from MasterChef to the attacker's address using transferFrom()."
+}

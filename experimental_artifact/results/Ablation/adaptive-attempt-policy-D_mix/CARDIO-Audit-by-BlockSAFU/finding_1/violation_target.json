@@ -1,0 +1,23 @@
+{
+  "target_address": "0xdfFF8a26e4112945D9a850d63F1a864595fCbFE6",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "LOGIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or gain ownership)",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "blackListedList[<victim_address>]",
+      "operator": "==",
+      "expected_value": "true"
+    }
+  },
+  "exploit_hint": "As the contract owner, call addBlackList() or addBlackLists() to blacklist any address, including critical system addresses like the Uniswap pair contracts or other users. This will prevent those addresses from transferring tokens, effectively freezing their funds. The exploit demonstrates unrestricted owner privilege to manipulate the blacklist state."
+}

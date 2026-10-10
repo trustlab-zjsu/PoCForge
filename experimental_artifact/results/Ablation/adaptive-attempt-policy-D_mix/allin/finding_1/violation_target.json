@@ -1,0 +1,35 @@
+{
+  "target_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+  "vulnerability_type": "Owner Privilege Abuse",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner or authorized address",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have trading enabled (tradingOpen = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Victim user must hold some Allin tokens to be affected by fee increase",
+      "token_address": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "min_amount": "1000000000000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x05cd34a1D5dF5010F5eDb3412077B3c291DDb7a8",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, call setFees() function with parameters that exceed the reasonable 25% limit (e.g., set fees to 5000 which is 50% when feeDenominator is 10000). Then perform token transfers with victims to collect excessive fees that accumulate in the contract. Finally, use manualSend() or other authorized functions to drain the accumulated BNB from the contract to the marketingFeeReceiver (which should be controlled by the attacker)."
+}

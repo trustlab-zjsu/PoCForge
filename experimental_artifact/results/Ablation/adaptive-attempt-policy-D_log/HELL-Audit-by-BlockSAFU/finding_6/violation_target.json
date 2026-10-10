@@ -1,0 +1,23 @@
+{
+  "target_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+  "vulnerability_type": "Lack of Access Control",
+  "violation_category": "ECONOMIC",
+  "finding_id": 6,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the token to transfer or must have an allowance from another account",
+      "token_address": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "victim_contract": "0x19d726cd37CA413adf46D9Ae555aB5A5643EdF20",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The contract inherits from Ownable but doesn't use the onlyOwner modifier on critical functions like mint, burn, or transfer. An attacker can directly call transfer() or transferFrom() to move tokens from any account that has approved allowances. First, check if any accounts have granted allowances to the attacker. Then use transferFrom() to transfer tokens from those accounts to the attacker's address. Alternatively, if the attacker has any token balance, they can transfer tokens to themselves or others without restrictions."
+}

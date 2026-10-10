@@ -1,0 +1,23 @@
+{
+  "target_address": "0xC285B7E09A4584D027E5BC36571785B515898246",
+  "vulnerability_type": "Ownership Transfer Without Acceptance",
+  "violation_category": "LOGIC",
+  "finding_id": 3,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the current owner of the contract",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CUSD.owner()",
+      "operator": "==",
+      "expected_value": "attacker_address"
+    }
+  },
+  "exploit_hint": "As the current owner, call transferOwnership(newOwner) with newOwner set to attacker's address, then call acceptOwnership() from the attacker's address to complete the ownership transfer. This bypasses the intended two-step ownership transfer process by allowing immediate acceptance."
+}

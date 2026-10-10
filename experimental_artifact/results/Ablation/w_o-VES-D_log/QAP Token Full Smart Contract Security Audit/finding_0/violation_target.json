@@ -1,0 +1,23 @@
+{
+  "target_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+  "vulnerability_type": "Transaction Limit Bypass",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold at least 1 QAP token to initiate a transfer",
+      "token_address": "0x1EB68d088fD07D15b481DbaF219AC2aB61A6c073",
+      "min_amount": "1000000000"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "QAPToken._maxTxAmount",
+      "operator": "==",
+      "expected_value": "5000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability is a design flaw where _maxTxAmount and numTokensSellToAddToLiquidity are incorrectly initialized with values that exceed the total supply. This makes the transaction limit checking ineffective and prevents automatic liquidity addition. To demonstrate the issue, simply attempt to transfer an amount greater than the actual total supply, which should be blocked by _maxTxAmount but won't be due to the incorrect initialization. The exploit shows that the contract's transaction limit mechanism is broken."
+}

@@ -1,0 +1,60 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 439.15ms
+Compiler run successful!
+2026-10-09T13:20:41.460936Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642805"
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 39930)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.16s (1.34s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 20008)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.67s (1.86s CPU time)
+
+Ran 2 test suites in 8.71s (12.83s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 390.12ms
+Compiler run successful!
+2026-10-09T13:20:55.367626Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642836"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 15642)
+Traces:
+  [15642] ExploitPatched_0::testExploit()
+    ├─ [2584] 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0::getOwner() [staticcall]
+    │   └─ ← [Return] Contract Owner: [0xA08e92434D46E3097824C345Cd359d19d495f7c7]
+    ├─ [0] VM::label(Contract Owner: [0xA08e92434D46E3097824C345Cd359d19d495f7c7], "Contract Owner")
+    │   └─ ← [Return]
+    ├─ [0] VM::startPrank(Contract Owner: [0xA08e92434D46E3097824C345Cd359d19d495f7c7])
+    │   └─ ← [Return]
+    ├─ [3198] 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0::setSellTxLimitInPercent(0)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.45s (1.35s CPU time)
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16104)
+Traces:
+  [16104] ExploitPatched_2::testExploit()
+    ├─ [0] VM::startPrank(Owner: [0xA08e92434D46E3097824C345Cd359d19d495f7c7])
+    │   └─ ← [Return]
+    ├─ [5466] 0x401e15Af5eDB56BE940D5a16b948F9436D2944F0::blacklistAddress(Victim: [0x00000000000000000000000000000000DeaDBeef], true)
+    │   └─ ← [Revert] patched: owner action disabled
+    └─ ← [Revert] patched: owner action disabled
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.45s (776.76ms CPU time)
+
+Ran 2 test suites in 8.25s (10.89s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: patched: owner action disabled] testExploit() (gas: 15642)
+
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: patched: owner action disabled] testExploit() (gas: 16104)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

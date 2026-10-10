@@ -1,0 +1,29 @@
+{
+  "target_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+  "vulnerability_type": "Variable Shadowing",
+  "violation_category": "LOGIC",
+  "finding_id": 0,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (Ownable.owner) to exploit the shadowing vulnerability",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some CLE tokens to demonstrate the exploit",
+      "token_address": "0xDeEa8fdB85503531F6A5D2A036d3268bD7C06c09",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": null,
+    "logic_check": {
+      "target_variable": "CLEToken.owner()",
+      "operator": "==",
+      "expected_value": "0x0000000000000000000000000000000000000000"
+    }
+  },
+  "exploit_hint": "The vulnerability involves variable shadowing where local parameters named 'owner' in allowance() and _approve() functions shadow the inherited Ownable.owner state variable. This allows the contract owner to call functions that should be restricted to the owner (like excludeFromFee, setTaxFeePercent, etc.) even after transferring ownership to address(0). To exploit: 1. Deploy contract (attacker becomes owner), 2. Transfer ownership to address(0) via renounceOwnership(), 3. Call owner-only functions like excludeFromFee() which will still succeed due to the shadowing bug, bypassing the onlyOwner modifier check."
+}

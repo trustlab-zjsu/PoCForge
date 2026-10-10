@@ -1,0 +1,47 @@
+{
+  "target_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+  "vulnerability_type": "Automatic Liquidity Pair Token Burning",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the contract owner (or have gained ownership)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Trading must be active (tradingActive = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "LP burn must be enabled (lpBurnEnabled = true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Sufficient time must have passed since last LP burn (block.timestamp >= lastLpBurnTime + lpBurnFrequency)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Uniswap V2 pair must hold MarvinInu tokens",
+      "token_address": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "victim_contract": "0x55a380d134d722006A5CE2d510562e1239D225B1",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "As the contract owner, wait for lpBurnFrequency (default 3600 seconds) to pass since lastLpBurnTime, then execute a sell transaction to the Uniswap pair. This will trigger autoBurnLiquidityPairTokens() which burns a percentage (default 0.25%) of LP tokens, reducing total supply and increasing the attacker's relative token holdings. Alternatively, use manualBurnLiquidityPairTokens() directly if cooldown period has passed."
+}

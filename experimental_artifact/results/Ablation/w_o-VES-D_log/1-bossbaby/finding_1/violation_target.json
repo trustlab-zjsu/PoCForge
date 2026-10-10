@@ -1,0 +1,41 @@
+{
+  "target_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+  "vulnerability_type": "Redundant Liquidity Functionality",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must hold some BossBaby tokens to trigger the swap mechanism",
+      "token_address": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "min_amount": "1000000000000000000"
+    },
+    {
+      "type": "state",
+      "description": "Trading must be enabled (owner must have called enableTrading())",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Swap functionality must be enabled (swapEnabled == true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must have accumulated enough tokens from fees to reach swapTokensAtAmount threshold",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0xD8dBE5AC60cD1c0b40C9182cB3eB2392d3df371F",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The liquidity fees are set to zero (liquidityFeeonBuy = 0, liquidityFeeonSell = 0), but the contract still attempts to process liquidity fees in swapAndLiquify(). When the contract accumulates enough tokens from marketing fees (2% on buys and sells), it will trigger the swap mechanism. However, since liquidityShare = 0, the calculation (contractTokenBalance * liquidityShare) / totalShare will result in 0 liquidity tokens, but marketingShare > 0. The contract will attempt to swap marketing tokens for BNB and send to marketing wallet, but due to the redundant liquidity functionality, the contract may waste gas or have unexpected behavior. To exploit, accumulate tokens through trading to trigger the swap mechanism, then monitor for any economic gain from the misconfigured fee distribution."
+}

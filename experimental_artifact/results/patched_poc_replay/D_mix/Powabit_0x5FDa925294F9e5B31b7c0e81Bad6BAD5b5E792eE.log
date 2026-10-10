@@ -1,0 +1,67 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 419.49ms
+Compiler run successful!
+2026-10-09T13:16:04.018912Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642190"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 54745)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 4.81s (1.09s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 52571)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.08s (1.36s CPU time)
+
+Ran 2 test suites in 6.30s (9.89s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 395.08ms
+Compiler run successful!
+2026-10-09T13:16:15.041997Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642213"
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: Powabit: fixed supply] testExploit() (gas: 24831)
+Traces:
+  [24831] ExploitPatched_1::testExploit()
+    ├─ [2930] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::balanceOf(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496]) [staticcall]
+    │   └─ ← [Return] 0
+    ├─ [2567] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::owner() [staticcall]
+    │   └─ ← [Return] 0x6d17C09255fA86b4a5f6487d631AD4575048928C
+    ├─ [0] VM::startPrank(0x6d17C09255fA86b4a5f6487d631AD4575048928C)
+    │   └─ ← [Return]
+    ├─ [5579] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::transferOwnership(ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x6d17C09255fA86b4a5f6487d631AD4575048928C, newOwner: ExploitPatched_1: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [988] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::mint(1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] Powabit: fixed supply
+    └─ ← [Revert] Powabit: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.60s (1.02s CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Powabit: fixed supply] testExploit() (gas: 12548)
+Traces:
+  [12548] ExploitPatched_0::testExploit()
+    ├─ [2567] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::owner() [staticcall]
+    │   └─ ← [Return] 0x6d17C09255fA86b4a5f6487d631AD4575048928C
+    ├─ [0] VM::startPrank(0x6d17C09255fA86b4a5f6487d631AD4575048928C)
+    │   └─ ← [Return]
+    ├─ [988] 0x5FDa925294F9e5B31b7c0e81Bad6BAD5b5E792eE::mint(1000000000000000000000000 [1e24])
+    │   └─ ← [Revert] Powabit: fixed supply
+    └─ ← [Revert] Powabit: fixed supply
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.60s (1.02s CPU time)
+
+Ran 2 test suites in 6.81s (9.20s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Powabit: fixed supply] testExploit() (gas: 12548)
+
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: Powabit: fixed supply] testExploit() (gas: 24831)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

@@ -1,0 +1,35 @@
+{
+  "target_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+  "vulnerability_type": "Integer Overflow",
+  "violation_category": "ECONOMIC",
+  "finding_id": 1,
+  "preconditions": [
+    {
+      "type": "role",
+      "description": "Attacker must be the moderator (or become moderator through reassignModerator if possible)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "state",
+      "description": "Contract must be in unrestricted state (default is true)",
+      "token_address": null,
+      "min_amount": null
+    },
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some TST tokens to initiate overflow",
+      "token_address": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "min_amount": "1"
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "victim_contract": "0x5e0aF01930c8dc676a6Dc7133Bd86370a0bE3953",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The vulnerability is in the unchecked math for maximumTokenIssue calculation (1000000000 * 10**18). In Solidity 0.4.x, this calculation can overflow if the result exceeds uint256 max. However, the actual exploit requires finding a way to trigger the overflow. Since the contract uses SafeMath for most operations, the direct overflow might not be exploitable. But the real issue is that the moderator can call extract() to drain any ERC20 tokens accidentally sent to the contract. The economic gain would come from: 1) Becoming moderator (if current moderator reassigns), 2) Calling extract() with any ERC20 token address that has balance in the contract to transfer those tokens to the attacker."
+}

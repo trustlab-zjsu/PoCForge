@@ -1,0 +1,29 @@
+{
+  "target_address": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+  "vulnerability_type": "Reentrancy",
+  "violation_category": "ECONOMIC",
+  "finding_id": 4,
+  "preconditions": [
+    {
+      "type": "token_balance",
+      "description": "Attacker must have some balance of the token being swapped in the D_Swap contract",
+      "token_address": "0x...",
+      "min_amount": "1"
+    },
+    {
+      "type": "state",
+      "description": "The D_Swap contract must hold some native ETH/BNB that can be stolen through reentrancy",
+      "token_address": null,
+      "min_amount": null
+    }
+  ],
+  "oracle_verification": {
+    "economic_check": {
+      "target_token": "NATIVE",
+      "victim_contract": "0x2815d3272baE3ebde5D7c128Eea5f4A8da402783",
+      "condition": "attacker_balance_increased"
+    },
+    "logic_check": null
+  },
+  "exploit_hint": "The Impl_Delivery() function violates checks-effects-interactions pattern by making external calls before updating state. Create a malicious contract that calls back into Impl_Delivery() during the token transfer or ETH transfer. This allows repeated withdrawals before balance updates, draining the contract's native ETH balance. The attack should involve: 1) Deploy malicious contract with reentrant fallback, 2) Call Impl_Delivery() with parameters that trigger ETH transfer to attacker, 3) In fallback, recursively call Impl_Delivery() again before state updates, 4) Repeat until contract balance is drained."
+}

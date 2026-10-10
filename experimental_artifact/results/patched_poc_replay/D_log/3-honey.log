@@ -1,0 +1,61 @@
+===== original batch =====
+Compiling 20 files with Solc 0.8.26
+Solc 0.8.26 finished in 382.87ms
+Compiler run successful!
+2026-10-10T05:25:57.373695Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126771482"
+
+Ran 1 test for test/Original_2.t.sol:ExploitOriginal_2
+[PASS] testExploit() (gas: 353481)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 24.41s (5.86s CPU time)
+
+Ran 1 test suite in 25.54s (24.41s CPU time): 1 tests passed, 0 failed, 0 skipped (1 total tests)
+
+===== patched batch =====
+Compiling 1 files with Solc 0.8.26
+Solc 0.8.26 finished in 356.95ms
+Compiler run successful!
+2026-10-10T05:26:27.552936Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126771549"
+
+Ran 1 test for test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: Honey: liquidity fee required] testExploit() (gas: 193468)
+Traces:
+  [193468] ExploitPatched_2::testExploit()
+    ├─ [2605] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::owner() [staticcall]
+    │   └─ ← [Return] 0x477A82129eB3bf579641d64dF29f2c8E54e1A5d8
+    ├─ [21200] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::balanceOf(0x477A82129eB3bf579641d64dF29f2c8E54e1A5d8) [staticcall]
+    │   └─ ← [Return] 517212135409 [5.172e11]
+    ├─ [0] VM::startPrank(0x477A82129eB3bf579641d64dF29f2c8E54e1A5d8)
+    │   └─ ← [Return]
+    ├─ [63565] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::transfer(ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], 103442427081 [1.034e11])
+    │   ├─ emit Transfer(from: 0x477A82129eB3bf579641d64dF29f2c8E54e1A5d8, to: ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], value: 103442427081 [1.034e11])
+    │   └─ ← [Return] true
+    ├─ [5617] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::transferOwnership(ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   ├─ emit OwnershipTransferred(previousOwner: 0x477A82129eB3bf579641d64dF29f2c8E54e1A5d8, newOwner: ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496])
+    │   └─ ← [Stop]
+    ├─ [0] VM::stopPrank()
+    │   └─ ← [Return]
+    ├─ [4379] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::updateSwapTokensAtAmount(1)
+    │   └─ ← [Stop]
+    ├─ [580] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::swapTokensAtAmount() [staticcall]
+    │   └─ ← [Return] 100000 [1e5]
+    ├─ [22092] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::setSellTaxes(0, 15, 0, 0, 0)
+    │   ├─ emit FeesChanged()
+    │   └─ ← [Stop]
+    ├─ [32355] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::transfer(0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA, 100000 [1e5])
+    │   ├─ emit Transfer(from: ExploitPatched_2: [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], to: 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA, value: 100000 [1e5])
+    │   └─ ← [Return] true
+    ├─ [406] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::decimals() [staticcall]
+    │   └─ ← [Return] 5
+    ├─ [18301] 0x6927BA6c0068Ca8584EeA45f2b5dF02ddecD1bEA::transfer(0x2ba7b0e7Ae9d36D2D1b5bdFBa44117fC0b14A130, 100000 [1e5])
+    │   └─ ← [Revert] Honey: liquidity fee required
+    └─ ← [Revert] Honey: liquidity fee required
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 26.08s (3.83s CPU time)
+
+Ran 1 test suite in 27.32s (26.08s CPU time): 0 tests passed, 1 failed, 0 skipped (1 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_2.t.sol:ExploitPatched_2
+[FAIL: Honey: liquidity fee required] testExploit() (gas: 193468)
+
+Encountered a total of 1 failing tests, 0 tests succeeded

@@ -1,0 +1,54 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 425.76ms
+Compiler run successful!
+2026-10-09T13:17:38.745321Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642400"
+
+Ran 1 test for test/Original_11.t.sol:ExploitOriginal_11
+[PASS] testExploit() (gas: 52348)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.61s (1.40s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 14816)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.61s (1.40s CPU time)
+
+Ran 2 test suites in 7.90s (13.22s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 399.03ms
+Compiler run successful!
+2026-10-09T13:17:51.366778Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642427"
+
+Ran 1 test for test/Patched_11.t.sol:ExploitPatched_11
+[FAIL: Milesinu: lock duration capped] testExploit() (gas: 8129)
+Traces:
+  [8129] ExploitPatched_11::testExploit()
+    ├─ [2655] 0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711::lock(604800 [6.048e5])
+    │   └─ ← [Revert] Milesinu: lock duration capped
+    └─ ← [Revert] Milesinu: lock duration capped
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.82s (80.46µs CPU time)
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Milesinu: zero transaction limit] testExploit() (gas: 13237)
+Traces:
+  [13237] ExploitPatched_0::testExploit()
+    ├─ [0] VM::startPrank(0xB0Fc878D68277D6c7164834838187D56F0668A7d)
+    │   └─ ← [Return]
+    ├─ [2630] 0x9eFEabD1ae9Fe1e777ebe4D1e271510622b65711::setMaxTxPercent(0)
+    │   └─ ← [Revert] Milesinu: zero transaction limit
+    └─ ← [Revert] Milesinu: zero transaction limit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 6.32s (496.75ms CPU time)
+
+Ran 2 test suites in 8.22s (12.14s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: Milesinu: zero transaction limit] testExploit() (gas: 13237)
+
+Encountered 1 failing test in test/Patched_11.t.sol:ExploitPatched_11
+[FAIL: Milesinu: lock duration capped] testExploit() (gas: 8129)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

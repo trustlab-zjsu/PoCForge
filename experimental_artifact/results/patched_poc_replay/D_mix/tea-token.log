@@ -1,0 +1,58 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 454.19ms
+Compiler run successful!
+2026-10-09T13:18:05.964560Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642458"
+
+Ran 1 test for test/Original_9.t.sol:ExploitOriginal_9
+[PASS] testExploit() (gas: 13514)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.52s (1.75s CPU time)
+
+Ran 1 test for test/Original_0.t.sol:ExploitOriginal_0
+[PASS] testExploit() (gas: 16947)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 6.52s (1.75s CPU time)
+
+Ran 2 test suites in 9.81s (13.05s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 397.94ms
+Compiler run successful!
+2026-10-09T13:18:17.737671Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642487"
+
+Ran 1 test for test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: TeaToken: zero transaction limit] testExploit() (gas: 13215)
+Traces:
+  [13215] ExploitPatched_0::testExploit()
+    ├─ [0] VM::prank(Contract Owner: [0x77a62d1cD2ACE00649345aD33e96A930d5D30089])
+    │   └─ ← [Return]
+    ├─ [2608] 0x5e18Be2A7cE626B33C539919EAca06303f1Db568::setMaxTxPercent(0)
+    │   └─ ← [Revert] TeaToken: zero transaction limit
+    └─ ← [Revert] TeaToken: zero transaction limit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.51s (1.43s CPU time)
+
+Ran 1 test for test/Patched_9.t.sol:ExploitPatched_9
+[FAIL: TeaToken: zero transaction limit] testExploit() (gas: 9915)
+Traces:
+  [9915] ExploitPatched_9::testExploit()
+    ├─ [2422] 0x5e18Be2A7cE626B33C539919EAca06303f1Db568::owner() [staticcall]
+    │   └─ ← [Return] 0x77a62d1cD2ACE00649345aD33e96A930d5D30089
+    ├─ [0] VM::prank(0x77a62d1cD2ACE00649345aD33e96A930d5D30089)
+    │   └─ ← [Return]
+    ├─ [608] 0x5e18Be2A7cE626B33C539919EAca06303f1Db568::setMaxTxPercent(0)
+    │   └─ ← [Revert] TeaToken: zero transaction limit
+    └─ ← [Revert] TeaToken: zero transaction limit
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.51s (1.43s CPU time)
+
+Ran 2 test suites in 5.71s (9.03s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_0.t.sol:ExploitPatched_0
+[FAIL: TeaToken: zero transaction limit] testExploit() (gas: 13215)
+
+Encountered 1 failing test in test/Patched_9.t.sol:ExploitPatched_9
+[FAIL: TeaToken: zero transaction limit] testExploit() (gas: 9915)
+
+Encountered a total of 2 failing tests, 0 tests succeeded

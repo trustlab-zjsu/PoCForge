@@ -1,0 +1,60 @@
+===== original batch =====
+Compiling 21 files with Solc 0.8.26
+Solc 0.8.26 finished in 562.49ms
+Compiler run successful!
+2026-10-09T13:21:31.595002Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642915"
+
+Ran 1 test for test/Original_1.t.sol:ExploitOriginal_1
+[PASS] testExploit() (gas: 49993)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 5.28s (813.27ms CPU time)
+
+Ran 1 test for test/Original_3.t.sol:ExploitOriginal_3
+[PASS] testExploit() (gas: 39673)
+Suite result: ok. 1 passed; 0 failed; 0 skipped; finished in 7.86s (3.60s CPU time)
+
+Ran 2 test suites in 10.54s (13.13s CPU time): 2 tests passed, 0 failed, 0 skipped (2 total tests)
+
+===== patched batch =====
+Compiling 2 files with Solc 0.8.26
+Solc 0.8.26 finished in 399.80ms
+Compiler run successful!
+2026-10-09T13:21:43.922744Z  WARN foundry_fork_db::cache: Failed to read cache file err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/carl/.foundry/cache/rpc/bsc/126642945"
+
+Ran 1 test for test/Patched_3.t.sol:ExploitPatched_3
+[FAIL: SHF: zero total fee] testExploit() (gas: 16659)
+Traces:
+  [16659] ExploitPatched_3::testExploit()
+    ├─ [0] VM::startPrank(0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34)
+    │   └─ ← [Return]
+    ├─ [4863] 0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f::setFees_base1000(0, 0, 0, 0, 0, 0)
+    │   └─ ← [Revert] SHF: zero total fee
+    └─ ← [Revert] SHF: zero total fee
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 4.98s (608.72ms CPU time)
+
+Ran 1 test for test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: SHF: cannot transfer another holder's tokens] testExploit() (gas: 23010)
+Traces:
+  [23010] ExploitPatched_1::testExploit()
+    ├─ [2656] 0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f::getOwner() [staticcall]
+    │   └─ ← [Return] 0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34
+    ├─ [2947] 0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f::balanceOf(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF]) [staticcall]
+    │   └─ ← [Return] 1000000000000000 [1e15]
+    ├─ [0] VM::startPrank(0x16B998F1CBa19CAF5Dad99E7ce3310F1F8386D34)
+    │   └─ ← [Return]
+    ├─ [3666] 0x9f59E79127fAD40bBC26c1eC6578d345AF40bD1f::multiTransfer(victim: [0x131f15F1fD1024551542390614B6c7e210A911AF], [0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496], [1000000000000000 [1e15]])
+    │   └─ ← [Revert] SHF: cannot transfer another holder's tokens
+    └─ ← [Revert] SHF: cannot transfer another holder's tokens
+
+Suite result: FAILED. 0 passed; 1 failed; 0 skipped; finished in 5.30s (391.00ms CPU time)
+
+Ran 2 test suites in 6.84s (10.28s CPU time): 0 tests passed, 2 failed, 0 skipped (2 total tests)
+
+Failing tests:
+Encountered 1 failing test in test/Patched_1.t.sol:ExploitPatched_1
+[FAIL: SHF: cannot transfer another holder's tokens] testExploit() (gas: 23010)
+
+Encountered 1 failing test in test/Patched_3.t.sol:ExploitPatched_3
+[FAIL: SHF: zero total fee] testExploit() (gas: 16659)
+
+Encountered a total of 2 failing tests, 0 tests succeeded
